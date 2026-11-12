@@ -8,8 +8,7 @@ Thank you for your interest in contributing! Here's how to get started.
 git clone https://github.com/your-username/claude-dungeon
 cd claude-dungeon
 pnpm install
-cp .env.example .env   # fill in DATABASE_URL and JWT_SECRET
-pnpm db:push
+cp .env.example .env   # optional: change PORT
 pnpm dev
 ```
 

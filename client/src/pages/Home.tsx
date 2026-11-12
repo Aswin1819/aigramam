@@ -1,360 +1,117 @@
-import { useState, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import DungeonMap from "@/components/DungeonMapPhaser";
-import HeroPanel from "@/components/HeroPanel";
+import SessionSidebar from "@/components/SessionSidebar";
+import SessionDetail from "@/components/SessionDetail";
+import WaitingBanner from "@/components/WaitingBanner";
+import HooksPanel from "@/components/HooksPanel";
 import SkillsManager from "@/components/SkillsManager";
 import ConfigPanel from "@/components/ConfigPanel";
-import { useHeroSocket } from "@/hooks/useHeroSocket";
-import { HERO_CLASSES, STATE_COLORS, STATE_LABELS } from "@/lib/dungeonConfig";
+import { useLiveSessions } from "@/hooks/useLiveSessions";
+import { STATUS_META } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
+import type { SessionStatus } from "@shared/model";
+
+const COUNTED: SessionStatus[] = ["working", "waiting", "idle"];
 
 export default function Home() {
-  const { heroes, setHeroes, mode, connected, log, startDemo, startLive, clearHeroes } =
-    useHeroSocket();
-  const [selectedHeroId, setSelectedHeroId] = useState<number | null>(null);
-  const [showSkillsManager, setShowSkillsManager] = useState(false);
-  const [showLog, setShowLog] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
+  const { snapshot, mode, connected, now, startDemo, startLive } = useLiveSessions();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [panel, setPanel] = useState<"hooks" | "skills" | "config" | null>(null);
+  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { enabled: panel === "skills" });
 
-  const selectedHero = useMemo(
-    () => heroes.find((h) => h.id === selectedHeroId) || null,
-    [heroes, selectedHeroId]
-  );
+  const { sessions, projects, hooks } = snapshot;
+  const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
+  const counts = useMemo(() => {
+    const c: Record<SessionStatus, number> = { working: 0, waiting: 0, idle: 0, finished: 0, error: 0 };
+    for (const s of sessions) c[s.status]++;
+    return c;
+  }, [sessions]);
+  const select = useCallback((id: string) => setSelectedId((cur) => (cur === id ? null : id)), []);
 
-  const refetchHeroes = trpc.agents.list.useQuery(undefined, { enabled: false });
-  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { refetchInterval: 5000 });
-
-  const stats = useMemo(() => {
-    const active = heroes.filter(
-      (h) => h.state === "fighting" || h.state === "casting"
-    ).length;
-    const resting = heroes.filter((h) => h.state === "resting").length;
-    const planning = heroes.filter((h) => h.state === "shopping").length;
-    return { total: heroes.length, active, resting, planning };
-  }, [heroes]);
+  const emptyHint = mode === "demo" ? "Loading demo sessions…" : "No Claude Code sessions running.\nStart Claude Code in any folder and it appears here within a few seconds.";
 
   return (
-    <div
-      className="h-screen flex flex-col bg-[#06060f] text-white overflow-hidden"
-      style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace" }}
-    >
+    <div className="flex h-screen flex-col overflow-hidden bg-[#06060f] font-mono text-white">
       {/* ── Header ── */}
-      <header className="flex items-center justify-between px-4 py-2 border-b-2 border-[#4B0082] bg-[#0d0a1a] shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 flex items-center justify-center bg-[#1a0a2e] border border-[#4B0082] rounded">
-            <span className="text-lg leading-none">🏰</span>
-          </div>
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-2 border-[#4B0082] bg-[#0d0a1a] px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="text-lg" aria-hidden>🏰</span>
           <div>
-            <h1 className="text-sm font-bold text-[#FFD700] uppercase tracking-widest leading-none">
-              Claude Dungeon
-            </h1>
-            <p className="text-xs text-[#AA88FF] leading-none mt-0.5">
-              Agent Visualization System
-            </p>
+            <h1 className="text-sm font-bold uppercase leading-none tracking-widest text-[#FFD700]">Claude Dungeon</h1>
+            <p className="mt-0.5 text-[11px] leading-none text-[#AA88FF]">Live Claude Code sessions</p>
           </div>
         </div>
 
-        {/* Stats Bar - 更丰富的统计显示 */}
-        <div className="hidden md:flex items-center gap-1">
-          {[
-            { label: "Heroes", value: stats.total, color: "#88AAFF", bg: "#88AAFF22", border: "#88AAFF44" },
-            { label: "Fighting", value: stats.active, color: "#FF4444", bg: "#FF444422", border: "#FF444444" },
-            { label: "Resting", value: stats.resting, color: "#44AA44", bg: "#44AA4422", border: "#44AA4444" },
-            { label: "Planning", value: stats.planning, color: "#FFAA00", bg: "#FFAA0022", border: "#FFAA0044" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded"
-              style={{ backgroundColor: s.bg, border: `1px solid ${s.border}` }}
-            >
-              <div className="text-xs font-bold" style={{ color: s.color }}>
-                {s.value}
-              </div>
-              <div className="text-xs text-gray-500 uppercase">{s.label}</div>
-            </div>
+        <div className="flex items-center gap-1" aria-label="Session counts">
+          <span className="rounded border border-[#4B0082] px-2 py-1 text-xs text-gray-300">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · {sessions.length} session{sessions.length === 1 ? "" : "s"}
+          </span>
+          {COUNTED.map((st) => (
+            <span key={st} className="rounded px-2 py-1 text-xs font-bold" style={{ color: STATUS_META[st].color, backgroundColor: STATUS_META[st].bg }}>
+              <span aria-hidden>{STATUS_META[st].emoji}</span> {counts[st]} {STATUS_META[st].label}
+            </span>
           ))}
         </div>
 
-        {/* Controls */}
         <div className="flex items-center gap-1.5">
-          {/* Connection status */}
-          <div className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-700">
-            <span
-              className={`w-2 h-2 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-            />
-            <span className={`text-xs font-bold ${connected ? "text-green-400" : "text-red-400"}`}>
-              {connected ? "ONLINE" : "OFFLINE"}
-            </span>
+          <span className={`flex items-center gap-1 rounded border border-gray-700 px-2 py-1 text-xs font-bold ${connected ? "text-green-400" : "text-red-400"}`}>
+            <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-red-500"}`} />
+            {connected ? "Online" : "Offline"}
+          </span>
+          <div className="flex overflow-hidden rounded border border-[#4B0082]" role="group" aria-label="Mode">
+            <button onClick={startLive} aria-pressed={mode === "live"} className={`px-2.5 py-1 text-xs font-bold ${mode === "live" ? "bg-[#8B0000] text-white" : "text-gray-400 hover:text-white"}`}>📡 Live</button>
+            <button onClick={startDemo} aria-pressed={mode === "demo"} className={`px-2.5 py-1 text-xs font-bold ${mode === "demo" ? "bg-[#4B0082] text-white" : "text-gray-400 hover:text-white"}`}>🎮 Demo</button>
           </div>
-
-          {/* Mode Toggle */}
-          <div className="flex border border-[#4B0082] rounded overflow-hidden">
-            <button
-              onClick={startDemo}
-              className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors ${
-                mode === "demo"
-                  ? "bg-[#4B0082] text-white"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              🎮 Demo
-            </button>
-            <button
-              onClick={startLive}
-              className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors ${
-                mode === "live"
-                  ? "bg-[#8B0000] text-white"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              📡 Live
-            </button>
-          </div>
-
-          <button
-            onClick={() => setShowConfig(true)}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-[#00AAFF] text-[#00AAFF] hover:bg-[#00AAFF] hover:text-black transition-colors rounded"
-          >
-            ⚙️ Config
+          <button onClick={() => setPanel("hooks")} className="rounded border border-[#fbbf24] px-2.5 py-1 text-xs font-bold text-[#fbbf24] hover:bg-[#fbbf24] hover:text-black">
+            🔔 Alerts {hooks.installed ? "on" : "setup"}
           </button>
-
-          <button
-            onClick={() => setShowSkillsManager(true)}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-[#FFAA00] text-[#FFAA00] hover:bg-[#FFAA00] hover:text-black transition-colors rounded"
-          >
-            ✨ Skills
-          </button>
-
-          <button
-            onClick={clearHeroes}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400 transition-colors rounded"
-          >
-            🗑️ Clear
-          </button>
-
-          <button
-            onClick={() => setShowLog(!showLog)}
-            className={`px-2.5 py-1 text-xs font-bold uppercase border transition-colors rounded ${
-              showLog
-                ? "border-[#AA88FF] text-[#AA88FF] bg-[#AA88FF22]"
-                : "border-gray-600 text-gray-400 hover:text-white"
-            }`}
-          >
-            📜 Log
-          </button>
+          <button onClick={() => setPanel("config")} className="rounded border border-[#00AAFF] px-2.5 py-1 text-xs font-bold text-[#00AAFF] hover:bg-[#00AAFF] hover:text-black">⚙️ Config</button>
+          <button onClick={() => setPanel("skills")} className="rounded border border-[#FFAA00] px-2.5 py-1 text-xs font-bold text-[#FFAA00] hover:bg-[#FFAA00] hover:text-black">✨ Skills</button>
         </div>
       </header>
 
-      {/* ── Main Layout ── */}
-      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Left Sidebar - Hero List (加宽) */}
-        <div className="w-52 border-r border-[#4B0082] bg-[#0a0a18] flex flex-col shrink-0 overflow-hidden">
-          <div className="px-3 py-2 border-b border-[#4B0082] bg-[#0d0a1a]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#AA88FF] uppercase tracking-widest">
-                ⚔️ Heroes
-              </span>
-              <span
-                className="text-xs font-bold px-1.5 py-0.5 rounded"
-                style={{
-                  backgroundColor: heroes.length > 0 ? "#88AAFF22" : "#33333322",
-                  color: heroes.length > 0 ? "#88AAFF" : "#555555",
-                  border: `1px solid ${heroes.length > 0 ? "#88AAFF44" : "#33333344"}`,
-                }}
-              >
-                {heroes.length}
-              </span>
-            </div>
+      <WaitingBanner sessions={sessions} projects={projects} now={now} onSelect={setSelectedId} />
+
+      {/* ── Main ── */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <nav className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-[#4B0082] bg-[#0a0a18]" aria-label="Live sessions">
+          <div className="border-b border-[#4B0082] bg-[#0d0a1a] px-3 py-2 text-xs font-bold uppercase tracking-widest text-[#AA88FF]">
+            Sessions by project
           </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {heroes.length === 0 ? (
-              <div className="p-4 text-center">
-                <div className="text-3xl mb-2 opacity-30">⚔️</div>
-                <div className="text-xs text-gray-600 leading-relaxed">
-                  {mode === "demo"
-                    ? "Click 🎮 Demo\nto spawn heroes"
-                    : "Start Claude Code\nto see heroes"}
-                </div>
-              </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <SessionSidebar projects={projects} sessions={sessions} selectedId={selectedId} onSelect={select} now={now} emptyHint={emptyHint} />
+          </div>
+          <div className="border-t border-[#4B0082] bg-[#0d0a1a] p-2 text-[11px] text-gray-500">
+            {mode === "demo" ? (
+              <span className="font-bold text-[#a78bfa]">🎮 Demo mode: simulated sessions</span>
+            ) : hooks.installed ? (
+              <span className="text-green-400">📡 Live · transcripts + hooks</span>
             ) : (
-              heroes.map((hero) => {
-                const cls = HERO_CLASSES[hero.heroClass];
-                const stateColor = STATE_COLORS[hero.state];
-                const stateLabel = STATE_LABELS[hero.state];
-                const isSelected = hero.id === selectedHeroId;
-                const hpPct = Math.round((hero.hp / hero.maxHp) * 100);
-                return (
-                  <button
-                    key={hero.id}
-                    onClick={() =>
-                      setSelectedHeroId(isSelected ? null : hero.id)
-                    }
-                    className={`w-full text-left px-3 py-2.5 border-b border-[#1a1a2e] transition-all ${
-                      isSelected
-                        ? "bg-[#1a0a2e] border-l-2 border-l-[#FFD700]"
-                        : "hover:bg-[#1a1a2e]"
-                    }`}
-                  >
-                    {/* Hero name row */}
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-base leading-none">{cls?.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold text-white truncate">
-                          {hero.name}
-                        </div>
-                        <div className="text-xs" style={{ color: stateColor }}>
-                          {stateLabel}
-                        </div>
-                      </div>
-                      <div
-                        className="text-xs font-bold px-1 rounded"
-                        style={{ color: cls?.color, backgroundColor: (cls?.color || "#888") + "22" }}
-                      >
-                        Lv{hero.level}
-                      </div>
-                    </div>
-
-                    {/* HP bar */}
-                    <div className="h-1.5 bg-[#1a0a0a] rounded-full overflow-hidden border border-red-900/50">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{
-                          width: `${hpPct}%`,
-                          backgroundColor: hpPct > 50 ? "#FF4444" : hpPct > 25 ? "#FF8800" : "#FF2200",
-                        }}
-                      />
-                    </div>
-
-                    {/* Active tools indicator */}
-                    {(hero.activeTools?.length || 0) > 0 && (
-                      <div className="mt-1 flex gap-0.5 flex-wrap">
-                        {hero.activeTools.slice(0, 3).map((t, idx) => (
-                          <span
-                            key={t.id ?? `${hero.id}-tool-${idx}`}
-                            className="text-xs px-1 rounded"
-                            style={{ backgroundColor: "#FF444433", color: "#FF9999" }}
-                          >
-                            {t.name.slice(0, 5)}
-                          </span>
-                        ))}
-                        {hero.activeTools.length > 3 && (
-                          <span className="text-xs text-gray-600">+{hero.activeTools.length - 3}</span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                );
-              })
+              <span>📡 Live · transcripts only. <button className="text-amber-300 underline" onClick={() => setPanel("hooks")}>Set up exact approval alerts</button></span>
             )}
           </div>
+        </nav>
 
-          {/* Mode info */}
-          <div className="p-2.5 border-t border-[#4B0082] bg-[#0d0a1a]">
-            {mode === "live" ? (
-              <div className="text-xs">
-                <div className="text-green-400 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
-                  LIVE MODE
-                </div>
-                <div className="text-gray-600 mt-0.5">Watching ~/.claude/</div>
-              </div>
-            ) : (
-              <div className="text-xs">
-                <div className="text-[#7744AA] font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#7744AA] inline-block" />
-                  DEMO MODE
-                </div>
-                <div className="text-gray-600 mt-0.5">Simulated agents</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Center - Dungeon Map */}
-        <div className="flex-1 relative bg-[#06060f] overflow-auto" style={{ minHeight: 0 }}>
-          <DungeonMap
-            heroes={heroes}
-            selectedHeroId={selectedHeroId}
-            onHeroClick={(id) =>
-              setSelectedHeroId(selectedHeroId === id ? null : id)
-            }
-          />
-
-          {/* Empty state overlay - 放在右下角空白区域（Boss Arena下方），不覆盖地图内容 */}
-          {heroes.length === 0 && (
-            <div className="absolute bottom-4 right-4 pointer-events-none">
-              <div
-                className="text-center px-5 py-3 rounded-lg"
-                style={{
-                  backgroundColor: "rgba(6,6,15,0.9)",
-                  border: "1px solid #4B0082",
-                  backdropFilter: "blur(4px)",
-                  maxWidth: "220px",
-                }}
-              >
-                <div className="text-sm font-bold text-[#7744AA] uppercase tracking-widest">
-                  🏰 Dungeon Awaits
-                </div>
-                <div className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {mode === "demo"
-                    ? "Click 🎮 Demo to spawn heroes"
-                    : "Start Claude Code to see heroes appear"}
-                </div>
-              </div>
+        <main className="relative min-w-0 flex-1">
+          <DungeonMap sessions={sessions} selectedId={selectedId} onSelect={select} now={now} />
+          {sessions.length === 0 && (
+            <div className="pointer-events-none absolute bottom-4 right-4 max-w-xs rounded-lg border border-[#4B0082] bg-[#06060fe6] px-4 py-3 text-center">
+              <div className="text-sm font-bold uppercase tracking-widest text-[#a78bfa]">Waiting for sessions</div>
+              <div className="mt-1 whitespace-pre-line text-xs text-gray-400">{emptyHint}</div>
             </div>
           )}
+        </main>
 
-          {/* Activity Log Overlay */}
-          {showLog && (
-            <div className="absolute bottom-0 left-0 right-0 h-40 bg-[#06060f]/96 border-t border-[#4B0082] overflow-y-auto p-2">
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs text-[#AA88FF] font-bold uppercase">
-                  📜 Activity Log
-                </div>
-                <button
-                  onClick={() => setShowLog(false)}
-                  className="text-gray-600 hover:text-gray-400 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-              {log.length === 0 ? (
-                <div className="text-xs text-gray-600 text-center py-2">No activity yet</div>
-              ) : (
-                log.slice(-30).map((entry, i) => (
-                  <div key={i} className="text-xs text-gray-400 leading-relaxed py-0.5 border-b border-[#1a1a2e]">
-                    {entry}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Hero Details */}
-        {selectedHero && (
-          <div className="w-64 shrink-0 overflow-hidden">
-            <HeroPanel
-              hero={selectedHero}
-              onClose={() => setSelectedHeroId(null)}
-              onSkillsUpdated={() => {}}
-            />
+        {selected && (
+          <div className="w-80 shrink-0 overflow-hidden">
+            <SessionDetail session={selected} project={projects.find((p) => p.id === selected.projectId)} now={now} onClose={() => setSelectedId(null)} />
           </div>
         )}
       </div>
 
-      {/* Skills Manager Modal */}
-      {showSkillsManager && (
-        <SkillsManager
-          onClose={() => setShowSkillsManager(false)}
-          projects={trackedProjects ?? []}
-        />
-      )}
-
-      {/* Config Panel Modal */}
-      {showConfig && (
-        <ConfigPanel onClose={() => setShowConfig(false)} />
-      )}
+      {panel === "hooks" && <HooksPanel onClose={() => setPanel(null)} lastEventAt={hooks.lastEventAt} />}
+      {panel === "skills" && <SkillsManager onClose={() => setPanel(null)} projects={trackedProjects ?? []} />}
+      {panel === "config" && <ConfigPanel onClose={() => setPanel(null)} />}
     </div>
   );
 }
