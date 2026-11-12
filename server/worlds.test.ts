@@ -38,6 +38,21 @@ describe("built-in worlds", () => {
     expect(world!.files.size).toBeGreaterThanOrEqual(10);
     for (const url of Object.values(world!.info.urls)) expect(url).toMatch(/^\/world-assets\/kerala\/assets\/[a-z_]+\.png\?v=[0-9a-f]{12}$/);
   });
+
+  it("Bengaluru loads with no errors, has at least 8 places and only valid PNG assets", () => {
+    const { world, error } = loadWorldFolder(path.join(BUILTIN_WORLDS_DIR, "bengaluru"), "builtin");
+    expect(error).toBeUndefined();
+    expect(world!.info).toMatchObject({ id: "bengaluru", license: "CC0-1.0", author: "Aswin1819", source: "builtin" });
+    expect(world!.info.def.locations.length).toBeGreaterThanOrEqual(8);
+    for (const url of Object.values(world!.info.urls)) expect(url).toMatch(/^\/world-assets\/bengaluru\/assets\/[a-z_]+\.png\?v=[0-9a-f]{12}$/);
+  });
+
+  it("both built-in worlds load together and Kerala stays the default", () => {
+    const { state } = loadAllWorlds([{ dir: BUILTIN_WORLDS_DIR, kind: "builtin" }]);
+    expect(state.errors).toEqual([]);
+    expect(state.worlds.map((w) => w.id)).toEqual(expect.arrayContaining(["kerala", "bengaluru"]));
+    expect(state.defaultId).toBe("kerala");
+  });
 });
 
 describe("world validation", () => {

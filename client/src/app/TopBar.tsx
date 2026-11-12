@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, Volume2, VolumeX } from "lucide-react";
+import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, Palette, Volume2, VolumeX } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
 import { elapsed, isUrgent, statusText, waitingOrder } from "@/lib/status";
@@ -121,35 +121,51 @@ export default function TopBar(p: Props) {
           <span className="chip bg-white/5 text-cream/60">{idle} idle</span>
         </div>
 
+        {/* Place: which world the village is in. With an art style chosen, the place is drawn in that style. */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="World">
+          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Place" title="Place (world)">
             <Globe2 size={15} className="text-brass" />
-            <span className="max-w-[9rem] truncate">{ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? p.world?.name ?? "World"}</span>
+            <span className="max-w-[9rem] truncate">{p.world?.name ?? "Place"}</span>
             {p.brokenPacks > 0 && <span className="chip bg-urgent/20 text-urgent">{p.brokenPacks}!</span>}
             <ChevronDown size={14} className="opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
-            <DropdownMenuLabel className="text-xs text-cream/60">Worlds</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-cream/60">Places</DropdownMenuLabel>
             {p.worlds.map((w) => (
-              <DropdownMenuItem key={w.id} onClick={() => { p.onWorld(w.id); p.onArtStyle("classic"); }} className="flex flex-col items-start gap-0 rounded-lg">
-                <span className={`text-sm font-semibold ${p.artStyle === "classic" && w.id === p.world?.id ? "text-brass" : ""}`}>{w.name}</span>
+              <DropdownMenuItem key={w.id} onClick={() => p.onWorld(w.id)} className="flex flex-col items-start gap-0 rounded-lg">
+                <span className={`text-sm font-semibold ${w.id === p.world?.id ? "text-brass" : ""}`}>{w.name}</span>
                 <span className="text-[11px] text-cream/55">by {w.author} · {w.license}</span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-cream/60">Art styles</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => p.onSettings("worlds")} className="rounded-lg text-xs">
+              Manage places{p.brokenPacks ? ` (${p.brokenPacks} couldn't load)` : ""}…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Art style: how the village is drawn. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Art style" title="Art style">
+            <Palette size={15} className="text-brass" />
+            <span className="max-w-[8rem] truncate">{ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? "World art"}</span>
+            <ChevronDown size={14} className="opacity-60" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
+            <DropdownMenuLabel className="text-xs text-cream/60">Art style</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => p.onArtStyle("classic")} className="flex flex-col items-start gap-0 rounded-lg">
+              <span className={`text-sm font-semibold ${!ART_STYLES.some((a) => a.id === p.artStyle) ? "text-brass" : ""}`}>World art</span>
+              <span className="text-[11px] text-cream/55">The place's own illustrated art ({p.world?.name ?? "the chosen place"}).</span>
+            </DropdownMenuItem>
             {ART_STYLES.map((a) => (
               <DropdownMenuItem key={a.id} onClick={() => p.onArtStyle(a.id)} className="flex flex-col items-start gap-0 rounded-lg">
                 <span className={`text-sm font-semibold ${a.id === p.artStyle ? "text-brass" : ""}`}>{a.name}</span>
                 <span className="text-[11px] text-cream/55">{a.blurb}</span>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => { window.location.href = "/styles"; }} className="rounded-lg text-xs text-cream/70">
               Compare styles in the Style lab…
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => p.onSettings("worlds")} className="rounded-lg text-xs">
-              Manage worlds{p.brokenPacks ? ` (${p.brokenPacks} couldn't load)` : ""}…
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

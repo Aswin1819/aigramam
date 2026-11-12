@@ -1,6 +1,7 @@
 import { BODY, hash, rng, skeleton } from "../scene";
 import { asVillagerFrame } from "./reference";
-import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { blrPlace, blrScene, blrSky, blrSteamSpots, companionFigure, companionHandover, companionLabel, companionTether } from "./flatVectorKit";
+import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
 
 /**
  * 6 · Flat Vector, live village version. A clean explainer illustration at
@@ -10,6 +11,8 @@ import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStyle, type L
  * Caching: the sky/hills/water/ground band is one 640-wide tile (painted once
  * at 2×, periodic so it repeats seamlessly); each place's building, street lamp
  * and light cones are one offscreen canvas keyed by variant + name.
+ * Bengaluru (f.theme) swaps the scenery via ./flatVectorKit.ts; villagers,
+ * labels, moon, clouds and HUD are shared.
  */
 
 const TILE = 640;
@@ -655,22 +658,16 @@ function villager(ctx: CanvasRenderingContext2D, v: LiveVillager, t: number, pul
     ctx.fillText("!", ex, ey + 0.4);
   }
 
-  // Helpers (running subagents): small glowing orbs circling the head.
-  const n = Math.min(3, v.helpers);
-  for (let i = 0; i < n; i++) {
-    const a = t * 1.8 + (i / n) * Math.PI * 2;
-    const ox = hx + Math.cos(a) * 13, oy = hy - 6 + Math.sin(a) * 4;
-    ctx.fillStyle = "rgba(94,234,212,0.25)";
-    ctx.beginPath();
-    ctx.arc(ox, oy, 3.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#c7fff4";
-    ctx.beginPath();
-    ctx.arc(ox, oy, 1.7, 0, Math.PI * 2);
-    ctx.fill();
-  }
   void pulse;
 }
+
+/** Companions drawn as figures per villager; the rest show as "+N" on the name pill. */
+const MAX_COMPS = 4;
+const extraComps = (v: LiveVillager) => Math.max(0, v.companions.length - MAX_COMPS);
+
+/** Depth-sorted draw list (villagers and their companions by feet y), reused across frames. */
+type Drawable = { y: number; v: LiveVillager; c: LiveCompanion | null };
+const drawList: Drawable[] = [];
 
 const widthCache = new Map<string, number>();
 function textW(ctx: CanvasRenderingContext2D, font: string, s: string) {
@@ -766,7 +763,7 @@ function tag(ctx: CanvasRenderingContext2D, v: LiveVillager, f: LiveFrame) {
   ctx.fillText(v.label, lx + 16, ly + 0.5, 170);
 
   // Name pill: navy with the name in the status colour; link dot and helper count.
-  const nw = textW(ctx, F_NAME, v.name) + 12 + (v.linked ? 7 : 0) + (v.helpers ? 12 : 0);
+  const nw = textW(ctx, F_NAME, v.name) + 12 + (v.linked ? 7 : 0) + (extraComps(v) ? 12 : 0);
   const ny = top + 5.5;
   const nx = x - nw / 2;
   ctx.fillStyle = C.navy;
@@ -784,10 +781,10 @@ function tag(ctx: CanvasRenderingContext2D, v: LiveVillager, f: LiveFrame) {
     ctx.fill();
     ex += 7;
   }
-  if (v.helpers) {
+  if (extraComps(v)) {
     ctx.fillStyle = "#5eead4";
     ctx.font = `700 6.5px ${FONT}`;
-    ctx.fillText(`+${v.helpers}`, ex + 1, ny + 0.4);
+    ctx.fillText(`+${extraComps(v)}`, ex + 1, ny + 0.4);
   }
   ctx.globalAlpha = 1;
 }
@@ -830,6 +827,29 @@ function hud(ctx: CanvasRenderingContext2D, f: LiveFrame, view: ViewRect) {
   ctx.restore();
 }
 
+/** Pulsing red badge on the roof sign: "n need you". */
+function urgentBadge(ctx: CanvasRenderingContext2D, f: LiveFrame, p: LivePlace) {
+  const b = p.building;
+  const top = b.baseY - b.wallH;
+  const bx = b.x + b.w / 2, by = top - b.roofH - 20;
+  const txt = `${p.urgent} need${p.urgent > 1 ? "" : "s"} you`;
+  ctx.font = `800 7px ${FONT}`;
+  const w = textW(ctx, `800 7px ${FONT}`, txt) + 14;
+  ctx.fillStyle = `rgba(255,90,79,${0.25 * (1 - f.pulse)})`;
+  ctx.beginPath();
+  const g = 2 + f.pulse * 4;
+  ctx.roundRect(bx - w / 2 - g, by - 6 - g, w + g * 2, 12 + g * 2, 6 + g);
+  ctx.fill();
+  ctx.fillStyle = "#ff5a4f";
+  ctx.beginPath();
+  ctx.roundRect(bx - w / 2, by - 6, w, 12, 6);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(txt, bx, by + 0.4);
+}
+
 export const flatVectorLive: LiveStyle = {
   id: "flat-vector",
   name: "Flat Vector",
@@ -837,7 +857,7 @@ export const flatVectorLive: LiveStyle = {
   bg: "#1e2147",
   lighting: "dusk",
   draw(ctx, f, view) {
-    if (!tileLayer) tileLayer = makeCanvas(TILE, WORLD_H, paintTile);
+    const blr = f.theme === "bengaluru";
     const t = f.t;
     const calm = f.reducedMotion;
     const at = calm ? 0 : t; // ambient time
@@ -845,11 +865,15 @@ export const flatVectorLive: LiveStyle = {
     const inView = (x: number, pad = 120) => x > x0 - pad && x < x1 + pad;
 
     // 1. Background: sky above the tile, ground below, tiles across the view.
+    if (blr) blrSky(ctx, view);
+    else {
+    if (!tileLayer) tileLayer = makeCanvas(TILE, WORLD_H, paintTile);
     ctx.fillStyle = C.skyTop;
     ctx.fillRect(x0 - 1, view.y - 1, view.w + 2, Math.max(0, -view.y) + 2);
     ctx.fillStyle = C.groundFront;
     ctx.fillRect(x0 - 1, WORLD_H - 1, view.w + 2, Math.max(0, view.y + view.h - WORLD_H) + 2);
     for (let k = Math.floor(x0 / TILE); k * TILE < x1; k++) ctx.drawImage(tileLayer, k * TILE, 0, TILE + 0.5, WORLD_H);
+    }
 
     // 2. Moon: fixed in the sky (very far away), so it stays in view.
     const mx = x0 + view.w * 0.84, my = 52;
@@ -884,6 +908,18 @@ export const flatVectorLive: LiveStyle = {
       ctx.fill();
     }
 
+    if (blr) {
+      // Bengaluru: skyline, metro, trees, road and traffic, sign; places; street lights.
+      blrScene(ctx, f, view, at, "back");
+      for (const p of f.places) {
+        const b = p.building;
+        if (!inView(b.x + b.w / 2, 230)) continue;
+        blrPlace(ctx, p);
+        for (const [i, sp] of blrSteamSpots(p).entries()) steam(ctx, sp.x, sp.y, at, i + p.variant);
+        if (p.urgent > 0) urgentBadge(ctx, f, p);
+      }
+      blrScene(ctx, f, view, at, "front");
+    } else {
     // 4. Far palms on the far bank.
     for (const x of f.farPalms) if (inView(x, 30)) farPalm(ctx, x, GROUND.waterTop - 3, 30);
 
@@ -981,26 +1017,7 @@ export const flatVectorLive: LiveStyle = {
       ctx.drawImage(placeLayer(p), b.x + PL.dx, PL.y, PL.w, PL.h);
       const top = b.baseY - b.wallH;
       if (VARIANTS[p.variant % 4]!.prop === "tea") for (let i = 0; i < 3; i++) steam(ctx, b.x + 20 + i * 14, top + 36, at, i + p.variant);
-      if (p.urgent > 0) {
-        // Pulsing red badge on the roof sign: "n need you".
-        const bx = b.x + b.w / 2, by = top - b.roofH - 20;
-        const txt = `${p.urgent} need${p.urgent > 1 ? "" : "s"} you`;
-        ctx.font = `800 7px ${FONT}`;
-        const w = textW(ctx, `800 7px ${FONT}`, txt) + 14;
-        ctx.fillStyle = `rgba(255,90,79,${0.25 * (1 - f.pulse)})`;
-        ctx.beginPath();
-        const g = 2 + f.pulse * 4;
-        ctx.roundRect(bx - w / 2 - g, by - 6 - g, w + g * 2, 12 + g * 2, 6 + g);
-        ctx.fill();
-        ctx.fillStyle = "#ff5a4f";
-        ctx.beginPath();
-        ctx.roundRect(bx - w / 2, by - 6, w, 12, 6);
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(txt, bx, by + 0.4);
-      }
+      if (p.urgent > 0) urgentBadge(ctx, f, p);
     }
 
     // 10. Brass lamp row: cones first, then posts and flames.
@@ -1064,12 +1081,52 @@ export const flatVectorLive: LiveStyle = {
       }
     }
 
-    // 11. Villagers back-to-front, then tags (selected/hovered last, on top).
+    }
+
+    // 11. Villagers and their subagent companions back-to-front (by feet y),
+    //     tethers and hand-over bursts underneath, then tags (selected/hovered last).
+    drawList.length = 0;
     for (const v of f.villagers) {
-      if (!inView(v.x, 40) || v.alpha <= 0) continue;
-      ctx.globalAlpha = v.alpha;
-      villager(ctx, v, t, f.pulse);
-      ctx.globalAlpha = 1;
+      if (v.alpha <= 0) continue;
+      if (inView(v.x, 40)) drawList.push({ y: v.y, v, c: null });
+      const n = Math.min(MAX_COMPS, v.companions.length);
+      for (let i = 0; i < n; i++) {
+        const c = v.companions[i];
+        if (c.alpha > 0 && inView(c.x, 40)) drawList.push({ y: c.y, v, c });
+      }
+    }
+    drawList.sort((a, b) => a.y - b.y || (a.c ? 1 : 0) - (b.c ? 1 : 0));
+    for (const v of f.villagers) {
+      if (v.alpha <= 0 || !inView(v.x, 220)) continue;
+      const n = Math.min(MAX_COMPS, v.companions.length);
+      for (let i = 0; i < n; i++) companionTether(ctx, v, v.companions[i], at);
+    }
+    for (const d of drawList) {
+      if (d.c) companionFigure(ctx, d.v, d.c, t, calm);
+      else {
+        ctx.globalAlpha = d.v.alpha;
+        villager(ctx, d.v, t, f.pulse);
+        ctx.globalAlpha = 1;
+      }
+    }
+    for (const v of f.villagers) {
+      if (v.alpha <= 0 || !inView(v.x, 220)) continue;
+      const n = Math.min(MAX_COMPS, v.companions.length);
+      for (let i = 0; i < n; i++) companionHandover(ctx, v, v.companions[i]);
+    }
+    // Companion labels: tiny pills under their feet, only when they won't clutter.
+    const zoomed = view.w < 700;
+    for (const v of f.villagers) {
+      if (v.alpha <= 0 || !(zoomed || v.selected || v.hovered)) continue;
+      const n = Math.min(MAX_COMPS, v.companions.length);
+      for (let i = 0; i < n; i++) {
+        const c = v.companions[i];
+        if (!inView(c.x, 60)) continue;
+        // Stack labels of companions standing close together.
+        let row = 0;
+        for (let j = 0; j < i; j++) if (Math.abs(v.companions[j].x - c.x) < 40 && Math.abs(v.companions[j].y - c.y) < 10) row++;
+        companionLabel(ctx, v, c, row);
+      }
     }
     const front: LiveVillager[] = [];
     for (const v of f.villagers) {

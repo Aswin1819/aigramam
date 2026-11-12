@@ -42,6 +42,39 @@ export interface LivePlace {
   urgent: number;
 }
 
+/** What a subagent companion is doing, which decides how it moves and what it carries. */
+export type CompanionActivity =
+  | "errand" // read/search/web: walks out, works there, walks back and hands over
+  | "busy" // write/bash/tool: works beside the parent (puffs, bobbing)
+  | "pace" // think/delegate: paces a few steps beside the parent
+  | "wait" // waiting/question: stands facing out with a "?"
+  | "error"
+  | "leaving"; // finished: hops once, then runs off fading out
+
+export interface LiveCompanion {
+  /** Subagent id. */
+  id: string;
+  /** e.g. "Explore · Reading auth.ts": always draw it (small) near the companion. */
+  label: string;
+  activity: CompanionActivity;
+  /** A prop/icon for the activity: 📜 read, 🔍 search, 🌐 web, ✏️ write, ⚙️ bash/tool, 💭 think, ❓ wait, ❗ error, ✨ leaving. */
+  icon: string;
+  /** Feet position (world units), like a villager's. */
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  moving: boolean;
+  phase: number;
+  jump: number;
+  alpha: number;
+  /** 0 at the parent's side, 1 at the far end of an errand: draw a tether that fades with distance. */
+  away: number;
+  /** 0..1 burst when an errand ends at the parent (hand-over sparkle), else 0. */
+  handover: number;
+  /** Working at the spot (an errand's middle, or busy): show the icon bobbing above. */
+  working: boolean;
+}
+
 export interface LiveVillager {
   /** Session id. */
   id: string;
@@ -74,17 +107,35 @@ export interface LiveVillager {
   carry?: "laptop" | "glass";
   /** Linked to the Ai Gramam mod (can be messaged from the browser). */
   linked: boolean;
-  /** Number of running subagents (draw small companions or a badge). */
+  /** Number of running subagents (kept for badges; draw `companions` for the figures). */
   helpers: number;
+  /** The session's subagents as small figures doing their work around the villager (about 0.7× a villager's size). */
+  companions: LiveCompanion[];
   selected: boolean;
   hovered: boolean;
   /** 0..1 fade for villagers walking in (0 = invisible). */
   alpha: number;
 }
 
+/**
+ * Which place an art style draws: the chosen world's setting, in the style's own look.
+ * - kerala: tea shops, coconut palms, the backwater with a canoe, a laterite path, brass lamps.
+ * - bengaluru: offices/darshinis/kiosks, gulmohar and rain trees, the skyline with a metro
+ *   viaduct and a train (in the water band), a road with autos (the path band), street lights.
+ */
+export type PlaceTheme = "kerala" | "bengaluru";
+
+/** The setting for a world: its id or name decides; anything unknown is drawn as Kerala. */
+export function placeThemeOf(world: { id: string; name?: string } | null | undefined): PlaceTheme {
+  const key = `${world?.id ?? ""} ${world?.name ?? ""}`.toLowerCase();
+  return /bengaluru|bangalore/.test(key) ? "bengaluru" : "kerala";
+}
+
 export interface LiveFrame {
   /** Seconds since the view started (quantised when the style sets fps). */
   t: number;
+  /** The place being drawn (see PlaceTheme): same layout, different setting. */
+  theme: PlaceTheme;
   /** World size (units). */
   worldW: number;
   worldH: number;

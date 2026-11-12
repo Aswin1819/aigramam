@@ -14,95 +14,27 @@
  */
 import { hash, poseOf, rng, type Pose, type VillagerFrame } from "../scene";
 import {
-  R3, add, box, boxBetween, cylinder, desat, ground, hex, madd, makeCamera, mixRGB, mul, norm, obox, poly, project, rgba, rig, sub,
+  R3, add, box, boxBetween, cylinder, ground, madd, mixRGB, mul, norm, obox, poly, project, rgba, rig, sub,
   type Camera, type Look, type Poly, type RGB, type Tex, type V3,
 } from "../protos/mini3d";
 import { asVillagerFrame } from "./reference";
-import { GROUND, LIVE_STATUS_COLOR, WORLD_H, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import {
+  FOG, LOOK, TILE, bbox, compBadge, compLabel, compPuffs, compSparkle, compTether, blrFrontSprite, blrGlow, blrLampSprite, blrPlaceSprite, blrSignSprite, blrSkySprite, brick, camAt, kites, metroTrain,
+  mute, planks, put, renderPolys, speckle, sprite, steamPuffs, tiles, towerSprite, traffic, treeSprite, zebra,
+  type PlaceSprite, type Sprite,
+} from "./ps2Kit";
+import { GROUND, LIVE_STATUS_COLOR, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
 
-const TILE = 640;
 /** Low-res buffer height in pixels (the "console" resolution). */
 const BH = 240;
-/** Sprite resolution (pixels per world unit) for cached scenery. */
-const SPR = 1.5;
-
-const BASE = makeCamera({ fov: 40, horizonY: GROUND.waterTop, height: 170 });
-/** The front-on camera that looks straight at world x. */
-const camAt = (x: number): Camera => ({ ...BASE, pos: [x, BASE.pos[1], BASE.pos[2]], cx: x });
-
-const FOG: RGB = [158, 166, 168];
-const LOOK: Look = {
-  light: norm([-0.45, 0.75, -0.55]),
-  lightColor: [0.72, 0.66, 0.56],
-  ambient: [0.46, 0.47, 0.52],
-  fog: { color: FOG, near: 420, k: 0.2, max: 0.82 },
-  snap: 1 / SPR,
-  seam: 0.9,
-};
-const mute = (s: string, k = 0.3): RGB => desat(hex(s), k);
 
 // ── textures (screen space, clipped to the face) ────────────────────────────
-function bbox(pts: number[]) {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (let i = 0; i < pts.length; i += 2) {
-    x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]);
-    y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]);
-  }
-  return { x0, y0, x1, y1 };
-}
-const brick = (row: number, col: number, alpha = 0.32): Tex => (ctx, pts, fog) => {
-  const b = bbox(pts);
-  ctx.fillStyle = `rgba(52,26,16,${alpha * (1 - fog)})`;
-  let k = 0;
-  for (let y = Math.floor(b.y0 / row) * row; y < b.y1; y += row, k++) {
-    ctx.fillRect(b.x0, y, b.x1 - b.x0, 1);
-    for (let x = b.x0 + ((k % 2) * col) / 2; x < b.x1; x += col) ctx.fillRect(x, y, 1, row);
-  }
-};
-const tiles = (alpha = 0.4): Tex => (ctx, pts, fog) => {
-  const b = bbox(pts);
-  ctx.fillStyle = `rgba(40,14,8,${alpha * (1 - fog)})`;
-  for (let y = b.y0; y < b.y1; y += 4) ctx.fillRect(b.x0, y, b.x1 - b.x0, 1);
-  for (let x = b.x0; x < b.x1; x += 6) ctx.fillRect(x, b.y0, 0.8, b.y1 - b.y0);
-};
-const planks: Tex = (ctx, pts, fog) => {
-  const b = bbox(pts);
-  ctx.fillStyle = `rgba(30,18,10,${0.35 * (1 - fog)})`;
-  for (let x = b.x0; x < b.x1; x += 5) ctx.fillRect(x, b.y0, 0.8, b.y1 - b.y0);
-};
 const thatch: Tex = (ctx, pts, fog) => {
   const b = bbox(pts);
   ctx.fillStyle = `rgba(60,40,10,${0.35 * (1 - fog)})`;
   for (let y = b.y0; y < b.y1; y += 3) for (let x = b.x0 + (y % 6); x < b.x1; x += 4) ctx.fillRect(x, y, 0.8, 2.4);
 };
-const speckle = (seed: number, light: string, dark: string, n = 6): Tex => (ctx, pts) => {
-  const b = bbox(pts);
-  const r = rng(seed);
-  for (let i = 0; i < n; i++) {
-    ctx.fillStyle = i % 2 ? light : dark;
-    ctx.fillRect(b.x0 + r() * (b.x1 - b.x0), b.y0 + r() * (b.y1 - b.y0), 2, 2);
-  }
-};
 
-// ── sprites ─────────────────────────────────────────────────────────────────
-interface Sprite { c: HTMLCanvasElement; x: number; y: number; w: number; h: number }
-/** Renders `draw` (world units) for the world rect (x, y, w, h) into a cached canvas. */
-function sprite(x: number, y: number, w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, ppu = SPR): Sprite {
-  const c = document.createElement("canvas");
-  c.width = Math.max(1, Math.ceil(w * ppu));
-  c.height = Math.max(1, Math.ceil(h * ppu));
-  const g = c.getContext("2d")!;
-  g.setTransform(ppu, 0, 0, ppu, -x * ppu, -y * ppu);
-  draw(g);
-  return { c, x, y, w, h };
-}
-const put = (g: CanvasRenderingContext2D, s: Sprite, dx: number) => g.drawImage(s.c, s.x + dx, s.y, s.w, s.h);
-
-function renderPolys(g: CanvasRenderingContext2D, cam: Camera, ps: Poly[], look: Look = LOOK) {
-  const r3 = new R3(cam, look);
-  r3.add(ps);
-  r3.render(g);
-}
 
 // Palm at local x = 0 (front-on camera there).
 function palmPolys(cam: Camera, baseY: number, h: number, lean: number, seed: number, segs = 4, fronds = 7): Poly[] {
@@ -204,7 +136,6 @@ const VARIANTS = [
   { wall: "#7f9db0", wallTex: brick(5, 14, 0.2), roof: "#9a4a34", roofTex: tiles(), board: [40, 52, 80] as RGB },
   { wall: "#8c6440", wallTex: planks, roof: "#9a8150", roofTex: thatch, board: [60, 44, 28] as RGB },
 ];
-interface PlaceSprite { sp: Sprite; board: { x: number; y: number; w: number }; apex: { x: number; y: number } }
 const placeCache = new Map<string, PlaceSprite>();
 
 /** Builds a place's building at local x (building left = 0), seen by a camera at its centre. */
@@ -386,37 +317,57 @@ function villagerPose(v: VillagerFrame, idle: boolean): Pose {
   return { ...p, legF: 0.55 * k, kneeF: 1.1 * k, legB: -0.15 * k, kneeB: 0.9 * k };
 }
 
-function villager(g: CanvasRenderingContext2D, lv: LiveVillager, f: LiveFrame, look: Look, lod: boolean) {
-  const v = asVillagerFrame(lv);
+interface FigOpts {
+  /** Size factor (1 = villager, ~0.7 = companion). */
+  k: number;
+  hair: string;
+  alpha: number;
+  idle: boolean;
+  /** 0 none, 1 selected, 2 hovered. */
+  ring: 0 | 1 | 2;
+  /** Throw the arms up while hopping (villager celebrations, companions leaving). */
+  armsUp: boolean;
+  /** Lighten the clothes toward white (companions read as helpers). */
+  light?: number;
+  /** A small coloured cap (the companions' helper tint). */
+  cap?: RGB;
+}
+
+/** A rigged low-poly figure (villager or companion). Returns head-top and hand points (world units). */
+function figure(g: CanvasRenderingContext2D, v: VillagerFrame, o: FigOpts, f: LiveFrame, look: Look, lod: boolean) {
   const cam = camAt(v.x);
-  const R = rig(cam, v, { turn: 0.5, pose: villagerPose(v, lv.status === "idle") });
-  const { j, s, side, fwd, up } = R;
-  if (v.jump > 0.02) {
-    const k = Math.min(1, v.jump * 1.6);
+  const R = rig(cam, v, { turn: 0.5, pose: villagerPose(v, o.idle) });
+  const { j, fwd, up, side } = R;
+  const k = o.k;
+  const s = R.s * k;
+  if (o.armsUp && v.jump > 0.02) {
+    const kk = Math.min(1, v.jump * 1.6);
     const arm = (ang: number): [[number, number], [number, number]] => {
       const dx = Math.sin(ang), dy = -Math.cos(ang);
       const e: [number, number] = [j.shoulder[0] + dx * R.body.upperArm, j.shoulder[1] + dy * R.body.upperArm];
       return [e, [e[0] + dx * R.body.forearm, e[1] + dy * R.body.forearm]];
     };
-    [j.elbowF, j.handF] = arm(0.3 + 2.5 * k);
-    [j.elbowB, j.handB] = arm(-0.3 - 2.5 * k);
+    [j.elbowF, j.handF] = arm(0.3 + 2.5 * kk);
+    [j.elbowB, j.handB] = arm(-0.3 - 2.5 * kk);
   }
-  const L = (p: [number, number], z: number) => R.w([p[0], p[1], z]);
-  const shirt = mute(v.shirt), mundu = mute(v.mundu), skin = mute(v.skin, 0.15);
-  const hair = mute(lv.hair, 0.2), sandal: RGB = [70, 50, 36];
+  const W3 = (l: V3) => R.w([l[0] * k, l[1] * k, l[2] * k]);
+  const L = (p: [number, number], z: number) => W3([p[0], p[1], z]);
+  const lt = (c: RGB): RGB => (o.light ? mixRGB(c, [255, 255, 255], o.light) : c);
+  const shirt = lt(mute(v.shirt)), mundu = lt(mute(v.mundu)), skin = mute(v.skin, 0.15);
+  const hair = mute(o.hair, 0.2), sandal: RGB = [70, 50, 36];
   const AX: [V3, V3, V3] = [fwd, up, side];
   const r3 = new R3(cam, look);
 
-  g.globalAlpha = lv.alpha;
+  g.globalAlpha = o.alpha;
   // Blob shadow, and a selection / hover ring on the ground.
   const sh = (1 - v.jump * 0.5) * 9 * s;
   const ring = (rad: number): V3[] => Array.from({ length: 10 }, (_, i) => { const a = (i / 10) * Math.PI * 2; return add(R.base, [Math.cos(a) * rad, 0.4, Math.sin(a) * rad * 0.8]); });
   r3.add([{ v: ring(sh), n: [0, 1, 0], c: [20, 24, 20], o: { alpha: 0.5 - v.jump * 0.25, flat: true } }], -1);
-  if (lv.selected || lv.hovered) {
+  if (o.ring) {
     const pts = ring(15 * s).map((q) => project(cam, q));
     r3.custom(0, (c) => {
-      c.strokeStyle = lv.selected ? `rgba(255,215,94,${0.75 + 0.25 * f.pulse})` : "rgba(230,236,255,0.6)";
-      c.lineWidth = lv.selected ? 2 : 1.2;
+      c.strokeStyle = o.ring === 1 ? `rgba(255,215,94,${0.75 + 0.25 * f.pulse})` : "rgba(230,236,255,0.6)";
+      c.lineWidth = o.ring === 1 ? 2 : 1.2;
       c.beginPath();
       pts.forEach((q, i) => (i ? c.lineTo(q.x, q.y) : c.moveTo(q.x, q.y)));
       c.closePath();
@@ -440,6 +391,10 @@ function villager(g: CanvasRenderingContext2D, lv: LiveVillager, f: LiveFrame, l
   r3.add(boxBetween(L([j.hip[0], j.hip[1] + 2], 0), L(j.neck, 0), side, 11 * s, 10 * s, shirt));
   r3.add(obox(L([j.head[0], j.head[1] - 0.5], 0), AX, [4.4 * s, 5 * s, 4.2 * s], skin));
   r3.add(obox(L([j.head[0] - 0.8, j.head[1] + 3.6], 0), AX, [4.8 * s, 1.8 * s, 4.6 * s], hair));
+  if (o.cap) {
+    r3.add(obox(L([j.head[0] - 0.4, j.head[1] + 5.4], 0), AX, [5 * s, 1.4 * s, 4.8 * s], o.cap));
+    if (!lod) r3.add(obox(L([j.head[0] + 4.6, j.head[1] + 4.6], 0), AX, [2.4 * s, 0.6 * s, 4 * s], o.cap));
+  }
   if (!lod) {
     r3.add(obox(L([j.head[0] - 3.4, j.head[1] + 0.5], 0), AX, [1.6 * s, 4 * s, 4.5 * s], hair));
     r3.add(obox(L([j.head[0] + 4.8, j.head[1] - 0.5], 0), AX, [0.8 * s, 1.2 * s, 0.9 * s], mixRGB(skin, [0, 0, 0], 0.15)));
@@ -456,22 +411,40 @@ function villager(g: CanvasRenderingContext2D, lv: LiveVillager, f: LiveFrame, l
     const lidTop = madd(hinge, fwd, 3 * s, up, 9.5 * s);
     r3.add(boxBetween(hinge, lidTop, side, 1 * s, 10 * s, [88, 92, 100]));
     const n = norm(sub(mul(fwd, -1), mul(up, 0.3)));
-    const q = (a: V3, k: number) => madd(madd(a, side, k * 4.2 * s), n, 0.7 * s);
+    const q = (a: V3, kk: number) => madd(madd(a, side, kk * 4.2 * s), n, 0.7 * s);
     r3.add([{ v: [q(hinge, -1), q(hinge, 1), q(lidTop, 1), q(lidTop, -1)], n, c: [90, 170, 190], o: { emissive: 0.9 } }]);
   } else if (v.carry === "glass") {
     const gb = L([j.handF[0], j.handF[1] - 2], 6.5);
     r3.add(cylinder(gb, madd(gb, up, 9 * s), 2.4 * s, 3 * s, 6, [206, 140, 74]));
     r3.add(cylinder(madd(gb, up, 9 * s), madd(gb, up, 10 * s), 3 * s, 3.1 * s, 6, [236, 214, 170]));
   }
-  // Subagents: little blocky helpers trotting behind.
-  for (let i = 0; i < (lod ? 0 : Math.min(3, lv.helpers)); i++) {
-    const hx = -14 - i * 9, bobY = v.moving ? Math.abs(Math.sin(v.phase * Math.PI * 2 + i)) * 2 : 0;
-    r3.add(obox(R.w([hx, 6 + bobY, -4]), AX, [3 * s, 5 * s, 3 * s], mute(lv.shirt, 0.5)));
-    r3.add(obox(R.w([hx + 0.5, 14 + bobY, -4]), AX, [2.6 * s, 2.6 * s, 2.6 * s], skin));
-  }
   r3.end();
   r3.render(g);
   g.globalAlpha = 1;
+  return { top: project(cam, W3([j.top[0], j.top[1] + 3, 0])), hand: project(cam, L(j.handF, 6.5)), waist: project(cam, L(j.hip, 0)) };
+}
+
+function villager(g: CanvasRenderingContext2D, lv: LiveVillager, f: LiveFrame, look: Look, lod: boolean) {
+  return figure(g, asVillagerFrame(lv), {
+    k: 1, hair: lv.hair, alpha: lv.alpha, idle: lv.status === "idle", ring: lv.selected ? 1 : lv.hovered ? 2 : 0, armsUp: true,
+  }, f, look, lod);
+}
+
+/** The companions' helper tint: a small teal cap (the style's "working" accent). */
+const COMP_CAP: RGB = [72, 196, 178];
+/** At most this many companion figures per villager; the rest are a "+N" on the nameplate. */
+const MAX_COMPANIONS = 4;
+const COMP_SCALE = 0.7;
+
+function companion(g: CanvasRenderingContext2D, c: LiveCompanion, lv: LiveVillager, f: LiveFrame, look: Look, lod: boolean) {
+  const v: VillagerFrame = {
+    id: c.id, name: "", status: "working", x: c.x, y: c.y, facing: c.facing, moving: c.moving, phase: c.phase,
+    jump: c.jump, label: c.label, shirt: lv.shirt, mundu: lv.mundu, skin: lv.skin,
+  };
+  return figure(g, v, {
+    k: COMP_SCALE, hair: lv.hair, alpha: c.alpha * lv.alpha, idle: false, ring: 0,
+    armsUp: c.activity === "leaving" || c.jump > 0.3, light: 0.35, cap: COMP_CAP,
+  }, f, look, lod);
 }
 
 function marker(g: CanvasRenderingContext2D, x: number, y: number, f: LiveFrame, look: Look) {
@@ -571,7 +544,8 @@ function plate(ctx: CanvasRenderingContext2D, v: LiveVillager, f: LiveFrame) {
   const lead = urgent || err ? 13 : 0;
   const tw = ctx.measureText(v.label).width + lead;
   ctx.font = NAME_FONT;
-  const nw = ctx.measureText(v.name).width + (v.helpers > 0 ? 18 : 0);
+  const extra = v.companions.length - MAX_COMPANIONS;
+  const nw = ctx.measureText(v.name).width + (extra > 0 ? 18 : 0);
   const w = Math.max(tw, nw) + 13;
   const h = 22;
   const x = v.labelX - w / 2, y = v.labelY;
@@ -584,14 +558,14 @@ function plate(ctx: CanvasRenderingContext2D, v: LiveVillager, f: LiveFrame) {
   ctx.font = NAME_FONT;
   ctx.fillStyle = idle ? "#c9c3a0" : "#ffd75e";
   ctx.fillText(v.name, x + 7, y + 9);
-  if (v.helpers > 0) {
+  if (extra > 0) {
     const bx = x + w - 17;
     ctx.fillStyle = "rgba(94,234,212,0.25)";
     ctx.fillRect(bx, y + 2.5, 13, 8);
     ctx.fillStyle = "#9ff5e6";
     ctx.font = "bold 6px Verdana, Tahoma, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`+${v.helpers}`, bx + 6.5, y + 8.8);
+    ctx.fillText(`+${extra}`, bx + 6.5, y + 8.8);
     ctx.textAlign = "left";
   }
   ctx.font = TEXT_FONT;
@@ -702,6 +676,25 @@ export const ps2Live: LiveStyle = {
     const look = snapLook(px);
     const inView = (x0: number, x1: number) => x1 > view.x - 4 && x0 < view.x + view.w + 4;
 
+    const blr = f.theme === "bengaluru";
+    const t0 = Math.floor(view.x / TILE) * TILE;
+    if (blr) {
+      // Bengaluru: sky, skyline towers, then the park + metro viaduct + road tile, the train on top.
+      const sky = blrSkySprite();
+      for (let tx = t0; tx < view.x + view.w; tx += TILE) put(g, sky, tx);
+      if (view.y < 0) { g.fillStyle = "rgb(96,124,156)"; g.fillRect(view.x, view.y, view.w, -view.y + 0.5); }
+      kites(g, f, view, px);
+      for (const fx of f.farPalms) for (const x of [fx + 38, fx]) {
+        const tw = towerSprite(x);
+        if (inView(x + tw.x, x + tw.x + tw.w)) put(g, tw, x);
+      }
+      const front = blrFrontSprite();
+      for (let tx = t0; tx < view.x + view.w; tx += TILE) put(g, front, tx);
+      if (view.y + view.h > WORLD_H) { g.fillStyle = "rgb(160,148,134)"; g.fillRect(view.x, WORLD_H - 0.5, view.w, view.y + view.h - WORLD_H + 1); }
+      if (inView(f.canoeX - 90, f.canoeX + 90)) metroTrain(g, f, look);
+      const zx = f.sign.x + 70;
+      if (inView(zx - 24, zx + 24)) zebra(g, zx, look);
+    } else {
     // Background tile, repeated across the view.
     const bg = bgSprite();
     for (let tx = Math.floor(view.x / TILE) * TILE; tx < view.x + view.w; tx += TILE) g.drawImage(bg.c, tx, 0, TILE, WORLD_H);
@@ -712,35 +705,74 @@ export const ps2Live: LiveStyle = {
     for (const x of f.farPalms) if (inView(x + fp.x, x + fp.x + fp.w)) put(g, fp, x);
     shimmer(g, f, view, px);
     if (inView(f.canoeX - 30, f.canoeX + 30)) canoe(g, f, look);
+    }
 
     // Scenery back to front by base y: palms, sign, places, lamps.
     type D = { y: number; draw: () => void };
     const list: D[] = [];
     for (const p of f.palms) {
-      const sp = palmSprite(p.baseY, p.h, p.lean);
+      const sp = blr ? treeSprite(p.baseY, p.h, p.lean) : palmSprite(p.baseY, p.h, p.lean);
       if (inView(p.x + sp.x, p.x + sp.x + sp.w)) list.push({ y: p.baseY, draw: () => put(g, sp, p.x) });
     }
-    const sg = signSprite(f.sign.y);
+    const sg = blr ? blrSignSprite(f.sign.y) : signSprite(f.sign.y);
     if (inView(f.sign.x + sg.sp.x, f.sign.x + sg.sp.x + sg.sp.w)) list.push({ y: f.sign.y + 40, draw: () => put(g, sg.sp, f.sign.x) });
     const shown: { p: LivePlace; ps: PlaceSprite }[] = [];
     for (const p of f.places) {
-      const ps = placeSprite(p);
+      const ps = blr ? blrPlaceSprite(p) : placeSprite(p);
       const b = p.building;
       if (!inView(b.x + ps.sp.x, b.x + ps.sp.x + ps.sp.w)) continue;
       shown.push({ p, ps });
       list.push({ y: b.baseY, draw: () => put(g, ps.sp, b.x) });
     }
-    const ls = lampSprite(f.lamps.y);
+    const ls = blr ? blrLampSprite(f.lamps.y) : lampSprite(f.lamps.y);
     for (let i = 0; i < f.lamps.count; i++) {
       const x = f.lamps.x0 + i * f.lamps.dx;
       if (inView(x - 12, x + 12)) list.push({ y: f.lamps.y + 22, draw: () => put(g, ls.sp, x) });
     }
     list.sort((a, b) => a.y - b.y);
     for (const d of list) d.draw();
+    if (blr) {
+      for (const { p, ps } of shown) if (ps.steam) steamPuffs(g, p.building.x + ps.steam.x, ps.steam.y, f, px);
+      traffic(g, f, view, look);
+    }
     for (const { p, ps } of shown) if (p.urgent > 0) marker(g, p.building.x + ps.apex.x, ps.apex.y - 16, f, look);
-    flames(g, f, view);
+    if (blr) blrGlow(g, f, view);
+    else flames(g, f, view);
 
-    for (const v of f.villagers) if (v.alpha > 0.01 && inView(v.x - 30, v.x + 30)) villager(g, v, f, look, px > 2.5);
+    // Villagers and their subagent companions, back to front by feet y.
+    const lod = px > 2.5;
+    type Fig = { y: number; v: LiveVillager; c?: LiveCompanion };
+    const figs: Fig[] = [];
+    const comps: Fig[] = [];
+    for (const v of f.villagers) {
+      if (v.alpha <= 0.01) continue;
+      if (inView(v.x - 30, v.x + 30)) figs.push({ y: v.y, v });
+      const n = Math.min(MAX_COMPANIONS, v.companions.length);
+      for (let i = 0; i < n; i++) {
+        const c = v.companions[i]!;
+        if (c.alpha * v.alpha <= 0.01 || !inView(Math.min(c.x, v.x) - 24, Math.max(c.x, v.x) + 24)) continue;
+        comps.push({ y: c.y, v, c });
+      }
+    }
+    // Tethers first (on the ground, behind everyone).
+    for (const { v, c } of comps) if (c!.away > 0.01) compTether(g, v.x, v.y - 30, c!.x, c!.y - 20, c!.away, c!.alpha * v.alpha, px);
+    figs.push(...comps);
+    figs.sort((a, b) => a.y - b.y);
+    const anchors: { c: LiveCompanion; v: LiveVillager; top: { x: number; y: number }; hand: { x: number; y: number } }[] = [];
+    for (const d of figs) {
+      if (!d.c) { villager(g, d.v, f, look, lod); continue; }
+      if (!inView(d.c.x - 20, d.c.x + 20)) continue;
+      const a = companion(g, d.c, d.v, f, look, lod);
+      anchors.push({ c: d.c, v: d.v, top: a.top, hand: a.hand });
+    }
+    // Low-res effects over the figures: work puffs, hand-over and leaving sparkles.
+    const tt = f.reducedMotion ? 0.3 : f.t;
+    for (const { c, v, top, hand } of anchors) {
+      const al = c.alpha * v.alpha;
+      if (c.activity === "busy" && c.working && !f.reducedMotion) compPuffs(g, hand.x, hand.y - 2, tt, (c.x * 0.013) % 1, al, px);
+      if (c.handover > 0) compSparkle(g, v.x, v.y - 42, c.handover, tt, px);
+      if (c.activity === "leaving") compSparkle(g, top.x, top.y - 2, Math.max(0.3, al), tt * 2, px, "190,250,240");
+    }
 
     // Upscale: soft 2× (composite-video bleed), then hard pixels to the screen.
     mid = canvas(mid, bw * 2, BH * 2);
@@ -756,8 +788,20 @@ export const ps2Live: LiveStyle = {
     for (let y = view.y; y < view.y + view.h; y += 2 * px) ctx.fillRect(view.x, y, view.w, px * 0.5);
 
     // Crisp lettering: the village sign and each place's name board.
-    if (inView(f.sign.x - 40, f.sign.x + 40)) boardText(ctx, f.sign.text, f.sign.x + sg.text.x, sg.text.y, 52, "#4a3624", 7.5);
+    if (inView(f.sign.x - 40, f.sign.x + 40)) boardText(ctx, f.sign.text, f.sign.x + sg.text.x, sg.text.y, 52, blr ? "#f2f4ff" : "#4a3624", 7.5);
     for (const { p, ps } of shown) boardText(ctx, p.name, p.building.x + ps.board.x, ps.board.y, ps.board.w - 6, "#eadfb8", 8);
+
+    // Companion icons (working / ? / !) and tiny captions, under the nameplates.
+    const zoomed = view.w < 700;
+    const taken: { x: number; y: number; w: number; h: number }[] = [];
+    for (const { c, v, top } of anchors) {
+      const al = c.alpha * v.alpha;
+      const bob = f.reducedMotion ? 0 : Math.sin(f.t * 4 + c.x * 0.05) * 1.3;
+      if (c.activity === "wait") compBadge(ctx, top.x, top.y + bob * 0.5, "wait", c.icon, al, f.pulse);
+      else if (c.activity === "error") compBadge(ctx, top.x, top.y, "error", c.icon, al, f.pulse);
+      else if (c.working || c.activity === "leaving") compBadge(ctx, top.x, top.y - 1 + bob, "icon", c.icon, al, f.pulse);
+      if (zoomed || v.selected || v.hovered) compLabel(ctx, c.x, c.y, c.label, al, taken);
+    }
 
     // Nameplates (selected one last, on top), then the HUD.
     let sel: LiveVillager | null = null;

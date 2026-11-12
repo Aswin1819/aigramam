@@ -123,3 +123,71 @@ describe("chosen characters", () => {
     expect(b.shirt).not.toBe("#111111");
   });
 });
+
+describe("companions (subagents)", () => {
+  const sub = (id: string, kind: string, status: "working" | "waiting" | "finished" = "working") => ({
+    id, sessionId: "s", agentType: "Explore", description: "map the code", status,
+    action: { kind: kind as never, emoji: "", label: `${kind} thing`, startedAt: 1 }, startedAt: 1, lastActivityAt: 1,
+  });
+
+  it("go on errands for reading: out, work at the spot, back, hand over", () => {
+    const sim = new LiveSim();
+    const projects = [project("p", "app")];
+    const i = input([session("s", "p", { status: "working", subagents: [sub("a1", "read")] })], projects, { reducedMotion: false });
+    const seen = new Set<string>();
+    let maxAway = 0;
+    let handover = false;
+    for (let k = 0; k < 400; k++) {
+      const c = sim.frame(0.05, i).villagers[0]!.companions[0]!;
+      seen.add(c.moving ? "walk" : c.working ? "work" : "home");
+      maxAway = Math.max(maxAway, c.away);
+      if (c.handover > 0) handover = true;
+      expect(c.label).toBe("Explore · read thing");
+      expect(c.activity).toBe("errand");
+    }
+    expect([...seen].sort()).toEqual(["home", "walk", "work"]);
+    expect(maxAway).toBe(1);
+    expect(handover).toBe(true);
+  });
+
+  it("work beside the villager when writing, and get distinct slots", () => {
+    const f = run(new LiveSim(), input([session("s", "p", { status: "working", subagents: [sub("w1", "write"), sub("w2", "bash")] })], [project("p", "app")]), 2);
+    const [a, b] = f.villagers[0]!.companions;
+    expect(a!.activity).toBe("busy");
+    expect(a!.working).toBe(true);
+    expect(Math.sign(a!.x - f.villagers[0]!.x)).not.toBe(Math.sign(b!.x - f.villagers[0]!.x));
+  });
+
+  it("hop and run off when finished, then are forgotten", () => {
+    const sim = new LiveSim();
+    const projects = [project("p", "app")];
+    run(sim, input([session("s", "p", { subagents: [sub("x", "search")] })], projects), 1);
+    const done = input([session("s", "p", { subagents: [sub("x", "search", "finished")] })], projects);
+    const leaving = sim.frame(0.05, done).villagers[0]!.companions[0]!;
+    expect(leaving.activity).toBe("leaving");
+    expect(run(sim, done, 2).villagers[0]!.companions).toEqual([]);
+  });
+
+  it("stand still beside the villager with reduced motion", () => {
+    const f = run(new LiveSim(), input([session("s", "p", { subagents: [sub("r", "web")] })], [project("p", "app")], { reducedMotion: true }), 5);
+    const c = f.villagers[0]!.companions[0]!;
+    expect(c.moving).toBe(false);
+    expect(c.away).toBe(0);
+  });
+});
+
+describe("companion errands near the world's edge", () => {
+  it("never walk out of the world", () => {
+    const sim = new LiveSim();
+    const sub = { id: "edge", sessionId: "s", agentType: "Explore", description: "", status: "working" as const, action: { kind: "web" as const, emoji: "", label: "fetch", startedAt: 1 }, startedAt: 1, lastActivityAt: 1 };
+    const sessions = Array.from({ length: 3 }, (_, k) => session(`s${k}`, "p", { status: "working", subagents: k === 2 ? [sub] : [] }));
+    const i = input(sessions, [project("p", "app")]);
+    for (let k = 0; k < 300; k++) {
+      const f = sim.frame(0.05, i);
+      for (const v of f.villagers) for (const c of v.companions) {
+        expect(c.x).toBeGreaterThanOrEqual(0);
+        expect(c.x).toBeLessThanOrEqual(f.worldW);
+      }
+    }
+  });
+});

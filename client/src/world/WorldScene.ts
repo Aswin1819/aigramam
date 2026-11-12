@@ -5,7 +5,7 @@
  * camera you can pan, zoom and focus. Text is drawn by WorldLabels as HTML.
  */
 import Phaser from "phaser";
-import type { SessionView } from "@shared/model";
+import type { SessionView, SubagentView } from "@shared/model";
 import type { DecorDef, LightingDef, SceneKind, WorldInfo } from "@shared/world";
 import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import { hashString, placeProjects, standSpots, type Placement } from "@shared/placement";
@@ -24,7 +24,52 @@ const FADE_MS = 600;
 const CELEBRATE_MS = 2200;
 const DEPTH = { sky: -100, stars: -99, sun: -98, skyDecor: -90, scene: 90, frontDecor: 1400, tint: 1500, weather: 1600, flash: 1700, glow: 2000 } as const;
 
-interface Companion { sprite: Phaser.GameObjects.Sprite; alpha: number; leaving: boolean }
+/** Subagent companions: smaller, tinted copies of the parent that run errands and help. */
+const COMP_SCALE = 0.62;
+const COMP_SPEED = 95;
+const COMP_ARRIVE_S = 0.45;
+const COMP_CHEER_S = 0.9;
+const ERRAND_PROP: Partial<Record<SceneKind, string>> = { read: "📜", search: "🔍", web: "🌐" };
+const BUSY_PROP: Partial<Record<SceneKind, string>> = { write: "✏️", bash: "⚙️", tool: "⚙️" };
+const ANIM_FALLBACK: Partial<Record<Anim, Anim>> = { bash: "write", wait: "idle", write: "idle", read: "idle", celebrate: "idle", error: "idle" };
+
+type CompMode = "arrive" | "slot" | "out" | "errand" | "back" | "leave";
+interface Burst { kind: "ring" | "spark"; ox: number; oy: number; t0: number }
+interface Puff { t0: number; dx: number; emoji: boolean }
+
+interface Companion {
+  sprite: Phaser.GameObjects.Sprite;
+  shadow: Phaser.GameObjects.Ellipse;
+  /** Puff rings, sparkles, rising puffs and the ?/! bubble disc, redrawn each frame. */
+  fx: Phaser.GameObjects.Graphics;
+  prop?: Phaser.GameObjects.Text;
+  bubble?: Phaser.GameObjects.Text;
+  puffTexts: Phaser.GameObjects.Text[];
+  seed: number;
+  /** Feet position relative to the parent's feet, and where it is heading. */
+  ox: number; oy: number; tox: number; toy: number;
+  alpha: number;
+  leaving: boolean;
+  mode: CompMode;
+  modeAt: number;
+  until: number;
+  pauseUntil: number;
+  paceDir: 1 | -1;
+  errDir: 1 | -1;
+  errands: number;
+  facingLeft: boolean;
+  animKey?: string;
+  kind: SceneKind;
+  kindAt: number;
+  bursts: Burst[];
+  puffs: Puff[];
+  nextPuffAt: number;
+}
+
+const subKind = (a: SubagentView): SceneKind =>
+  (a.status === "waiting" ? (a.action?.kind === "question" ? "question" : "waiting")
+  : a.status === "error" ? "error" : a.status === "idle" ? "idle" : a.status === "finished" ? "done"
+  : a.action?.kind ?? "think") as SceneKind;
 
 interface Character {
   id: string;
@@ -522,34 +567,276 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private updateCompanions(c: Character, s: SessionView | undefined): Map<string, WorldPos> {
-    const wanted = new Set((s?.subagents ?? []).filter((a) => a.status !== "finished").map((a) => a.id));
-    for (const id of wanted) {
-      if (!c.companions.has(id)) {
-        const key = c.pack ? `c:${c.pack.id}` : "fallback-char";
-        const sprite = this.add.sprite(c.x, c.y, key).setOrigin(0.5, 1).setScale((c.pack?.def.scale ?? 3) * 0.62).setTint(0xcfeaff);
-        if (c.pack) sprite.play({ key: `c:${c.pack.id}:${c.pack.def.animations.read ? "read" : "idle"}`, startFrame: 1 });
-        c.companions.set(id, { sprite, alpha: 0, leaving: false });
-      }
+  // ── Companions (subagents) ─────────────────────────────────────────────────
+  private compText(size: number): Phaser.GameObjects.Text {
+    return this.add.text(0, 0, "", { fontSize: `${size}px`, fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", system-ui, sans-serif', fontStyle: "bold", color: "#ffffff" })
+      .setOrigin(0.5, 0.5).setResolution(2).setVisible(false);
+  }
+
+  private makeCompanion(c: Character, id: string): Companion {
+    const key = c.pack ? `c:${c.pack.id}` : "fallback-char";
+    const sprite = this.add.sprite(c.x, c.y, key).setOrigin(0.5, 1).setScale(0).setTint(0xcfeaff).setAlpha(0);
+    const shadow = this.add.ellipse(c.x, c.y, 26, 7, 0x000000, 0.22).setAlpha(0);
+    const fx = this.add.graphics();
+    const seed = hashString(id);
+    const comp: Companion = {
+      sprite, shadow, fx, puffTexts: [], seed, ox: 0, oy: 4, tox: 0, toy: 4, alpha: 0, leaving: false,
+      mode: "arrive", modeAt: this.t, until: 0, pauseUntil: 0, paceDir: 1, errDir: 1, errands: 0,
+      facingLeft: (seed & 1) === 1, kind: "think", kindAt: this.t, bursts: [], puffs: [], nextPuffAt: 0,
+    };
+    if (!this.reduced) comp.bursts.push({ kind: "ring", ox: 0, oy: 4, t0: this.t });
+    return comp;
+  }
+
+  private destroyCompanion(comp: Companion) {
+    comp.sprite.destroy(); comp.shadow.destroy(); comp.fx.destroy();
+    comp.prop?.destroy(); comp.bubble?.destroy();
+    for (const t of comp.puffTexts) t.destroy();
+  }
+
+  private setCompMode(comp: Companion, mode: CompMode) { comp.mode = mode; comp.modeAt = this.t; comp.pauseUntil = 0; }
+
+  /** Horizontal range a companion may walk in: the deck of a boat on water, else the world minus a margin. */
+  private errandBounds(c: Character): { min: number; max: number; water: boolean } {
+    const W = this.world.def.size.width;
+    const l = c.locationId ? this.world.def.locations.find((x) => x.id === c.locationId) : undefined;
+    if (l && l.propAnim === "bob") {
+      const half = Math.max(40, (this.props.get(l.id)?.img.displayWidth ?? 200) / 2 - 60);
+      return { min: l.x - half, max: l.x + half, water: true };
     }
+    return { min: 60, max: W - 60, water: false };
+  }
+
+  /** Where this trip goes, as an offset from the parent: deterministic per subagent, varied a little per trip. */
+  private errandTarget(c: Character, comp: Companion): { x: number; y: number } {
+    const b = this.errandBounds(c);
+    const far = comp.kind === "web";
+    const base = far ? 180 + (comp.seed % 81) : 90 + (comp.seed % 71);
+    const vary = ((comp.seed >>> (3 + (comp.errands % 6))) % 21) - 10;
+    let dir: 1 | -1 = (comp.seed >>> 7) & 1 ? 1 : -1;
+    const room = (d: number) => (d > 0 ? b.max - c.x : c.x - b.min);
+    if (room(dir) < 90 && room(-dir) > room(dir)) dir = dir === 1 ? -1 : 1;
+    comp.errDir = dir;
+    const d = Math.max(24, Math.min(base + vary, room(dir)));
+    return { x: dir * d, y: b.water ? 4 : 4 + ((((comp.seed >>> 5) % 3) - 1) * 8) };
+  }
+
+  /** The anim key to play, falling back when the pack lacks one (bash → write → idle). */
+  private compAnimKey(c: Character, anim: Anim): string | undefined {
+    if (!c.pack) return undefined;
+    let a: Anim | undefined = anim;
+    while (a && !c.pack.def.animations[a]) a = ANIM_FALLBACK[a];
+    return `c:${c.pack.id}:${a && c.pack.def.animations[a] ? a : "idle"}`;
+  }
+
+  private updateCompanions(c: Character, s: SessionView | undefined, parentY: number): Map<string, WorldPos> {
+    const subs = new Map((s?.subagents ?? []).filter((a) => a.status !== "finished").map((a) => [a.id, a]));
+    for (const id of subs.keys()) if (!c.companions.has(id)) c.companions.set(id, this.makeCompanion(c, id));
     const pos = new Map<string, WorldPos>();
-    let i = 0;
+    const parentH = c.sprite.displayHeight;
+    let slot = 0;
     for (const [id, comp] of c.companions) {
-      comp.leaving = !wanted.has(id);
-      comp.alpha = Phaser.Math.Clamp(comp.alpha + this.dt * (comp.leaving ? -1.6 : 2.2), 0, 1);
-      if (comp.leaving && comp.alpha <= 0) {
-        comp.sprite.destroy();
+      const sub = subs.get(id);
+      if (!sub && !comp.leaving) {
+        comp.leaving = true;
+        this.setCompMode(comp, "leave");
+        if (!this.reduced) comp.bursts.push({ kind: "spark", ox: comp.ox, oy: comp.oy - 34, t0: this.t });
+      }
+      let slotX = 0;
+      if (!comp.leaving) {
+        const side = slot % 2 === 0 ? 1 : -1;
+        slotX = side * (40 + Math.floor(slot / 2) * 30);
+        slot++;
+      }
+      const kind: SceneKind = sub ? subKind(sub) : "done";
+      if (kind !== comp.kind) { comp.kind = kind; comp.kindAt = this.t; }
+      if (!this.stepCompanion(c, comp, slotX, parentY, parentH, sub?.status === "working")) {
+        this.destroyCompanion(comp);
         c.companions.delete(id);
         continue;
       }
-      const side = i % 2 === 0 ? 1 : -1;
-      const x = c.x + side * (40 + Math.floor(i / 2) * 30) + (comp.leaving ? side * (1 - comp.alpha) * 70 : 0);
-      const y = c.y + 4;
-      comp.sprite.setPosition(x, y).setAlpha(comp.alpha * c.alpha).setFlipX(side < 0).setDepth(c.sprite.depth - 0.5);
-      pos.set(id, { x, y, alpha: comp.alpha * c.alpha });
-      i++;
+      const a = comp.alpha * c.alpha;
+      pos.set(id, { x: c.x + comp.ox, y: parentY + comp.oy, alpha: comp.leaving ? 0 : a });
     }
     return pos;
+  }
+
+  /** One frame of a companion's little life. Returns false once it has gone. */
+  private stepCompanion(c: Character, comp: Companion, slotX: number, parentY: number, parentH: number, working: boolean): boolean {
+    const t = this.t, dt = this.dt, reduced = this.reduced, kind = comp.kind;
+    const errandKind = !!ERRAND_PROP[kind];
+    const busyKind = !!BUSY_PROP[kind];
+    const pacing = (kind === "think" || kind === "delegate") && !reduced;
+    let speed = COMP_SPEED;
+    const arrived = () => Math.hypot(comp.tox - comp.ox, comp.toy - comp.oy) < 0.5;
+
+    // 1) Decide where to go.
+    switch (comp.mode) {
+      case "arrive":
+        comp.tox = comp.ox; comp.toy = comp.oy;
+        if (reduced || t - comp.modeAt >= COMP_ARRIVE_S) { this.setCompMode(comp, "slot"); comp.until = t + 0.3; }
+        break;
+      case "slot": {
+        comp.toy = 4;
+        comp.tox = slotX + (pacing ? comp.paceDir * 16 : 0);
+        if (pacing) speed = 38;
+        if (reduced) { comp.ox = comp.tox; comp.oy = comp.toy; }
+        if (pacing && arrived()) {
+          if (!comp.pauseUntil) comp.pauseUntil = t + 0.7;
+          else if (t >= comp.pauseUntil) { comp.paceDir = comp.paceDir === 1 ? -1 : 1; comp.pauseUntil = 0; }
+        }
+        if (errandKind && !reduced && arrived() && t >= comp.until) {
+          const tg = this.errandTarget(c, comp);
+          comp.tox = tg.x; comp.toy = tg.y;
+          this.setCompMode(comp, "out");
+          comp.prop?.setText(ERRAND_PROP[kind]!);
+        }
+        break;
+      }
+      case "out":
+        if (!errandKind || reduced) { this.setCompMode(comp, "back"); comp.tox = comp.errDir * 22; comp.toy = 4; }
+        else if (arrived()) {
+          this.setCompMode(comp, "errand");
+          comp.until = t + 1.5 + (((comp.seed >>> (comp.errands % 7)) & 15) / 15) * 1.5;
+        }
+        break;
+      case "errand":
+        if (t >= comp.until || !errandKind || reduced) { this.setCompMode(comp, "back"); comp.tox = comp.errDir * 22; comp.toy = 4; }
+        break;
+      case "back":
+        if (arrived()) {
+          if (!reduced) comp.bursts.push({ kind: "spark", ox: comp.errDir * 8, oy: -parentH * 0.55, t0: t });
+          comp.errands++;
+          this.setCompMode(comp, "slot");
+          comp.until = t + 0.8;
+        }
+        break;
+      case "leave":
+        if (t - comp.modeAt < COMP_CHEER_S || reduced) { comp.tox = comp.ox; comp.toy = comp.oy; }
+        else if (comp.tox === comp.ox) {
+          const bnd = this.errandBounds(c);
+          comp.tox = Phaser.Math.Clamp(c.x + comp.ox + (comp.ox < 0 ? -1 : 1) * 160, bnd.min, bnd.max) - c.x;
+          if (comp.tox === comp.ox) comp.tox += 0.01; // at the edge already: just fade
+        }
+        speed = COMP_SPEED * 1.6;
+        break;
+    }
+
+    // 2) Walk there (real elapsed time).
+    const dx = comp.tox - comp.ox, dy = comp.toy - comp.oy, dist = Math.hypot(dx, dy);
+    const step = speed * dt;
+    const moving = dist > 0.5;
+    if (moving) {
+      if (dist <= step) { comp.ox = comp.tox; comp.oy = comp.toy; } else { comp.ox += (dx / dist) * step; comp.oy += (dy / dist) * step; }
+      if (Math.abs(dx) > 0.3) comp.facingLeft = dx < 0;
+    } else if (comp.mode === "slot") {
+      comp.facingLeft = kind === "waiting" || kind === "question" ? false : comp.ox > 0; // face the parent; waiting ones look out at you
+    }
+
+    // 3) Fade, scale, animation.
+    const sinceLeave = t - comp.modeAt;
+    if (comp.leaving) {
+      if (reduced || sinceLeave >= COMP_CHEER_S) comp.alpha -= dt * (reduced ? 2 : 1.25);
+      if (comp.alpha <= 0) return false;
+    } else comp.alpha = Math.min(1, comp.alpha + dt * 4);
+    const base = (c.pack?.def.scale ?? 3) * COMP_SCALE;
+    let k = 1;
+    if (comp.mode === "arrive" && !reduced) {
+      const p = (t - comp.modeAt) / COMP_ARRIVE_S;
+      k = p < 0.6 ? Phaser.Math.Easing.Back.Out(p / 0.6) * 1.1 : 1.1 - 0.1 * ((p - 0.6) / 0.4);
+    }
+    let anim: Anim = "idle";
+    if (moving) anim = "walk";
+    else if (comp.mode === "leave") anim = "celebrate";
+    else if (comp.mode === "errand") anim = "read";
+    else if (comp.mode === "slot") {
+      anim = kind === "write" || kind === "tool" ? "write" : kind === "bash" ? "bash"
+        : kind === "waiting" || kind === "question" ? "wait" : kind === "error" ? "error"
+        : errandKind && reduced ? "read" : "idle";
+    }
+    const key = this.compAnimKey(c, anim);
+    if (key && comp.animKey !== key) { comp.animKey = key; comp.sprite.play({ key, startFrame: comp.seed % 3 }); }
+
+    const x = c.x + comp.ox, feet = parentY + comp.oy;
+    const busyHere = comp.mode === "slot" && !moving && busyKind && !reduced;
+    const bob = busyHere ? -Math.abs(Math.sin(t * 7 + comp.seed)) * 1.6 : !c.pack && !reduced ? Math.sin(t * 3 + comp.seed) * 0.5 : 0;
+    const alpha = Math.max(0, comp.alpha) * c.alpha;
+    const depth = DEPTH.scene + (c.y + comp.oy) / 10 + 0.4;
+    comp.sprite.setPosition(x, feet + bob).setScale(base * k).setFlipX(comp.facingLeft).setAlpha(alpha).setDepth(depth);
+    comp.sprite.setTint(kind === "error" ? 0xc8b0b0 : 0xcfeaff);
+    comp.shadow.setPosition(x, feet).setScale(k).setAlpha(0.22 * alpha * (1 - this.night * 0.5)).setDepth(depth - 0.2);
+    const h = comp.sprite.displayHeight * 0.88, head = feet - h;
+
+    // 4) Tether: a faint dotted thread back to the parent while it works (stronger when away on an errand).
+    if (working && !reduced && !comp.leaving && Math.abs(comp.ox) > 26) {
+      const away = comp.mode === "out" || comp.mode === "errand" || comp.mode === "back";
+      const x0 = c.x, y0 = parentY - parentH * 0.4, x1 = x, y1 = feet - h * 0.45;
+      const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.floor(len / 10));
+      const flow = (t * 0.6) % (1 / n);
+      c.ring.fillStyle(0xbfe3ff, (away ? 0.45 : 0.25) * alpha);
+      for (let i = 0; i <= n; i++) {
+        const u = Math.min(1, i / n + flow);
+        const sag = Math.sin(u * Math.PI) * Math.min(18, len * 0.12);
+        c.ring.fillCircle(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u + sag, 1.6);
+      }
+    }
+
+    // 5) Effects: puff rings, sparkles, rising puffs, the ?/! bubble, the errand prop.
+    const g = comp.fx.clear().setDepth(depth + 0.6);
+    comp.bursts = comp.bursts.filter((b) => t - b.t0 < 0.6);
+    for (const b of comp.bursts) {
+      const p = (t - b.t0) / 0.6, bx = c.x + b.ox, by = parentY + b.oy;
+      if (b.kind === "ring") {
+        g.lineStyle(2, 0xffffff, 0.7 * (1 - p) * c.alpha).strokeEllipse(bx, by, 12 + 52 * p, 4 + 16 * p);
+        g.fillStyle(0xf3efe2, 0.5 * (1 - p) * c.alpha);
+        for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; g.fillCircle(bx + Math.cos(a) * 30 * p, by - 4 + Math.sin(a) * 9 * p - 6 * p, 2.5 * (1 - p) + 1); }
+      } else {
+        g.lineStyle(1.6, 0xffe08a, (1 - p) * c.alpha);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + (b.t0 % 1), r = 4 + 18 * p, sx = bx + Math.cos(a) * r, sy = by + Math.sin(a) * r, l = 3.5 * (1 - p) + 1;
+          g.lineBetween(sx - l, sy, sx + l, sy).lineBetween(sx, sy - l, sx, sy + l);
+        }
+      }
+    }
+    // Rising puffs while busy at the parent's side.
+    if (busyHere && t >= comp.nextPuffAt) {
+      comp.nextPuffAt = t + 0.85;
+      comp.puffs.push({ t0: t, dx: ((comp.seed + comp.puffs.length * 7 + Math.floor(t * 3)) % 17) - 8, emoji: Math.floor(t / 0.85) % 2 === 0 });
+    }
+    comp.puffs = comp.puffs.filter((p) => t - p.t0 < 1.3);
+    let ti = 0;
+    for (const p of comp.puffs) {
+      const u = (t - p.t0) / 1.3, px = x + p.dx + Math.sin(u * 5 + p.dx) * 3, py = head - 6 - u * 34;
+      if (p.emoji) {
+        if (!comp.puffTexts[ti]) comp.puffTexts[ti] = this.compText(18);
+        comp.puffTexts[ti].setText(BUSY_PROP[kind] ?? "⚙️").setPosition(px, py).setAlpha(Math.min(1, Math.sin(u * Math.PI) * 1.6) * alpha).setScale(0.85 + u * 0.3).setDepth(depth + 0.7).setVisible(true);
+        ti++;
+      } else {
+        g.fillStyle(0xffffff, 0.45 * (1 - u) * alpha).fillCircle(px, py, 2 + u * 4);
+      }
+    }
+    for (let i = ti; i < comp.puffTexts.length; i++) comp.puffTexts[i].setVisible(false);
+    // Errand prop: floats above the head while reading, carried at chest height on the way back.
+    const carrying = comp.mode === "errand" || comp.mode === "back";
+    if (carrying && !reduced) {
+      comp.prop ??= this.compText(21);
+      if (comp.prop.text === "") comp.prop.setText(ERRAND_PROP[kind] ?? "📜");
+      const reading = comp.mode === "errand";
+      const py = reading ? head - 10 + Math.sin(t * 3.2 + comp.seed) * 3 : feet - h * 0.55;
+      comp.prop.setPosition(x + (reading ? 0 : (comp.facingLeft ? -9 : 9)), py).setScale(reading ? 1 : 0.75).setAlpha(alpha).setDepth(depth + 0.7).setVisible(true);
+    } else if (comp.prop) comp.prop.setVisible(false).setText("");
+    // ? while waiting for an answer, a red ! on error.
+    const mark = comp.leaving || reduced ? "" : kind === "waiting" || kind === "question" ? "?" : kind === "error" ? "!" : "";
+    if (mark) {
+      comp.bubble ??= this.compText(12);
+      const since = t - comp.kindAt;
+      const pop = mark === "!" && since < 0.35 ? Phaser.Math.Easing.Back.Out(since / 0.35) * 1.15 : 1 + 0.1 * Math.sin(t * (mark === "!" ? 6 : 4));
+      const bx = x + 11, by = head - 8;
+      g.fillStyle(mark === "!" ? 0xef4444 : 0xf59e0b, 0.95 * alpha).fillCircle(bx, by, 8 * pop);
+      g.lineStyle(1.5, 0xffffff, 0.8 * alpha).strokeCircle(bx, by, 8 * pop);
+      comp.bubble.setText(mark).setPosition(bx, by).setScale(pop).setAlpha(alpha).setDepth(depth + 0.7).setVisible(true);
+    } else comp.bubble?.setVisible(false);
+    return true;
   }
 
   /** Completion: the world's effect (a row of nilavilakku lamps lighting up…). */
@@ -622,7 +909,7 @@ export class WorldScene extends Phaser.Scene {
       c.alpha = c.phase === "leaving" ? (dist < 90 ? Math.max(0, c.alpha - fade) : c.alpha) : Math.min(1, c.alpha + fade);
       if (c.phase === "leaving" && (c.alpha <= 0 || !moving)) {
         c.sprite.destroy(); c.shadow.destroy(); c.ring.destroy(); c.emitter?.destroy();
-        for (const comp of c.companions.values()) comp.sprite.destroy();
+        for (const comp of c.companions.values()) this.destroyCompanion(comp);
         this.chars.delete(id);
         this.positions.delete(id);
         continue;
@@ -642,7 +929,7 @@ export class WorldScene extends Phaser.Scene {
       this.setFx(c, fx);
       if (c.emitter) c.emitter.setPosition(c.x + (fx === "sparks" ? 14 : 0), y - (fx === "steam" ? height + 8 : fx === "sparks" ? height * 0.45 : height * 0.8)).setDepth(depth + 1);
       this.drawRing(c, s, fx, y - height);
-      const comps = this.updateCompanions(c, s);
+      const comps = this.updateCompanions(c, s, y);
       this.positions.set(id, { hero: { x: c.x, y, alpha: c.alpha }, head: { x: c.x, y: y - height }, companions: comps });
     }
   }

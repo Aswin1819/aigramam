@@ -8,9 +8,10 @@ import type { CharacterPalette } from "@shared/character";
 import type { ProjectView, SessionView } from "@shared/model";
 import { hashString } from "@shared/placement";
 import { statusText } from "@/lib/status";
+import { CompanionTracker } from "./companions";
 import {
   GROUND, LIVE_STATUS_COLOR, MARGIN, SLOT_W, WORLD_H,
-  type LiveFrame, type LivePlace, type LiveStatus, type LiveVillager,
+  type LiveFrame, type LivePlace, type LiveStatus, type LiveVillager, type PlaceTheme,
 } from "./types";
 
 const SHIRTS = ["#f4efe2", "#c2410c", "#1d4ed8", "#15803d", "#7c3aed", "#be185d", "#0e7490", "#ca8a04", "#9f1239", "#334155"];
@@ -49,6 +50,8 @@ export interface SimInput {
   selectedId: string | null;
   hoveredId: string | null;
   reducedMotion: boolean;
+  /** The place to draw (the chosen world's setting); Kerala when not given. */
+  theme?: PlaceTheme;
   /** Colours of the character chosen for a session's project, if any (else colours come from the session id). */
   paletteOf?: (s: SessionView) => CharacterPalette | undefined;
 }
@@ -79,6 +82,7 @@ export class LiveSim {
   private walkers = new Map<string, Walker>();
   /** Sessions seen finishing while this view was open (they light the lamps). */
   private finished = new Set<string>();
+  private companions = new CompanionTracker();
 
   frame(dt: number, input: SimInput): LiveFrame {
     this.t += dt;
@@ -192,6 +196,7 @@ export class LiveSim {
           carry: status === "working" ? "laptop" : status === "approval" || status === "turn" ? "glass" : undefined,
           linked: !!s.link?.connected,
           helpers: s.subagents.filter((a) => a.status === "working" || a.status === "waiting").length,
+          companions: this.companions.frame(s, w, t, input.reducedMotion, { min: 40, max: worldW - 40 }),
           selected: s.id === input.selectedId,
           hovered: s.id === input.hoveredId,
           alpha: Math.min(1, (t - w.bornT) / 0.6),
@@ -199,6 +204,7 @@ export class LiveSim {
       });
     });
     for (const id of [...this.walkers.keys()]) if (!live.has(id)) this.walkers.delete(id);
+    this.companions.prune(live);
 
     this.layoutLabels(villagers, dt);
     villagers.sort((a, b) => a.y - b.y || a.x - b.x);
@@ -216,6 +222,7 @@ export class LiveSim {
     const working = villagers.filter((v) => v.status === "working").length;
     return {
       t,
+      theme: input.theme ?? "kerala",
       worldW,
       worldH: WORLD_H,
       places,

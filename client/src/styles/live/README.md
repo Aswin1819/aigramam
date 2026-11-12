@@ -47,3 +47,30 @@ Phaser world stays the default.
    ```
    Also a narrow shot (`--window-size=1100,800`) and one live (no `?demo`) to see the real sessions. Check: whole view filled, every villager has a readable label, places show project names, urgent ones pulse, nothing broken (a failure shows "The … style failed to draw (…)").
 3. Report: what you ported, anything simplified, screenshot paths.
+
+## Places: `f.theme` (Kerala or Bengaluru)
+
+The person picks a **place** (world) and an **art style** separately; the style draws the chosen
+place in its own look. `f.theme` is `"kerala"` or `"bengaluru"` (unknown worlds → Kerala). The
+layout is identical for both — only the setting changes. Keep the style's look, line work,
+palette logic, labels, selection and motion exactly the same; swap the scenery:
+
+| Kerala element (band / field) | Bengaluru equivalent |
+|---|---|
+| sky (warm/day per style) | the same style's sky; add soft clouds and 1–2 paper kites |
+| far bank + far palms (`f.farPalms`, just above `GROUND.waterTop`) | a skyline of glass tech towers and apartment blocks (some with water tanks, 1–2 construction cranes), positions from `f.farPalms` (vary heights by `hash`) |
+| backwater band (`GROUND.waterTop`–`waterBottom`) | a raised **metro viaduct** (deck + pillars + purple stripe) with park greenery behind |
+| canoe at `f.canoeX` | a **metro train** (3–4 cars, lit windows at night/dark styles) gliding along the viaduct at `f.canoeX` (wider than the canoe is fine) |
+| ground (`groundY`–`pathTop`) | footpath pavers / lawn, black-and-yellow kerb at the road edge |
+| laterite path (`pathTop`–`pathBottom`) | an asphalt **road** with lane dashes and a zebra crossing near the sign; 2–4 **autos** (yellow-green, black top) and maybe a bus drifting along at their own speeds (deterministic from `f.t`), drawn behind villagers' feet |
+| coconut palms (`f.palms`) | gulmohar / rain trees with red-orange blooms (same positions, same sway rules) |
+| tea shop per place (`place.building`, `variant`) | city buildings per `variant`: 0 glass office, 1 darshini café (steel counter, steam), 2 co-working/brick loft, 3 kiosk/shop with awning — project name on a signboard as before |
+| "AI GRAMAM" sign (`f.sign`) | same sign, as a green street sign or bus-stop style board |
+| brass lamp row (`f.lamps`) | street lights / string lights or diyas lit the same way (`lit` count) |
+| style-specific extras (comic caption, HUD text) | adjust wording where it names Kerala things, e.g. "MEANWHILE, IN BENGALURU…" |
+
+Cache Bengaluru scenery separately from Kerala's (different cache keys), keep the same performance
+rules, and never name real brands, companies or the real metro operator.
+
+Verify both places: `?demo&art=<id>&world=bengaluru` and `?demo&art=<id>&world=kerala`
+(`?world=` previews a place for one visit).

@@ -9,15 +9,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import { buildKerala } from "./art/kerala.mjs";
+import { buildBengaluru } from "./art/bengaluru.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const what = process.argv[2] ?? "all";
 const started = Date.now();
 
 if (what === "all" || what === "worlds") {
-  const dir = path.join(root, "worlds", "kerala", "assets");
-  fs.rmSync(dir, { recursive: true, force: true });
-  buildKerala(dir);
+  for (const [id, build] of [["kerala", buildKerala], ["bengaluru", buildBengaluru]]) {
+    const dir = path.join(root, "worlds", id, "assets");
+    fs.rmSync(dir, { recursive: true, force: true });
+    build(dir);
+  }
 }
 if (what === "all" || what === "characters") {
   const { buildCharacters } = await import("./art/characters.mjs");
