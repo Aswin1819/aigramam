@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { TerminalClientMessage, TerminalServerMessage } from "@shared/terminal";
 import type { ChatItem, Snapshot } from "@shared/model";
 import type { WorldsState } from "@shared/world";
 import type { CharactersState } from "@shared/character";
@@ -25,6 +26,8 @@ export function useLiveSessions() {
   const [characters, setCharacters] = useState<CharactersState | null>(null);
   const modeRef = useRef<AppMode>(startInDemo ? "demo" : "live");
   const wsRef = useRef<WebSocket | null>(null);
+  /** Listeners for terminal messages (term-*), which share this socket. */
+  const termListeners = useRef(new Set<(msg: TerminalServerMessage) => void>());
   const skewRef = useRef(0);
   const pending = useRef(new Map<string, (r: CommandOutcome) => void>());
   const [chat, setChat] = useState<{ sessionId: string; items: ChatItem[] } | null>(null);
@@ -51,6 +54,10 @@ export function useLiveSessions() {
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
+          if (typeof msg?.type === "string" && msg.type.startsWith("term-")) {
+            for (const fn of termListeners.current) fn(msg as TerminalServerMessage);
+            return;
+          }
           if (msg?.type === "worlds") {
             setWorlds(msg.payload as WorldsState);
             return;
@@ -150,5 +157,18 @@ export function useLiveSessions() {
     }
   }, []);
 
-  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat };
+  /** Listen for terminal messages; returns the unsubscribe function. */
+  const onTerminal = useCallback((fn: (msg: TerminalServerMessage) => void) => {
+    termListeners.current.add(fn);
+    return () => void termListeners.current.delete(fn);
+  }, []);
+  /** Send a terminal message; false when not connected. */
+  const sendTerminal = useCallback((msg: TerminalClientMessage) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(msg));
+    return true;
+  }, []);
+
+  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat, onTerminal, sendTerminal };
 }

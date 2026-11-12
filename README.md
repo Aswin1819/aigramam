@@ -45,6 +45,10 @@ claude plugin install ai-gramam@aigramam
 
 Sessions that were already running link after a restart. **Settings → Session link** shows how many are linked. The mod's source is in `plugin/ai-gramam`.
 
+## Terminals
+
+**Workspace → Terminals** (or **Open terminal here** on a project) starts PowerShell in that project's folder, in the browser. It runs on this computer with your permissions, only when you click, and only in folders of projects Ai Gramam already shows; up to 8 at once. Closing a terminal stops its shell. Terminals you opened yourself aren't shown or controlled here.
+
 ## Exact approval alerts without the mod (optional)
 
 From transcripts alone Ai Gramam can see questions and "your turn" exactly, but a **permission prompt** can only be guessed. **Settings → Alerts → Install hooks** adds Claude Code HTTP hooks to your user settings. It shows you the exact before/after first, saves a backup to `~/.ai-gramam/backups`, keeps your existing hooks, and can be undone. The hooks apply to every project, send events only to `127.0.0.1`, and never change what Claude does.

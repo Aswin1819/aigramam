@@ -14,6 +14,8 @@ interface Props {
   onSelectProject: (id: string | null) => void;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
+  onOpenTerminal?: (projectId: string) => void;
+  terminalBlockedReason?: string | null;
 }
 
 /** Every project with an open session: search on the left, the chosen project's details on the right. */
@@ -57,7 +59,14 @@ export default function ProjectsPage(p: Props) {
 
       <section className="glass rounded-2xl p-4">
         {selected ? (
-          <ProjectDetail summary={selected} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
+          <ProjectDetail
+            summary={selected}
+            now={p.now}
+            selectedSessionId={p.selectedSessionId}
+            onSelectSession={p.onSelectSession}
+            onOpenTerminal={p.onOpenTerminal}
+            terminalBlockedReason={p.terminalBlockedReason}
+          />
         ) : (
           <div className="grid h-full min-h-[200px] place-items-center text-center text-[13px] text-cream/50">
             <div>

@@ -20,7 +20,8 @@ interface Prefs {
 }
 
 export type AppView = "world" | "workspace";
-export type WorkspacePage = "overview" | "projects" | "agents";
+export type WorkspacePage = "overview" | "projects" | "agents" | "terminals";
+const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "projects", "agents", "terminals"];
 
 const KEY = "ai-gramam.display";
 
@@ -52,6 +53,7 @@ export function useDisplayPrefs() {
     if (patch.artStyle !== undefined) dropUrlPreview("art");
     if (patch.time !== undefined) dropUrlPreview("time");
     if (patch.view !== undefined) dropUrlPreview("view");
+    if (patch.workspacePage !== undefined) dropUrlPreview("page");
     setPrefs((p) => {
       const next = { ...p, ...patch };
       try {
@@ -68,10 +70,13 @@ export function useDisplayPrefs() {
   const urlArt = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("art") : null;
   // "?view=workspace" (or "world") opens that view for this visit without saving it.
   const urlView = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null;
+  // "?page=terminals" (a Workspace page) opens that page for this visit without saving it.
+  const urlPage = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("page") : null;
   const shown = {
     ...prefs,
     ...(urlArt ? { artStyle: urlArt } : {}),
     ...(urlView === "world" || urlView === "workspace" ? { view: urlView as AppView } : {}),
+    ...(urlPage && WORKSPACE_PAGES.includes(urlPage as WorkspacePage) ? { workspacePage: urlPage as WorkspacePage } : {}),
   };
   return { prefs: shown, update, hourOverride };
 }

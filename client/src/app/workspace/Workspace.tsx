@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { FolderGit2, LayoutGrid, Users } from "lucide-react";
+import { FolderGit2, LayoutGrid, TerminalSquare, Users } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { AppMode } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
@@ -7,6 +7,9 @@ import type { WorkspacePage } from "../useDisplayPrefs";
 import Overview from "./Overview";
 import ProjectsPage from "./ProjectsPage";
 import AgentsPage from "./AgentsPage";
+import TerminalsPage from "./TerminalsPage";
+import type { TerminalsApi } from "@/hooks/useTerminals";
+import { terminalBlockedReason } from "../terminal/terminalState";
 
 interface Props {
   page: WorkspacePage;
@@ -23,17 +26,23 @@ interface Props {
   onSelectProject: (id: string | null) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   onSettings: (tab?: string) => void;
+  /** Managed terminals (kept in Home so the list survives switching views). */
+  terminals: TerminalsApi;
+  /** Start a terminal in a project's folder and show it on the Terminals page. */
+  onOpenTerminal: (projectId: string) => void;
 }
 
 const PAGES: Array<[WorkspacePage, string, typeof LayoutGrid]> = [
   ["overview", "Overview", LayoutGrid],
   ["projects", "Projects", FolderGit2],
   ["agents", "Agents", Users],
+  ["terminals", "Terminals", TerminalSquare],
 ];
 
 /** Workspace Mode: the practical side of Ai Gramam, on the same live data as the village. */
 export default function Workspace(p: Props) {
   const urgent = p.sessions.filter(isUrgent).length;
+  const liveTerminals = p.mode === "demo" ? 0 : p.terminals.terminals.length;
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(ellipse_at_top,#173129,#0b1411_60%)] pb-6 pt-[76px]">
       <div className="mx-auto max-w-[1280px] px-4">
@@ -44,6 +53,7 @@ export default function Workspace(p: Props) {
               <Icon size={15} className={`relative ${p.page === id ? "text-brass" : "text-cream/50"}`} />
               <span className={`relative ${p.page === id ? "font-semibold text-cream" : "text-cream/65"}`}>{label}</span>
               {id === "agents" && urgent > 0 && <span className="relative chip bg-urgent text-white">{urgent}</span>}
+              {id === "terminals" && liveTerminals > 0 && <span className="relative chip bg-white/10 text-cream/80">{liveTerminals}</span>}
             </button>
           ))}
         </nav>
@@ -75,8 +85,11 @@ export default function Workspace(p: Props) {
             onSelectProject={p.onSelectProject}
             selectedSessionId={p.selectedSessionId}
             onSelectSession={p.onSelectSession}
+            onOpenTerminal={p.onOpenTerminal}
+            terminalBlockedReason={terminalBlockedReason(p.mode, p.connected, liveTerminals)}
           />
         )}
+        {p.page === "terminals" && <TerminalsPage api={p.terminals} sessions={p.sessions} projects={p.projects} mode={p.mode} connected={p.connected} />}
         {p.page === "agents" && (
           <AgentsPage sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}

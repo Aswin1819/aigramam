@@ -10,6 +10,8 @@ import { useWorldChoice } from "@/world/useWorldChoice";
 import { assignmentsKey, pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
 import { useLiveSessions } from "@/hooks/useLiveSessions";
+import { useTerminals } from "@/hooks/useTerminals";
+import { terminalBlockedReason } from "@/app/terminal/terminalState";
 import { isUrgent, statusText } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
 import { playChime } from "@/lib/chime";
@@ -25,7 +27,8 @@ import { projectSummaries } from "@/app/workspace/attention";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
-  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat } = useLiveSessions();
+  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat, onTerminal, sendTerminal } = useLiveSessions();
+  const terminals = useTerminals({ onTerminal, sendTerminal });
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
   const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -88,6 +91,17 @@ export default function Home() {
   const projectSummary = useMemo(
     () => (selectedProjectId ? projectSummaries(projects, sessions).find((x) => x.project.id === selectedProjectId) ?? null : null),
     [selectedProjectId, projects, sessions],
+  );
+
+  /** "Open terminal here": start PowerShell in the project's folder and show it in Workspace → Terminals. */
+  const createTerminal = terminals.create;
+  const openTerminal = useCallback(
+    (projectId: string) => {
+      setProjectDrawer(false);
+      update({ view: "workspace", workspacePage: "terminals" });
+      void createTerminal(projectId);
+    },
+    [update, createTerminal],
   );
 
   // Esc closes the drawer / resets the camera.
@@ -176,6 +190,8 @@ export default function Home() {
           onSelectProject={setSelectedProjectId}
           onDecide={decide}
           onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+          terminals={terminals}
+          onOpenTerminal={openTerminal}
         />
       ) : styled ? (
         <StyledWorldView
@@ -300,6 +316,8 @@ export default function Home() {
               setProjectDrawer(false);
               update({ view: "workspace", workspacePage: "projects" });
             }}
+            onOpenTerminal={openTerminal}
+            terminalBlockedReason={terminalBlockedReason(mode, connected, mode === "demo" ? 0 : terminals.terminals.length)}
             onClose={() => setProjectDrawer(false)}
           />
         )}
