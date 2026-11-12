@@ -83,6 +83,14 @@ export interface SessionView {
   hooksActive: boolean;
   source: SessionSource;
   prUrl?: string;
+  /** Present when the Ai Gramam mod runs in this session: the browser can message, stop and approve. */
+  link?: {
+    connected: boolean;
+    /** Messages queued in the browser, not yet picked up by the session. */
+    queued: number;
+    /** A permission request waiting for an answer in the browser. */
+    approval?: { id: string; tool: string; label: string; since: number };
+  };
   subagents: SubagentView[];
   recent: ActivityEntry[];
 }
@@ -113,4 +121,10 @@ export type ServerMessage =
   | { type: "characters"; payload: import("./character").CharactersState };
 export type ClientMessage =
   | { type: "demo-start"; payload: null }
-  | { type: "demo-stop"; payload: null };
+  | { type: "demo-stop"; payload: null }
+  | { type: "session-message"; payload: { requestId: string; sessionId: string; text: string } }
+  | { type: "session-stop"; payload: { requestId: string; sessionId: string } }
+  | { type: "approval-decide"; payload: { requestId: string; approvalId: string; decision: "allow" | "deny" } };
+
+/** The server's reply to a browser command. */
+export type CommandResult = { type: "command-result"; payload: { requestId: string; ok: boolean; error?: string } };

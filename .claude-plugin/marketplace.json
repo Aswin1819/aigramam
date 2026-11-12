@@ -1,0 +1,5 @@
+{
+  "name": "aigramam",
+  "owner": { "name": "Aswin1819" },
+  "plugins": [{ "name": "ai-gramam", "source": "./plugin/ai-gramam", "description": "Links Claude Code sessions to Ai Gramam: live status, messages, stop and approvals from the browser." }]
+}

@@ -4,6 +4,7 @@ import type { WorldsState } from "@shared/world";
 import type { CharactersState } from "@shared/character";
 
 export type AppMode = "live" | "demo";
+export type CommandOutcome = { ok: boolean; error?: string };
 
 const EMPTY: Snapshot = { projects: [], sessions: [], hooks: { installed: false }, serverTime: Date.now(), demo: false };
 
@@ -25,6 +26,7 @@ export function useLiveSessions() {
   const modeRef = useRef<AppMode>(startInDemo ? "demo" : "live");
   const wsRef = useRef<WebSocket | null>(null);
   const skewRef = useRef(0);
+  const pending = useRef(new Map<string, (r: CommandOutcome) => void>());
 
   const send = useCallback((type: "demo-start" | "demo-stop") => {
     const ws = wsRef.current;
@@ -48,6 +50,12 @@ export function useLiveSessions() {
           const msg = JSON.parse(e.data);
           if (msg?.type === "worlds") {
             setWorlds(msg.payload as WorldsState);
+            return;
+          }
+          if (msg?.type === "command-result") {
+            const r = msg.payload as { requestId: string; ok: boolean; error?: string };
+            pending.current.get(r.requestId)?.({ ok: r.ok, error: r.error });
+            pending.current.delete(r.requestId);
             return;
           }
           if (msg?.type === "characters") {
@@ -92,5 +100,26 @@ export function useLiveSessions() {
     send("demo-stop");
   }, [send]);
 
-  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive };
+  /** Send a command to a live session (via the Ai Gramam mod) and wait for the server's answer. */
+  const command = useCallback(
+    (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>): Promise<CommandOutcome> => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.resolve({ ok: false, error: "Not connected to Ai Gramam." });
+      const requestId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          pending.current.delete(requestId);
+          resolve({ ok: false, error: "No answer from the server." });
+        }, 8000);
+        pending.current.set(requestId, (r) => {
+          clearTimeout(timer);
+          resolve(r);
+        });
+        ws.send(JSON.stringify({ type, payload: { ...payload, requestId } }));
+      });
+    },
+    [],
+  );
+
+  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command };
 }

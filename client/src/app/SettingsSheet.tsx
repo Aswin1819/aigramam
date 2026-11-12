@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, Globe2, Users, Cable, MonitorCog, Wand2, X, Copy, Check } from "lucide-react";
+import { Bell, Globe2, Users, Cable, MonitorCog, Wand2, X, Copy, Check, Link2 } from "lucide-react";
 import type { WorldsState } from "@shared/world";
 import type { CharactersState } from "@shared/character";
 import { trpc } from "@/lib/trpc";
 import Avatar from "@/components/Avatar";
 import type { TimeMode } from "./useDisplayPrefs";
 
-export type SettingsTab = "alerts" | "worlds" | "characters" | "bridge" | "display" | "skills";
+export type SettingsTab = "link" | "alerts" | "worlds" | "characters" | "bridge" | "display" | "skills";
 
 interface Props {
   tab: SettingsTab;
@@ -23,10 +23,13 @@ interface Props {
   time: TimeMode;
   onTime: (t: TimeMode) => void;
   onOpenSkills: () => void;
+  linkedCount: number;
+  sessionCount: number;
 }
 
 const TABS: Array<{ id: SettingsTab; label: string; Icon: typeof Bell }> = [
-  { id: "alerts", label: "Alerts", Icon: Bell },
+  { id: "link", label: "Session link", Icon: Link2 },
+  { id: "alerts", label: "Alerts (hooks)", Icon: Bell },
   { id: "worlds", label: "Worlds", Icon: Globe2 },
   { id: "characters", label: "Characters", Icon: Users },
   { id: "display", label: "Display", Icon: MonitorCog },
@@ -130,6 +133,31 @@ function AlertsTab({ lastHookAt }: { lastHookAt?: number }) {
   );
 }
 
+function LinkTab({ linked, total }: { linked: number; total: number }) {
+  const folder = trpc.worlds.folders.useQuery().data?.app ?? "<the aigramam folder>";
+  return (
+    <div className="space-y-3 text-[13px] leading-relaxed text-cream/85">
+      <p>
+        The <b className="text-cream">Ai Gramam mod</b> runs inside each Claude Code session and links it to this village. A linked session can be{" "}
+        <b className="text-cream">messaged</b>, <b className="text-cream">stopped</b> and have its <b className="text-cream">permission requests approved</b> from here, and it reports exactly what it's doing.
+      </p>
+      <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-xs">
+        <b className={linked ? "text-work" : "text-cream"}>{linked} of {total}</b> live session{total === 1 ? "" : "s"} linked right now.
+        {total > linked && <span className="text-cream/55"> Sessions started before the mod was installed link after they restart.</span>}
+      </div>
+      <div className="text-xs text-cream/60">Install it once (it then loads in every new Claude Code session). In a terminal:</div>
+      <CopyLine label="add marketplace" text={`claude plugin marketplace add ${folder}`} />
+      <CopyLine label="install" text="claude plugin install ai-gramam@aigramam" />
+      <ul className="space-y-1 text-[12px] text-cream/70">
+        <li>• Messages are sent as your own words and run when the session is free. Stop works like Esc.</li>
+        <li>• Permission requests come here first only when they would have asked <i>you</i>; with no answer in 45 s the normal prompt appears in the terminal.</li>
+        <li>• Questions Claude asks you (and plan approvals) are still answered in the terminal.</li>
+        <li>• Only small details (file paths, commands) are sent, only to 127.0.0.1, with your local key. Uninstall: <code>claude plugin uninstall ai-gramam</code>.</li>
+      </ul>
+    </div>
+  );
+}
+
 function BridgeTab() {
   const { data: key } = trpc.agents.bridgeApiKey.useQuery();
   const { data: status } = trpc.agents.connectionStatus.useQuery();
@@ -182,6 +210,7 @@ export default function SettingsSheet(p: Props) {
             <motion.div key={p.tab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.18 }} className="space-y-4 pr-6">
               <h2 className="font-display text-xl font-bold">{TABS.find((t) => t.id === p.tab)?.label}</h2>
 
+              {p.tab === "link" && <LinkTab linked={p.linkedCount} total={p.sessionCount} />}
               {p.tab === "alerts" && <AlertsTab lastHookAt={p.lastHookAt} />}
 
               {p.tab === "worlds" && (

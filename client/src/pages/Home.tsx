@@ -16,7 +16,7 @@ import BrandMark from "@/app/BrandMark";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
-  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive } = useLiveSessions();
+  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command } = useLiveSessions();
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
   const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -48,22 +48,42 @@ export default function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, [close, settings, skillsOpen]);
 
+  const decide = useCallback(async (approvalId: string, decision: "allow" | "deny") => {
+    const r = await command("approval-decide", { approvalId, decision });
+    if (!r.ok) toast.error(r.error ?? "Couldn't send your answer");
+    else toast.success(decision === "allow" ? "Approved" : "Denied");
+  }, [command]);
+
   // A toast the moment a session newly needs approval or asks a question.
   const seenUrgent = useRef<Set<string> | null>(null);
+  const shownApprovals = useRef(new Set<string>());
   useEffect(() => {
     const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
     if (seenUrgent.current && mode === "live") {
       for (const s of sessions.filter(isUrgent)) {
         if (seenUrgent.current.has(`${s.id}:${s.statusSince}`)) continue;
+        const approval = s.link?.approval;
         toast(`${s.title}`, {
+          // One toast per request, so it can be closed once the request is answered anywhere.
+          id: approval ? `approval:${approval.id}` : `urgent:${s.id}:${s.statusSince}`,
           description: `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`,
-          action: { label: "Show me", onClick: () => select(s.id) },
-          duration: 8000,
+          action: approval ? { label: "Approve", onClick: () => decide(approval.id, "allow") } : { label: "Show me", onClick: () => select(s.id) },
+          cancel: approval ? { label: "Deny", onClick: () => decide(approval.id, "deny") } : undefined,
+          duration: approval ? 45000 : 8000,
         });
       }
     }
+    // Close toasts for requests that were answered (here, in the terminal) or expired.
+    const openApprovals = new Set(sessions.map((s) => s.link?.approval?.id).filter(Boolean));
+    for (const id of shownApprovals.current) {
+      if (!openApprovals.has(id)) {
+        toast.dismiss(`approval:${id}`);
+        shownApprovals.current.delete(id);
+      }
+    }
+    for (const id of openApprovals) shownApprovals.current.add(id as string);
     seenUrgent.current = urgentNow;
-  }, [sessions, mode, select]);
+  }, [sessions, mode, select, decide]);
 
   const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
@@ -114,7 +134,8 @@ export default function Home() {
         time={prefs.time}
         onTime={(time) => update({ time })}
         onSelect={select}
-        onSettings={(tab) => setSettings((tab as SettingsTab) ?? "alerts")}
+        onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+        onDecide={decide}
         now={now}
       />
 
@@ -143,6 +164,9 @@ export default function Home() {
             onClose={close}
             onFocus={() => worldRef.current?.focus(selected.id)}
             onSetupAlerts={() => setSettings("alerts")}
+            onSetupLink={() => setSettings("link")}
+            demo={mode === "demo"}
+            command={command}
           />
         )}
       </AnimatePresence>
@@ -191,6 +215,8 @@ export default function Home() {
             time={prefs.time}
             onTime={(time) => update({ time })}
             onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
+            linkedCount={sessions.filter((s) => s.link?.connected).length}
+            sessionCount={sessions.length}
           />
         )}
       </AnimatePresence>

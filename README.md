@@ -24,7 +24,24 @@ Open **http://localhost:4317** (the port comes from `.env`; copy `.env.example` 
 
 Tips: drag to pan, scroll to zoom, click a villager (or a row in the dock) to open its details, <kbd>Esc</kbd> to step back. Try `?time=night` to preview the night.
 
-## Exact approval alerts (optional)
+## Talk to your sessions (the Ai Gramam mod)
+
+Install the mod once and every new Claude Code session links itself to the village. Then, from a villager's drawer, you can:
+
+- **send a message**: it runs as your own prompt as soon as the session is free;
+- **stop** what it's doing (like Esc in the terminal);
+- **approve or deny permission requests**: requests that would have asked *you* come to the browser first (with Approve/Deny in the drawer, the top bar and a toast). With no answer in 45 s, the normal prompt appears in the terminal.
+
+Questions Claude asks you, and plan approvals, are still answered in the terminal. The mod sends only small details (paths, commands) to `127.0.0.1` with your local key.
+
+```powershell
+claude plugin marketplace add C:path	oaigramam
+claude plugin install ai-gramam@aigramam
+```
+
+Sessions that were already running link after a restart. **Settings → Session link** shows how many are linked. The mod's source is in `plugin/ai-gramam`.
+
+## Exact approval alerts without the mod (optional)
 
 From transcripts alone Ai Gramam can see questions and "your turn" exactly, but a **permission prompt** can only be guessed. **Settings → Alerts → Install hooks** adds Claude Code HTTP hooks to your user settings. It shows you the exact before/after first, saves a backup to `~/.ai-gramam/backups`, keeps your existing hooks, and can be undone. The hooks apply to every project, send events only to `127.0.0.1`, and never change what Claude does.
 

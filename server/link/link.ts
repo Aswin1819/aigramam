@@ -1,0 +1,239 @@
+/**
+ * The live link between Ai Gramam and the Ai Gramam mod running inside each
+ * Claude Code session.
+ *
+ * The mod (plugin/ai-gramam) posts exact session events here, collects
+ * commands the person queued in the browser (a message, stop) and asks the
+ * browser to answer permission requests. Every request needs the shared key
+ * and must come from this computer.
+ */
+import crypto from "crypto";
+import express, { type Request, type Response, type Router } from "express";
+import { isLocalRequest } from "../_core/security";
+import type { HookPayload } from "../monitor/store";
+
+export const LINK_PATH = "/api/link";
+export const LINK_HEADER = "x-ai-gramam-key";
+
+/** A session counts as linked while its mod checked in within this window. */
+const LINKED_MS = 6_000;
+/** Longest a single approval long-poll is held open. */
+const MAX_WAIT_MS = 30_000;
+/** Pending approvals nobody answered are dropped after this. */
+const APPROVAL_TTL_MS = 5 * 60_000;
+const MAX_MESSAGE = 8_000;
+const MAX_QUEUE = 20;
+
+export type LinkCommand = { id: string; type: "prompt"; text: string; at: number } | { id: string; type: "stop"; at: number };
+
+export interface Approval {
+  id: string;
+  sessionId: string;
+  tool: string;
+  label: string;
+  createdAt: number;
+  decision?: "allow" | "deny";
+  waiters: Array<(d: "allow" | "deny" | null) => void>;
+}
+
+export interface LinkInfo {
+  connected: boolean;
+  queued: number;
+  approval?: { id: string; tool: string; label: string; since: number };
+}
+
+interface LinkedSession {
+  lastSeen: number;
+  inbox: LinkCommand[];
+  version?: string;
+}
+
+function keyMatches(given: unknown, expected: string): boolean {
+  const a = Buffer.from(typeof given === "string" ? given : "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+const isSessionId = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9-]{8,80}$/.test(v);
+
+export class Link {
+  private sessions = new Map<string, LinkedSession>();
+  private approvals = new Map<string, Approval>();
+  /** Called whenever something the browser shows changed. */
+  onChange: () => void = () => {};
+
+  constructor(
+    private readonly getKey: () => string,
+    private readonly onEvent: (p: HookPayload) => void,
+    private readonly describe: (tool: string, input: unknown) => string,
+  ) {}
+
+  private touch(sessionId: string, version?: string): LinkedSession {
+    let s = this.sessions.get(sessionId);
+    if (!s) {
+      s = { lastSeen: 0, inbox: [] };
+      this.sessions.set(sessionId, s);
+    }
+    const wasLinked = Date.now() - s.lastSeen < LINKED_MS;
+    s.lastSeen = Date.now();
+    if (version) s.version = version;
+    if (!wasLinked) this.onChange();
+    return s;
+  }
+
+  info(sessionId: string, now = Date.now()): LinkInfo | undefined {
+    const s = this.sessions.get(sessionId);
+    const approval = [...this.approvals.values()].find((a) => a.sessionId === sessionId && !a.decision);
+    if (!s && !approval) return undefined;
+    return {
+      connected: !!s && now - s.lastSeen < LINKED_MS,
+      queued: s?.inbox.filter((c) => c.type === "prompt").length ?? 0,
+      approval: approval && { id: approval.id, tool: approval.tool, label: approval.label, since: approval.createdAt },
+    };
+  }
+
+  // ── Browser side ───────────────────────────────────────────────────────────
+
+  /** Queue a message for a linked session; it runs as a turn once the session is idle. */
+  queueMessage(sessionId: string, text: string): { ok: true } | { ok: false; error: string } {
+    const s = this.sessions.get(sessionId);
+    if (!s || Date.now() - s.lastSeen >= LINKED_MS) return { ok: false, error: "That session isn't linked to Ai Gramam (the mod isn't running in it)." };
+    const t = text.trim();
+    if (!t) return { ok: false, error: "The message is empty." };
+    if (t.length > MAX_MESSAGE) return { ok: false, error: `Messages are limited to ${MAX_MESSAGE} characters.` };
+    if (s.inbox.length >= MAX_QUEUE) return { ok: false, error: "Too many messages are already waiting for this session." };
+    s.inbox.push({ id: crypto.randomUUID(), type: "prompt", text: t, at: Date.now() });
+    this.onChange();
+    return { ok: true };
+  }
+
+  queueStop(sessionId: string): { ok: true } | { ok: false; error: string } {
+    const s = this.sessions.get(sessionId);
+    if (!s || Date.now() - s.lastSeen >= LINKED_MS) return { ok: false, error: "That session isn't linked to Ai Gramam." };
+    s.inbox.push({ id: crypto.randomUUID(), type: "stop", at: Date.now() });
+    this.onChange();
+    return { ok: true };
+  }
+
+  decide(approvalId: string, decision: "allow" | "deny"): boolean {
+    const a = this.approvals.get(approvalId);
+    if (!a || a.decision) return false;
+    a.decision = decision;
+    for (const w of a.waiters.splice(0)) w(decision);
+    this.onChange();
+    return true;
+  }
+
+  // ── Mod side ───────────────────────────────────────────────────────────────
+
+  /** Drains a session's inbox (the mod acts on each command). */
+  takeInbox(sessionId: string, version?: string): LinkCommand[] {
+    const s = this.touch(sessionId, version);
+    const out = s.inbox.splice(0);
+    if (out.length) this.onChange();
+    return out;
+  }
+
+  openApproval(sessionId: string, tool: string, input: unknown): Approval {
+    this.touch(sessionId);
+    // A session has at most one open request: a new one replaces an unanswered one.
+    for (const a of this.approvals.values()) if (a.sessionId === sessionId && !a.decision) this.closeApproval(a.id);
+    const a: Approval = { id: crypto.randomUUID(), sessionId, tool, label: this.describe(tool, input), createdAt: Date.now(), waiters: [] };
+    this.approvals.set(a.id, a);
+    this.onChange();
+    return a;
+  }
+
+  waitApproval(id: string, ms: number): Promise<"allow" | "deny" | null> {
+    const a = this.approvals.get(id);
+    if (!a) return Promise.resolve(null);
+    if (a.decision) return Promise.resolve(a.decision);
+    return new Promise((resolve) => {
+      const done = (d: "allow" | "deny" | null) => {
+        clearTimeout(t);
+        resolve(d);
+      };
+      const t = setTimeout(() => {
+        a.waiters = a.waiters.filter((w) => w !== done);
+        resolve(null);
+      }, Math.min(ms, MAX_WAIT_MS));
+      a.waiters.push(done);
+    });
+  }
+
+  /** The mod stopped waiting (answered in the terminal, or gave up): forget the request. */
+  closeApproval(id: string) {
+    const a = this.approvals.get(id);
+    if (!a) return;
+    for (const w of a.waiters.splice(0)) w(null);
+    this.approvals.delete(id);
+    this.onChange();
+  }
+
+  prune(now = Date.now()) {
+    for (const a of this.approvals.values()) if (now - a.createdAt > APPROVAL_TTL_MS) this.closeApproval(a.id);
+    for (const [id, s] of this.sessions) if (now - s.lastSeen > 10 * 60_000 && s.inbox.length === 0) this.sessions.delete(id);
+  }
+
+  // ── HTTP API for the mod ───────────────────────────────────────────────────
+
+  router(): Router {
+    const r = express.Router();
+    r.use((req: Request, res: Response, next) => {
+      if (!isLocalRequest(req) || !keyMatches(req.headers[LINK_HEADER], this.getKey())) {
+        res.status(403).json({ error: "forbidden" });
+        return;
+      }
+      next();
+    });
+
+    // Session events, same shape as Claude Code hook payloads.
+    r.post("/events", (req, res) => {
+      const { sessionId, events, version } = req.body ?? {};
+      if (!isSessionId(sessionId) || !Array.isArray(events) || events.length > 200) {
+        res.status(400).json({ error: "bad request" });
+        return;
+      }
+      this.touch(sessionId, typeof version === "string" ? version.slice(0, 20) : undefined);
+      res.json({ ok: true });
+      for (const ev of events) {
+        if (ev && typeof ev === "object") {
+          try {
+            this.onEvent({ ...(ev as HookPayload), session_id: sessionId });
+          } catch {}
+        }
+      }
+    });
+
+    r.get("/inbox", (req, res) => {
+      const sessionId = req.query.session;
+      if (!isSessionId(sessionId)) {
+        res.status(400).json({ error: "bad request" });
+        return;
+      }
+      res.json({ commands: this.takeInbox(sessionId, typeof req.query.v === "string" ? req.query.v.slice(0, 20) : undefined) });
+    });
+
+    r.post("/approvals", (req, res) => {
+      const { sessionId, tool, input } = req.body ?? {};
+      if (!isSessionId(sessionId) || typeof tool !== "string" || tool.length > 200) {
+        res.status(400).json({ error: "bad request" });
+        return;
+      }
+      const a = this.openApproval(sessionId, tool, input);
+      res.json({ id: a.id });
+    });
+
+    r.get("/approvals/:id", async (req, res) => {
+      const wait = Math.max(0, Math.min(Number(req.query.wait) || 0, MAX_WAIT_MS));
+      const decision = await this.waitApproval(String(req.params.id), wait);
+      res.json({ decision });
+    });
+
+    r.delete("/approvals/:id", (req, res) => {
+      this.closeApproval(String(req.params.id));
+      res.json({ ok: true });
+    });
+    return r;
+  }
+}

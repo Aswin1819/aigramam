@@ -13,6 +13,9 @@ import { demoSnapshot } from "./monitor/demo";
 import { Monitor } from "./monitor/monitor";
 import { resolveProject } from "./monitor/projectRoot";
 import type { HookPayload } from "./monitor/store";
+import { Link } from "./link/link";
+import { describeTool } from "./monitor/actions";
+import { getOrCreateHookKey } from "./monitor/hooks";
 import type { WorldsState } from "@shared/world";
 import type { CharactersState } from "@shared/character";
 
@@ -26,6 +29,9 @@ const bridgeSessions = new Map<string, SessionView>();
 let flushTimer: NodeJS.Timeout | null = null;
 let lastSent = "";
 let worldsState: (() => WorldsState) | null = null;
+/** The live link to the Ai Gramam mod inside each session (messages, stop, approvals). */
+export const link = new Link(() => getOrCreateHookKey(), (p) => handleHook(p), (tool, input) => describeTool(tool, input).label);
+link.onChange = () => scheduleFlush();
 let charactersState: (() => CharactersState) | null = null;
 
 export function getMonitor() {
@@ -36,6 +42,19 @@ export function getMonitor() {
 
 function liveSnapshot(now = Date.now()): Snapshot {
   const snap = monitor.store.snapshot(now);
+  for (const s of snap.sessions) {
+    const info = link.info(s.id, now);
+    if (info) {
+      s.link = info;
+      if (info.approval) {
+        // A request waiting in the browser is the most urgent thing about a session.
+        s.status = "waiting";
+        s.waitingReason = "permission";
+        s.action = { kind: "waiting", emoji: "🔔", label: `Needs your approval: ${info.approval.label}`, startedAt: info.approval.since };
+        s.statusSince = info.approval.since;
+      }
+    }
+  }
   if (bridgeSessions.size === 0) return snap;
   const sessions = [...snap.sessions, ...bridgeSessions.values()];
   const projects = new Map(snap.projects.map((p) => [p.id, p]));
@@ -76,7 +95,24 @@ function sendDemo(ws: WebSocket) {
   if (startedAt !== undefined) send(ws, { ...demoSnapshot(Date.now(), startedAt), hooks: monitor.store.hooksInfo() });
 }
 
+function reply(ws: WebSocket, requestId: unknown, result: { ok: boolean; error?: string }) {
+  if (typeof requestId !== "string" || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(JSON.stringify({ type: "command-result", payload: { requestId: requestId.slice(0, 64), ...result } }));
+  } catch {}
+}
+
 function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
+  const p = (msg.payload ?? {}) as Record<string, unknown>;
+  // Commands that act on real sessions: never from a tab that is showing the demo.
+  if (msg.type === "session-message" || msg.type === "session-stop" || msg.type === "approval-decide") {
+    if (demoClients.has(ws)) return reply(ws, p.requestId, { ok: false, error: "Switch to Live to act on real sessions." });
+    if (msg.type === "session-message") return reply(ws, p.requestId, link.queueMessage(String(p.sessionId ?? ""), String(p.text ?? "")));
+    if (msg.type === "session-stop") return reply(ws, p.requestId, link.queueStop(String(p.sessionId ?? "")));
+    const decision = p.decision === "allow" || p.decision === "deny" ? p.decision : null;
+    const ok = !!decision && link.decide(String(p.approvalId ?? ""), decision);
+    return reply(ws, p.requestId, ok ? { ok: true } : { ok: false, error: "That request was already answered or has expired." });
+  }
   if (msg.type === "demo-start") {
     demoClients.set(ws, Date.now());
     sendDemo(ws);
@@ -148,6 +184,7 @@ export function initializeWebSocket(server: unknown) {
   }, DEMO_TICK_MS);
 
   monitor.start(scheduleFlush);
+  setInterval(() => link.prune(), 30_000);
   console.log("[Monitor] Watching Claude Code sessions (read-only)");
 }
 

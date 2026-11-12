@@ -17,7 +17,9 @@ A local browser app that shows live Claude Code sessions as villagers in an anim
   - `hooks.ts`: the HTTP hook receiver (replies 204 with an empty body) plus install/uninstall.
 - `server/packs/`: shared pack file checks (`files.ts`) and the hot-reloading `PackManager` (which also serves assets).
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
-- `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages. Demo mode is per tab.
+- `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages, and takes browser commands (`session-message`, `session-stop`, `approval-decide`, answered with `command-result`). Demo mode is per tab and never acts on real sessions.
+- `server/link/link.ts`: the live link to the mod (`/api/link`, loopback + `x-ai-gramam-key`): events in, a per-session inbox (messages, stop), and approvals the mod long-polls.
+- `plugin/ai-gramam/`: the Claude Code mod (hooks module `hooks/register.ts`). `.claude-plugin/marketplace.json` at the repo root lists it. Check it with `claude plugin validate plugin/ai-gramam`; it hooks `classic.PermissionRequest`, so only asks that would reach the person go to the browser.
 - `server/_core/`:
   - `security.ts`: binds to 127.0.0.1, checks Host/Origin, `safeChildPath`/`safeRelativePath`;
   - `paths.ts`: the data folder `~/.ai-gramam`, with a one-time copy of settings from the old folder;

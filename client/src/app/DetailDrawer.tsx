@@ -4,6 +4,8 @@ import type { ProjectView, SessionView } from "@shared/model";
 import type { CharacterInfo } from "@shared/character";
 import Avatar from "@/components/Avatar";
 import { STATUS_META, clockTime, elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
+import type { CommandOutcome } from "@/hooks/useLiveSessions";
+import SessionControls from "./SessionControls";
 
 interface Props {
   session: SessionView;
@@ -13,6 +15,9 @@ interface Props {
   onClose: () => void;
   onFocus: () => void;
   onSetupAlerts: () => void;
+  onSetupLink: () => void;
+  demo: boolean;
+  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
 }
 
 function Meta({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
@@ -26,7 +31,7 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 }
 
 /** Slide-in panel with everything about one session. */
-export default function DetailDrawer({ session: s, project, character, now, onClose, onFocus, onSetupAlerts }: Props) {
+export default function DetailDrawer({ session: s, project, character, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command }: Props) {
   const color = statusColor(s);
   const urgent = isUrgent(s);
   const source = s.source === "demo" ? "Demo data" : s.hooksActive ? "Live · hooks + transcript" : s.source === "bridge" ? "Remote bridge" : "Live · transcript";
@@ -60,6 +65,7 @@ export default function DetailDrawer({ session: s, project, character, now, onCl
               <span className="text-[11px] tabular-nums text-cream/50">for {elapsed(s.statusSince, now)}</span>
             </div>
             {character && <div className="mt-1 text-[11px] text-cream/45">Shown as {character.name}</div>}
+            {s.link?.connected && <div className="mt-1 flex items-center gap-1 text-[11px] text-work"><span className="h-1.5 w-1.5 rounded-full bg-work shadow-[0_0_6px_#5eead4]" /> Linked: you can talk to it from here</div>}
           </div>
           <div className="flex flex-col gap-1">
             <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-lg text-cream/60 hover:bg-white/10 hover:text-cream" aria-label="Close details"><X size={16} /></button>
@@ -73,7 +79,7 @@ export default function DetailDrawer({ session: s, project, character, now, onCl
             <span className="text-[11px] tabular-nums text-cream/50">{elapsed(s.action.startedAt, now)}</span>
           </motion.div>
         )}
-        {s.maybeNeedsApproval && (
+        {s.maybeNeedsApproval && !s.link?.connected && (
           <p className="relative mt-2 text-[11.5px] leading-snug text-wait">
             ⏳ This has been running a while and may be waiting for your approval.{" "}
             <button onClick={onSetupAlerts} className="underline underline-offset-2">Turn on exact alerts</button>
@@ -82,6 +88,10 @@ export default function DetailDrawer({ session: s, project, character, now, onCl
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="border-b border-white/8 p-4">
+          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Talk to this session</h3>
+          <SessionControls session={s} now={now} demo={demo} command={command} onSetupLink={onSetupLink} />
+        </div>
         <div className="space-y-1.5 border-b border-white/8 p-4">
           <Meta icon={<Folder size={13} />} label="Project">{project?.name ?? "?"} <span className="block font-mono text-[10.5px] text-cream/45">{s.cwd}</span></Meta>
           {s.gitBranch && <Meta icon={<GitBranch size={13} />} label="Branch">{s.gitBranch}</Meta>}

@@ -651,6 +651,7 @@ export class WorldScene extends Phaser.Scene {
   private setupInput() {
     const cam = this.cameras.main;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      if (p.event?.target !== this.game.canvas) return;
       this.dragFrom = { x: p.x, y: p.y, sx: cam.scrollX, sy: cam.scrollY };
       this.dragged = false;
     });
@@ -663,7 +664,9 @@ export class WorldScene extends Phaser.Scene {
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       const wasDrag = this.dragged;
       this.dragFrom = null;
-      if (wasDrag) return;
+      // Phaser hears mouse-ups on the whole window: a click on an HTML label or
+      // panel above the canvas must not also select (and so toggle) here.
+      if (wasDrag || p.event?.target !== this.game.canvas) return;
       for (const [id, c] of this.chars) {
         if (c.phase === "leaving") continue;
         const h = c.sprite.displayHeight;

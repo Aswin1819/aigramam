@@ -9,7 +9,8 @@ import { serveStatic, setupVite } from "./vite";
 import { BIND_HOST, hostAndOriginGuard, localOnly } from "./security";
 import { isProduction, runtime } from "./runtime";
 import { migrateLegacyData } from "./paths";
-import { initializeWebSocket, getBroadcastCallbacks, handleHook, setHooksInstalled } from "../websocket";
+import { initializeWebSocket, getBroadcastCallbacks, handleHook, setHooksInstalled, link } from "../websocket";
+import { LINK_PATH } from "../link/link";
 import { createBridgeRouter } from "../bridge";
 import { createHooksRouter, getOrCreateHookKey, HooksInstaller, HOOK_PATH } from "../monitor/hooks";
 import { characterManager, worldManager } from "../worlds";
@@ -67,6 +68,8 @@ async function startServer() {
   // Claude Code HTTP hooks (optional; installed only when the user clicks Install)
   const hookKey = getOrCreateHookKey();
   app.use(HOOK_PATH, createHooksRouter(() => hookKey, handleHook));
+  // Live link for the Ai Gramam mod (messages from the browser, stop, approvals)
+  app.use(LINK_PATH, link.router());
 
   // Bridge API — receives data from the optional remote bridge script
   const { onHeroUpdate, onHeroNew, onHeroesBatch, onHeroClear } = getBroadcastCallbacks();

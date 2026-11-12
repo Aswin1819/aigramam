@@ -25,6 +25,7 @@ interface Props {
   onTime: (t: TimeMode) => void;
   onSelect: (id: string) => void;
   onSettings: (tab?: string) => void;
+  onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   now: number;
 }
 
@@ -93,6 +94,12 @@ export default function TopBar(p: Props) {
                     <span className="max-w-[14rem] truncate">{s.title}</span>
                     <span className="opacity-75">· {statusText(s)}</span>
                     <span className="tabular-nums opacity-70">{elapsed(s.statusSince, p.now)}</span>
+                    {s.link?.approval && (
+                      <span className="ml-1 flex gap-1" onClick={(ev) => ev.stopPropagation()}>
+                        <span role="button" tabIndex={0} aria-label="Approve" title="Approve once" onClick={() => p.onDecide(s.link!.approval!.id, "allow")} className="grid h-5 w-5 place-items-center rounded-md bg-white/90 text-[11px] font-bold text-ink hover:bg-white">✓</span>
+                        <span role="button" tabIndex={0} aria-label="Deny" title="Deny" onClick={() => p.onDecide(s.link!.approval!.id, "deny")} className="grid h-5 w-5 place-items-center rounded-md bg-black/30 text-[11px] font-bold text-white hover:bg-black/50">✕</span>
+                      </span>
+                    )}
                   </motion.button>
                 ))}
               </AnimatePresence>
