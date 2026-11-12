@@ -38,11 +38,11 @@ client/src/hooks/useHeroSocket.ts ── React state (heroes[], mode live/demo, 
 | State to browser | `ws` WebSocket plus tRPC (`server/routers/agents.ts`) | tRPC handles skills, agents, config and connection status. Hero state goes over the WebSocket. |
 | Remote push | `server/bridge.ts` plus `bridge/ai-gramam-bridge.mjs` | Optional. Uses a second copy of the parser. |
 | Rendering | The original Phaser map (live) | Phaser with `pixelArt`, on a 3360×1920 canvas scaled to 50% with CSS (no resize handling). Room geometry, NPCs and sprite keys are hard-coded. |
-| Dead code | the old canvas renderer, `PixelOffice`, `pixelEngine`, `AgentPanel`, `TranscriptInput`, `transcriptParser`, `mockData`, `Map`, `ComponentShowcase`, `AIChatBox`, `DashboardLayout`, `ManusDialog` | Nothing imports them, except chains that themselves start from dead files. |
+| Dead code | the old canvas renderer, `PixelOffice`, `pixelEngine`, `AgentPanel`, `TranscriptInput`, `transcriptParser`, `mockData`, `Map`, `ComponentShowcase`, `AIChatBox`, `DashboardLayout` and template dialogs | Nothing imports them, except chains that themselves start from dead files. |
 | Types | `Hero` is defined twice: in `server/routers/agents.ts` and in `client/src/hooks/useHeroSocket.ts` | They can drift apart; `shared/` exists but isn't used for this. |
 
 ### Problems in the current pipeline (they matter for Phase 1)
-1. **Project names are wrong.** `decodeProjectPath` reverses the folder encoding: `C--Users-aswin-Desktop-pp` becomes `C//Users/aswin/Desktop/pp`, and `claude-pixel-agent-web` would become `claude/pixel/agent/web`. The encoding is lossy (every non-alphanumeric character turns into `-`), so it can't be reversed. Every transcript record carries the real `cwd`, so we should use that.
+1. **Project names are wrong.** `decodeProjectPath` reverses the folder encoding: `C--Users-aswin-Desktop-pp` becomes `C//Users/aswin/Desktop/pp`, and `my-web-app` would become `my/web/app`. The encoding is lossy (every non-alphanumeric character turns into `-`), so it can't be reversed. Every transcript record carries the real `cwd`, so we should use that.
 2. **Plain-text messages break parsing.** `message.content` is sometimes a plain string: 67 of 471 `user` records in one sample. `blocks.filter` then throws. The catch is around the whole chunk, so **every later line in that chunk is dropped**. This is the same bug I fixed in the bridge.
 3. **A line written in two pieces is lost.** If a read lands mid-write, the partial line fails to parse, the read position has already moved past it, and the line is gone.
 4. **Whole history on discovery.** The server reads the entire file from byte 0 (one transcript here is 56 MB, loaded into a single buffer) and replays all of it. That's why heroes show levels like LV93 and why startup is slow.
@@ -52,7 +52,7 @@ client/src/hooks/useHeroSocket.ts ── React state (heroes[], mode live/demo, 
 8. **Network calls, against our "local only" rule** (to be removed in Phase 1):
    - Google Fonts in `client/index.html`;
    - an Umami analytics `<script>` (`%VITE_ANALYTICS_ENDPOINT%`);
-   - `vite-plugin-manus-runtime` and the Manus debug collector (writes browser logs to `.manus-logs/`);
+   - the template's Vite runtime plugin and debug collector (writes browser logs to a log folder);
    - the template's OAuth/LLM/S3/maps/voice helpers in `server/_core/*` (unused but present);
    - the MySQL/Drizzle setup.
 
@@ -266,7 +266,7 @@ Packs are **data only**: no code or scripts. Effects are a fixed set of built-in
 **Questions for you**
 1. **Hooks:** may I add the HTTP hooks to your **user** `~/.claude/settings.json` (covers every project) behind an "Install hooks" button that shows the change first? Or would you rather paste the JSON yourself? (Recommended: the button, with a preview and an undo.)
 2. **Zip upload** needs a zip-reading library. OK to add **`fflate`** (small, no dependencies, MIT)? Or should drag-a-folder be the only way in v1?
-3. **Template cleanup:** OK to remove the Manus leftovers (OAuth, MySQL/Drizzle, LLM/S3/maps/voice helpers, Google Fonts, Umami, the Manus Vite plugins) and the dead components? That *removes* dependencies and network calls; nothing you use depends on them.
+3. **Template cleanup:** OK to remove the template leftovers (OAuth, MySQL/Drizzle, LLM/S3/maps/voice helpers, Google Fonts, Umami, the template's Vite plugins) and the dead components? That *removes* dependencies and network calls; nothing you use depends on them.
 4. **Where user content lives:** shipped packs in the repo (`worlds/`, `characters/`), and your own packs and uploads in `~/.ai-gramam/worlds|characters` so they survive `git pull`? (Recommended.)
 5. **Character assignment:** remembered per **project** (stable) or per **session** (sessions come and go)? Recommended: per project, with an optional per-session override.
 6. **Finished sessions:** how long should a finished character stay on screen before walking off? (Proposed: 2 minutes, with the completion effect played once.)
@@ -306,7 +306,7 @@ After every phase: `vitest` and `tsc` pass, the existing e2e scripts pass, it's 
   - a sidebar grouped by project (status, action, elapsed time, branch);
   - a detail panel with recent activity;
   - subagents as small companions with an agent-type label.
-- Remove Manus leftovers and the dead code (if approved); stop writing `heroes.json`.
+- Remove template leftovers and the dead code (if approved); stop writing `heroes.json`.
 - **Done when:**
   - every Claude Code session running on this machine appears within 3 s, with the right project name (from `cwd`) and title;
   - an `AskUserQuestion` or permission prompt shows the waiting banner within 2 s (permission prompts need hooks; without hooks the banner says "possibly waiting");
@@ -341,5 +341,5 @@ After every phase: `vitest` and `tsc` pass, the existing e2e scripts pass, it's 
 
 ### Phase 6: Docs
 - `docs/WORLDS.md` and `docs/PACKS.md`: the exact sprite-sheet layout with a diagram, limits, examples, and how to zip and share.
-- README: credits the original author (thousandsky2024) and the MIT license, lists changes, explains setup on Windows.
+- README: the MIT license, what changed, setup on Windows.
 - **Done when:** someone can build a new pack from `PACKS.md` alone, and it passes validation on the first try.

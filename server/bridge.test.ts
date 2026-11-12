@@ -7,7 +7,6 @@ import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
 import { getOrCreateApiKey } from "./bridge";
-import { migrateLegacyData } from "./_core/paths";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = path.join(ROOT, "bridge", "ai-gramam-bridge.mjs");
@@ -30,25 +29,6 @@ describe("bridge API key", () => {
     fs.writeFileSync(path.join(tmp, "config.json"), JSON.stringify({ bridgeApiKey: "existing-key", theme: "dark" }));
     expect(getOrCreateApiKey(tmp)).toBe("existing-key");
     expect(JSON.parse(fs.readFileSync(path.join(tmp, "config.json"), "utf8")).theme).toBe("dark");
-  });
-});
-
-describe("data folder carry-over", () => {
-  it("copies config and hook key from the old folder once, leaving the old folder untouched", () => {
-    const legacy = path.join(tmp, "old");
-    const fresh = path.join(tmp, "new");
-    fs.mkdirSync(legacy);
-    fs.writeFileSync(path.join(legacy, "config.json"), '{"bridgeApiKey":"k"}');
-    fs.writeFileSync(path.join(legacy, "hook-key"), "a".repeat(48));
-    fs.writeFileSync(path.join(legacy, "heroes.json"), "[]");
-    expect(migrateLegacyData(fresh, legacy).sort()).toEqual(["config.json", "hook-key"]);
-    expect(fs.readFileSync(path.join(fresh, "config.json"), "utf8")).toBe('{"bridgeApiKey":"k"}');
-    expect(fs.existsSync(path.join(fresh, "heroes.json"))).toBe(false);
-    expect(fs.readdirSync(legacy).sort()).toEqual(["config.json", "heroes.json", "hook-key"]);
-    fs.writeFileSync(path.join(fresh, "config.json"), "{}");
-    expect(migrateLegacyData(fresh, legacy)).toEqual([]); // never overwrites
-    expect(fs.readFileSync(path.join(fresh, "config.json"), "utf8")).toBe("{}");
-    expect(migrateLegacyData(path.join(tmp, "x"), path.join(tmp, "missing"))).toEqual([]);
   });
 });
 

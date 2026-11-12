@@ -10,6 +10,7 @@
 import crypto from "crypto";
 import express, { type Request, type Response, type Router } from "express";
 import { isLocalRequest } from "../_core/security";
+import type { LinkQuestion } from "@shared/model";
 import type { HookPayload } from "../monitor/store";
 
 export const LINK_PATH = "/api/link";
@@ -23,8 +24,16 @@ const MAX_WAIT_MS = 30_000;
 const APPROVAL_TTL_MS = 5 * 60_000;
 const MAX_MESSAGE = 8_000;
 const MAX_QUEUE = 20;
+const MAX_ANSWER = 2_000;
 
 export type LinkCommand = { id: string; type: "prompt"; text: string; at: number } | { id: string; type: "stop"; at: number };
+
+export type Decision = "allow" | "deny";
+/** What the mod gets back: the decision, plus the answers when it was a question. */
+export interface Outcome {
+  decision: Decision;
+  answers?: Record<string, string>;
+}
 
 export interface Approval {
   id: string;
@@ -32,14 +41,53 @@ export interface Approval {
   tool: string;
   label: string;
   createdAt: number;
-  decision?: "allow" | "deny";
-  waiters: Array<(d: "allow" | "deny" | null) => void>;
+  /** Set for AskUserQuestion: the browser answers instead of approving. */
+  questions?: LinkQuestion[];
+  outcome?: Outcome;
+  waiters: Array<(o: Outcome | null) => void>;
 }
 
 export interface LinkInfo {
   connected: boolean;
   queued: number;
-  approval?: { id: string; tool: string; label: string; since: number };
+  approval?: { id: string; tool: string; label: string; since: number; questions?: LinkQuestion[] };
+}
+
+const clip = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
+
+/** Keep only the parts of an AskUserQuestion input the browser shows, bounded. */
+export function sanitizeQuestions(input: unknown): LinkQuestion[] | undefined {
+  const qs = (input as { questions?: unknown } | null)?.questions;
+  if (!Array.isArray(qs)) return undefined;
+  const out: LinkQuestion[] = [];
+  for (const q of qs.slice(0, 4)) {
+    if (!q || typeof q !== "object") continue;
+    const o = q as Record<string, unknown>;
+    const question = clip(o.question, 500).trim();
+    const options = Array.isArray(o.options)
+      ? o.options.slice(0, 6).flatMap((x) => {
+          const opt = (x ?? {}) as Record<string, unknown>;
+          const label = clip(opt.label, 120).trim();
+          const description = clip(opt.description, 300).trim();
+          return label ? [{ label, ...(description ? { description } : {}) }] : [];
+        })
+      : [];
+    if (question) out.push({ question, header: clip(o.header, 40).trim(), options, multiSelect: o.multiSelect === true });
+  }
+  return out.length ? out : undefined;
+}
+
+/** Answers must name the asked questions; values are bounded, non-empty strings. */
+function validAnswers(answers: unknown, questions: LinkQuestion[]): Record<string, string> | null {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) return null;
+  const asked = new Set(questions.map((q) => q.question));
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(answers as Record<string, unknown>)) {
+    if (!asked.has(k) || typeof v !== "string") return null;
+    const t = v.trim();
+    if (t) out[k] = t.slice(0, MAX_ANSWER);
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 interface LinkedSession {
@@ -83,12 +131,12 @@ export class Link {
 
   info(sessionId: string, now = Date.now()): LinkInfo | undefined {
     const s = this.sessions.get(sessionId);
-    const approval = [...this.approvals.values()].find((a) => a.sessionId === sessionId && !a.decision);
+    const approval = [...this.approvals.values()].find((a) => a.sessionId === sessionId && !a.outcome);
     if (!s && !approval) return undefined;
     return {
       connected: !!s && now - s.lastSeen < LINKED_MS,
       queued: s?.inbox.filter((c) => c.type === "prompt").length ?? 0,
-      approval: approval && { id: approval.id, tool: approval.tool, label: approval.label, since: approval.createdAt },
+      approval: approval && { id: approval.id, tool: approval.tool, label: approval.label, since: approval.createdAt, ...(approval.questions ? { questions: approval.questions } : {}) },
     };
   }
 
@@ -115,13 +163,23 @@ export class Link {
     return { ok: true };
   }
 
-  decide(approvalId: string, decision: "allow" | "deny"): boolean {
+  /**
+   * Answer a request from the browser. For a question, "allow" needs answers
+   * to the asked questions; "deny" hands the question back to the terminal.
+   */
+  decide(approvalId: string, decision: Decision, answers?: unknown): { ok: true } | { ok: false; error: string } {
     const a = this.approvals.get(approvalId);
-    if (!a || a.decision) return false;
-    a.decision = decision;
-    for (const w of a.waiters.splice(0)) w(decision);
+    if (!a || a.outcome) return { ok: false, error: "That request was already answered or has expired." };
+    let outcome: Outcome = { decision };
+    if (a.questions && decision === "allow") {
+      const valid = validAnswers(answers, a.questions);
+      if (!valid) return { ok: false, error: "Pick an answer first." };
+      outcome = { decision, answers: valid };
+    }
+    a.outcome = outcome;
+    for (const w of a.waiters.splice(0)) w(outcome);
     this.onChange();
-    return true;
+    return { ok: true };
   }
 
   // ── Mod side ───────────────────────────────────────────────────────────────
@@ -137,21 +195,23 @@ export class Link {
   openApproval(sessionId: string, tool: string, input: unknown): Approval {
     this.touch(sessionId);
     // A session has at most one open request: a new one replaces an unanswered one.
-    for (const a of this.approvals.values()) if (a.sessionId === sessionId && !a.decision) this.closeApproval(a.id);
-    const a: Approval = { id: crypto.randomUUID(), sessionId, tool, label: this.describe(tool, input), createdAt: Date.now(), waiters: [] };
+    for (const a of this.approvals.values()) if (a.sessionId === sessionId && !a.outcome) this.closeApproval(a.id);
+    const questions = tool === "AskUserQuestion" ? sanitizeQuestions(input) : undefined;
+    const label = questions ? questions[0]!.question : this.describe(tool, input);
+    const a: Approval = { id: crypto.randomUUID(), sessionId, tool, label, createdAt: Date.now(), waiters: [], ...(questions ? { questions } : {}) };
     this.approvals.set(a.id, a);
     this.onChange();
     return a;
   }
 
-  waitApproval(id: string, ms: number): Promise<"allow" | "deny" | null> {
+  waitApproval(id: string, ms: number): Promise<Outcome | null> {
     const a = this.approvals.get(id);
     if (!a) return Promise.resolve(null);
-    if (a.decision) return Promise.resolve(a.decision);
+    if (a.outcome) return Promise.resolve(a.outcome);
     return new Promise((resolve) => {
-      const done = (d: "allow" | "deny" | null) => {
+      const done = (o: Outcome | null) => {
         clearTimeout(t);
-        resolve(d);
+        resolve(o);
       };
       const t = setTimeout(() => {
         a.waiters = a.waiters.filter((w) => w !== done);
@@ -226,8 +286,8 @@ export class Link {
 
     r.get("/approvals/:id", async (req, res) => {
       const wait = Math.max(0, Math.min(Number(req.query.wait) || 0, MAX_WAIT_MS));
-      const decision = await this.waitApproval(String(req.params.id), wait);
-      res.json({ decision });
+      const outcome = await this.waitApproval(String(req.params.id), wait);
+      res.json({ decision: outcome?.decision ?? null, ...(outcome?.answers ? { answers: outcome.answers } : {}) });
     });
 
     r.delete("/approvals/:id", (req, res) => {

@@ -536,6 +536,7 @@ export const toyBrickLive: LiveStyle = {
   blurb: "Plastic-brick world with stop-motion villagers.",
   fps: FPS,
   bg: "#dcefff",
+  lighting: "day",
   draw(ctx, f, view: ViewRect) {
     statics();
     const k = Math.round(f.t * FPS);

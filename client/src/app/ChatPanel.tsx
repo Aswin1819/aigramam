@@ -11,7 +11,9 @@ interface Props {
   session: SessionView;
   character: CharacterInfo | null;
   items: ChatItem[] | null;
-  /** The message box, approval card and stop button, pinned under the thread. */
+  /** An open request from the session (approval or question), shown at the end of the thread. */
+  request?: { id: string; node: React.ReactNode } | null;
+  /** The message box and stop button, pinned under the thread. */
   footer: React.ReactNode;
 }
 
@@ -50,7 +52,7 @@ function ToolGroup({ items }: { items: ChatItem[] }) {
   );
 }
 
-export default function ChatPanel({ session: s, character, items, footer }: Props) {
+export default function ChatPanel({ session: s, character, items, request, footer }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const rows = toRows(items ?? []);
@@ -60,7 +62,11 @@ export default function ChatPanel({ session: s, character, items, footer }: Prop
   useLayoutEffect(() => {
     const el = scroller.current;
     if (el && atBottom) el.scrollTop = el.scrollHeight;
-  }, [count, atBottom, s.status]);
+  }, [count, atBottom, s.status, request?.id]);
+  // A new request always scrolls into view: it's what the session is waiting for.
+  useEffect(() => {
+    if (request) setAtBottom(true);
+  }, [request?.id]);
   useEffect(() => setAtBottom(true), [s.id]);
 
   const working = s.status === "working";
@@ -117,6 +123,7 @@ export default function ChatPanel({ session: s, character, items, footer }: Prop
             ),
           )}
         </AnimatePresence>
+        <AnimatePresence>{request && <motion.div key={request.id}>{request.node}</motion.div>}</AnimatePresence>
         <AnimatePresence>
           {working && (
             <motion.div key="working" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-2 ml-9 flex items-center gap-2 text-[12px] text-work">

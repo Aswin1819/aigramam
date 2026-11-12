@@ -111,6 +111,8 @@ export interface LiveFrame {
   reducedMotion: boolean;
 }
 
+export type Lighting = "day" | "dusk" | "night";
+
 /** The part of the world on screen (world units). Fill at least this rect every frame. */
 export interface ViewRect {
   x: number;
@@ -129,6 +131,8 @@ export interface LiveStyle {
   fps?: number;
   /** Page background behind the canvas (shown while loading / letterbox). */
   bg: string;
+  /** The time of day the style is painted at; the host tints towards a later chosen time (dusk, night). */
+  lighting: Lighting;
   /**
    * Draw one frame. ctx is already transformed so 1 unit = 1 world unit and
    * the camera is applied; `view` is the visible world rect.

@@ -540,3 +540,14 @@ describe("stopping from Ai Gramam", () => {
     expect(notes(s)).toEqual(["Interrupted"]);
   });
 });
+
+describe("turn cut short mid-tool", () => {
+  it("treats a 'did not complete' tool result as an interruption", () => {
+    const evs = parseLine(JSON.stringify({
+      type: "user", timestamp: new Date().toISOString(),
+      message: { content: [{ type: "tool_result", tool_use_id: "toolu_1", is_error: true, content: "[Tool call did not complete: the turn was ended to deliver the message that follows.]" }] },
+      toolUseResult: "[Tool call did not complete: the turn was ended to deliver the message that follows.]",
+    }));
+    expect(evs.map((e) => e.t)).toEqual(["tool_end", "interrupted"]);
+  });
+});

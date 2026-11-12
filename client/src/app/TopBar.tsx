@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2 } from "lucide-react";
+import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, Volume2, VolumeX } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
 import { elapsed, isUrgent, statusText, waitingOrder } from "@/lib/status";
@@ -26,6 +26,8 @@ interface Props {
   onDemo: () => void;
   time: TimeMode;
   onTime: (t: TimeMode) => void;
+  sound: boolean;
+  onSound: (on: boolean) => void;
   onSelect: (id: string) => void;
   onSettings: (tab?: string) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
@@ -97,7 +99,7 @@ export default function TopBar(p: Props) {
                     <span className="max-w-[14rem] truncate">{s.title}</span>
                     <span className="opacity-75">· {statusText(s)}</span>
                     <span className="tabular-nums opacity-70">{elapsed(s.statusSince, p.now)}</span>
-                    {s.link?.approval && (
+                    {s.link?.approval && !s.link.approval.questions && (
                       <span className="ml-1 flex gap-1" onClick={(ev) => ev.stopPropagation()}>
                         <span role="button" tabIndex={0} aria-label="Approve" title="Approve once" onClick={() => p.onDecide(s.link!.approval!.id, "allow")} className="grid h-5 w-5 place-items-center rounded-md bg-white/90 text-[11px] font-bold text-ink hover:bg-white">✓</span>
                         <span role="button" tabIndex={0} aria-label="Deny" title="Deny" onClick={() => p.onDecide(s.link!.approval!.id, "deny")} className="grid h-5 w-5 place-items-center rounded-md bg-black/30 text-[11px] font-bold text-white hover:bg-black/50">✕</span>
@@ -151,6 +153,16 @@ export default function TopBar(p: Props) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <button
+          onClick={() => p.onSound(!p.sound)}
+          className="grid h-8 w-8 place-items-center rounded-xl text-cream hover:bg-white/10"
+          aria-label={p.sound ? "Sound on: mute alerts" : "Sound off: turn alerts on"}
+          aria-pressed={p.sound}
+          title={p.sound ? "Sound cues on (click to mute)" : "Sound cues muted (click to turn on)"}
+        >
+          {p.sound ? <Volume2 size={16} /> : <VolumeX size={16} className="text-cream/50" />}
+        </button>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="grid h-8 w-8 place-items-center rounded-xl text-cream hover:bg-white/10" aria-label="Time of day" title="Time of day">

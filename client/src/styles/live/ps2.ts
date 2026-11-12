@@ -688,6 +688,7 @@ export const ps2Live: LiveStyle = {
   blurb: "Early-2000s console 3D: low-poly blocky villagers, brick and tile textures, fog, wobbly polygons and a soft low-res upscale with game-HUD nameplates.",
   fps: 30,
   bg: "#5c7088",
+  lighting: "day",
   draw(ctx, f, view) {
     const bw = Math.max(2, Math.round((BH * view.w) / view.h));
     buf = canvas(buf, bw, BH);

@@ -90,5 +90,5 @@ const SLOT_PAD = 160;
 
 /** Placeholder until the real port lands. */
 export function placeholder(id: string, name: string, bg: string): LiveStyle {
-  return { id, name, blurb: "", bg, draw: drawReference };
+  return { id, name, blurb: "", bg, lighting: "day", draw: drawReference };
 }

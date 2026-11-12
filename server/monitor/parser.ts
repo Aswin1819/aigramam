@@ -53,6 +53,8 @@ function textOf(r: Rec): string {
 }
 
 const INTERRUPT_RE = /^\[Request interrupted by user/;
+/** The engine's record for a tool call whose turn ended before it finished. */
+const TOOL_CUT_RE = /^\[Tool call did not complete/;
 const MAX_CHAT_TEXT = 20_000;
 
 function clipChat(t: string): string {
@@ -152,6 +154,8 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
             agentId: typeof tur?.agentId === "string" ? tur.agentId : undefined,
           });
         }
+        // A turn ended mid-tool (stopped, or cut short for a queued message) records the call as not completed.
+        if (typeof r.toolUseResult === "string" && TOOL_CUT_RE.test(r.toolUseResult)) events.push({ t: "interrupted", at });
         return events;
       }
       const text = textOf(r);

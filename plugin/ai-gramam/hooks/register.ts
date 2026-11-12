@@ -11,14 +11,16 @@
  * Only small fields are sent (paths, a command, a pattern), never file
  * contents, and only to 127.0.0.1 with the key from ~/.ai-gramam/hook-key.
  */
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
 
-const VERSION = '0.1.1'
+const VERSION = '0.2.0'
 const DEFAULT_BASE = 'http://127.0.0.1:4317'
 const POLL_MS = 1500
 const APPROVAL_WAIT_MS = 45_000
-/** Tools whose question only the person in the terminal can answer. */
-const PERSON_ONLY = new Set(['AskUserQuestion', 'ExitPlanMode'])
+/** Claude's multiple-choice questions: answered in the browser at the tool call (see tool.call). */
+const QUESTION_TOOL = 'AskUserQuestion'
+/** Tools whose permission request isn't put to the browser: plan approval stays in the terminal, questions are answered at the tool call. */
+const PERSON_ONLY = new Set(['ExitPlanMode', QUESTION_TOOL])
 /** The only input fields Ai Gramam needs to label an action. */
 const LABEL_FIELDS = ['file_path', 'notebook_path', 'path', 'command', 'description', 'pattern', 'query', 'url', 'subagent_type', 'skill', 'name']
 
@@ -110,19 +112,30 @@ async function poll($: EngineInterface) {
   }
 }
 
-/** Offer a permission request to the browser; resolves its answer, or null to ask here. */
-async function askBrowser($: EngineInterface, tool: string, input: unknown, signal: AbortSignal): Promise<'allow' | 'deny' | null> {
-  const opened = await call($, '/approvals', 'POST', { sessionId: link.sessionId, tool, input: slim(input) })
+interface BrowserAnswer {
+  decision: 'allow' | 'deny'
+  /** Question text → chosen label(s) or typed text; only for AskUserQuestion. */
+  answers?: Record<string, string>
+}
+
+/** Offer a permission request (or a question) to the browser; resolves its answer, or null to ask here. */
+async function askBrowser($: EngineInterface, tool: string, input: unknown, signal: AbortSignal): Promise<BrowserAnswer | null> {
+  const question = tool === QUESTION_TOOL
+  // A question needs its text and options in the browser; anything else only needs its label fields.
+  const opened = await call($, '/approvals', 'POST', { sessionId: link.sessionId, tool, input: question ? input : slim(input) })
   const id = typeof opened?.id === 'string' ? opened.id : null
   if (!id) return null
-  $.ui.toast('Waiting for your answer in Ai Gramam (the prompt shows here in 45 s)')
+  $.ui.toast(question ? 'Claude asked a question: answer it in Ai Gramam (it shows here in 45 s)' : 'Waiting for your answer in Ai Gramam (the prompt shows here in 45 s)')
   const deadline = (await $.clock.now()) + APPROVAL_WAIT_MS
   while (!signal.aborted) {
     const left = deadline - (await $.clock.now())
     if (left <= 0) break
     const r = await call($, `/approvals/${id}?wait=${Math.min(25_000, Math.max(1000, left))}`)
     if (!r) break
-    if (r.decision === 'allow' || r.decision === 'deny') return r.decision
+    if (r.decision === 'allow' || r.decision === 'deny') {
+      const answers = r.answers && typeof r.answers === 'object' ? (r.answers as Record<string, string>) : undefined
+      return { decision: r.decision, ...(answers ? { answers } : {}) }
+    }
   }
   void call($, `/approvals/${id}`, 'DELETE')
   return null
@@ -153,6 +166,17 @@ export const register: Register = on => {
     const { tool, tool_use_id, agentId } = e as unknown as { tool: string; tool_use_id?: string; agentId?: string }
     const id = tool_use_id ?? `mod-${Date.now()}`
     send($, [{ hook_event_name: 'PreToolUse', tool_name: tool, tool_input: slim(e), tool_use_id: id, agent_id: agentId }])
+    // Claude's question: offer it in the browser first; its answers become the tool's result, as the terminal dialog's would.
+    if (tool === QUESTION_TOOL && link.linked) {
+      const questions = (e as unknown as { questions?: unknown }).questions
+      const answer = await askBrowser($, tool, { questions }, next.signal)
+      if (answer?.decision === 'allow' && answer.answers) {
+        send($, [{ hook_event_name: 'PostToolUse', tool_name: tool, tool_use_id: id, agent_id: agentId }])
+        const answered: ToolCallResult = { result: { questions, answers: answer.answers } }
+        return answered
+      }
+      // Skipped in the browser, or no answer in time: the dialog opens in the terminal as usual.
+    }
     const result = await next(e)
     const failed = (result as { deny?: string }).deny !== undefined || (result as { isError?: boolean }).isError === true
     send($, [{ hook_event_name: failed ? 'PostToolUseFailure' : 'PostToolUse', tool_name: tool, tool_use_id: id, agent_id: agentId }])
@@ -191,9 +215,9 @@ export const register: Register = on => {
   // A permission request is about to be put to the person: offer it to the browser first.
   on('classic.PermissionRequest', async ($, e, next) => {
     if (!link.linked || PERSON_ONLY.has(e.tool_name)) return next(e)
-    const decision = await askBrowser($, e.tool_name, e.tool_input, next.signal)
-    if (decision === 'allow') return { decision: { behavior: 'allow' as const } }
-    if (decision === 'deny') return { decision: { behavior: 'deny' as const, message: 'Denied in Ai Gramam.' } }
+    const answer = await askBrowser($, e.tool_name, e.tool_input, next.signal)
+    if (answer?.decision === 'allow') return { decision: { behavior: 'allow' as const } }
+    if (answer?.decision === 'deny') return { decision: { behavior: 'deny' as const, message: 'Denied in Ai Gramam.' } }
     return next(e)
   }).catch(($, e, next) => next(e))
 }

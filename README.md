@@ -73,6 +73,6 @@ Tests: `npx pnpm@10.4.1 test` · Types: `npx pnpm@10.4.1 check` · Production: `
 
 To show sessions from another computer, run `bridge/ai-gramam-bridge.mjs` there. **Settings → Remote bridge** gives you the exact commands with your key.
 
-## Credits and license
+## License
 
-Ai Gramam started as a fork of [thousandsky2024/claude-pixel-agent-web](https://github.com/thousandsky2024/claude-pixel-agent-web) (MIT) and has since been rebuilt. Thank you to its authors. Released under the MIT license; see `LICENSE`.
+Released under the MIT license; see `LICENSE`.

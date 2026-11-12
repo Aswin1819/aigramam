@@ -18,6 +18,25 @@ const RES = 3;
 
 let groundTile: HTMLCanvasElement | null = null;
 let skyTile: HTMLCanvasElement | null = null;
+
+/**
+ * A tile as a repeating fill. Unlike drawing tile after tile, a pattern has no
+ * hairline seams at fractional pixel positions. Patterns belong to a context,
+ * so they're cached per context.
+ */
+const patterns = new WeakMap<CanvasRenderingContext2D, Map<HTMLCanvasElement, CanvasPattern>>();
+function tilePattern(c: CanvasRenderingContext2D, tile: HTMLCanvasElement): CanvasPattern | null {
+  let byTile = patterns.get(c);
+  if (!byTile) patterns.set(c, (byTile = new Map()));
+  let p = byTile.get(tile) ?? null;
+  if (!p) {
+    p = c.createPattern(tile, "repeat");
+    if (!p) return null;
+    p.setTransform(new DOMMatrix().scale(1 / RES));
+    byTile.set(tile, p);
+  }
+  return p;
+}
 /** Height of the upper-sky tile: a whole, even number of halftone rows, so it repeats seamlessly. */
 const SKY_TH = 5 * 0.866 * 12;
 
@@ -661,6 +680,7 @@ export const comicArtLive: LiveStyle = {
   blurb: "Comic page: halftone dots, thick ink, captions and speech bubbles.",
   fps: 12,
   bg: PAPER,
+  lighting: "day",
   draw(c, f, view) {
     if (!groundTile) groundTile = makeLayer(TILE, WORLD_H, RES, paintTile);
     const inView = (x: number, pad = 120) => x > view.x - pad && x < view.x + view.w + pad;
@@ -668,13 +688,22 @@ export const comicArtLive: LiveStyle = {
     const calm = f.reducedMotion;
 
     // 1. Repeating scenery strip over the whole view.
-    const t0 = Math.floor(view.x / TILE) * TILE;
-    for (let x = t0; x < view.x + view.w; x += TILE) c.drawImage(groundTile, x, 0, TILE + 0.05, WORLD_H);
+    const ground = tilePattern(c, groundTile);
+    if (ground) {
+      c.fillStyle = ground;
+      c.fillRect(view.x, 0, view.w, WORLD_H);
+    }
     if (view.y < 0) {
       // Wide screens zoom out past the top of the world: continue the sky upwards.
       if (!skyTile) skyTile = makeLayer(TILE, SKY_TH, RES, paintSkyTile);
-      for (let y = -SKY_TH; y + SKY_TH > view.y; y -= SKY_TH) {
-        for (let x = t0; x < view.x + view.w; x += TILE) c.drawImage(skyTile, x, y, TILE + 0.05, SKY_TH + 0.05);
+      const sky = tilePattern(c, skyTile);
+      if (sky) {
+        // Anchored so a whole tile ends exactly at y = 0, where the world's own sky begins.
+        c.save();
+        c.translate(0, -SKY_TH * Math.ceil(-view.y / SKY_TH));
+        c.fillStyle = sky;
+        c.fillRect(view.x, 0, view.w, SKY_TH * Math.ceil(-view.y / SKY_TH));
+        c.restore();
       }
       // A few comic clouds drifting through the extra sky.
       const span = 420;

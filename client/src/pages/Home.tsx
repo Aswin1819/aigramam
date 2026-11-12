@@ -11,6 +11,7 @@ import SkillsManager from "@/components/SkillsManager";
 import { useLiveSessions } from "@/hooks/useLiveSessions";
 import { isUrgent, statusText } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
+import { playChime } from "@/lib/chime";
 import TopBar from "@/app/TopBar";
 import SessionDock from "@/app/SessionDock";
 import DetailDrawer from "@/app/DetailDrawer";
@@ -76,25 +77,35 @@ export default function Home() {
     else toast.success(decision === "allow" ? "Approved" : "Denied");
   }, [command]);
 
-  // A toast the moment a session newly needs approval or asks a question.
+  // A toast (and a sound) the moment a session newly needs approval or asks a question.
   const seenUrgent = useRef<Set<string> | null>(null);
+  const seenTurns = useRef<Set<string> | null>(null);
   const shownApprovals = useRef(new Set<string>());
   useEffect(() => {
     const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
+    const turnsNow = new Set(sessions.filter((s) => s.status === "waiting" && s.waitingReason === "turn_end").map((s) => `${s.id}:${s.statusSince}`));
     if (seenUrgent.current && mode === "live") {
+      let urgentNew = false;
       for (const s of sessions.filter(isUrgent)) {
         if (seenUrgent.current.has(`${s.id}:${s.statusSince}`)) continue;
+        urgentNew = true;
         const approval = s.link?.approval;
+        // Approvals can be answered right in the toast; questions need the card in the chat.
+        const quick = approval && !approval.questions ? approval : null;
         toast(`${s.title}`, {
           // One toast per request, so it can be closed once the request is answered anywhere.
           id: approval ? `approval:${approval.id}` : `urgent:${s.id}:${s.statusSince}`,
-          description: `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`,
-          action: approval ? { label: "Approve", onClick: () => decide(approval.id, "allow") } : { label: "Show me", onClick: () => select(s.id) },
-          cancel: approval ? { label: "Deny", onClick: () => decide(approval.id, "deny") } : undefined,
+          description: approval?.questions ? `Asks: ${approval.label}` : `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`,
+          action: quick ? { label: "Approve", onClick: () => decide(quick.id, "allow") } : { label: approval?.questions ? "Answer" : "Show me", onClick: () => select(s.id) },
+          cancel: quick ? { label: "Deny", onClick: () => decide(quick.id, "deny") } : undefined,
           duration: approval ? 45000 : 8000,
         });
       }
+      const turnNew = !!seenTurns.current && [...turnsNow].some((k) => !seenTurns.current!.has(k));
+      if (prefs.sound && urgentNew) playChime("urgent");
+      else if (prefs.sound && turnNew) playChime("soft");
     }
+    seenTurns.current = turnsNow;
     // Close toasts for requests that were answered (here, in the terminal) or expired.
     const openApprovals = new Set(sessions.map((s) => s.link?.approval?.id).filter(Boolean));
     for (const id of shownApprovals.current) {
@@ -105,7 +116,7 @@ export default function Home() {
     }
     for (const id of openApprovals) shownApprovals.current.add(id as string);
     seenUrgent.current = urgentNow;
-  }, [sessions, mode, select, decide]);
+  }, [sessions, mode, select, decide, prefs.sound]);
 
   const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
@@ -124,6 +135,7 @@ export default function Home() {
           hoveredId={hoveredId}
           onSelect={select}
           reducedMotion={prefs.reducedMotion}
+          hourOverride={hourOverride}
         />
       ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
         <WorldView
@@ -168,6 +180,8 @@ export default function Home() {
         onDemo={startDemo}
         time={prefs.time}
         onTime={(time) => update({ time })}
+        sound={prefs.sound}
+        onSound={(sound) => update({ sound })}
         onSelect={select}
         onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
         onDecide={decide}
