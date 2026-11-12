@@ -56,7 +56,11 @@ From transcripts alone Ai Gramam can see questions and "your turn" exactly, but 
 | Worlds | `worlds/<id>/world.json` + images | `~/.ai-gramam/worlds/<id>/` |
 | Characters | `characters/<id>/pack.json` + `sprites.png` | `~/.ai-gramam/characters/<id>/` |
 
-Shipped: **Kerala Backwaters**, plus three original characters: **Unni** (mundu hero), **Shades** (stylish villain) and **Chaya Kutty** (comic sidekick). All built-in art is original and CC0, generated in code by `node scripts/gen-art.mjs`; replace it with real pixel art any time. Packs are validated (paths, image sizes, sprite-sheet rows and frames), and a broken pack is shown with its errors and never breaks the app. See `docs/WORLDS.md` and `docs/PACKS.md` for the formats.
+Shipped: **Kerala Backwaters** and **Bengaluru Tech Park** (metro, autos, darshini, filter kaapi, gulmohars and drizzle), plus three original characters: **Unni** (mundu hero), **Shades** (stylish villain) and **Chaya Kutty** (comic sidekick). All built-in art is original and CC0, generated in code by `node scripts/gen-art.mjs`; replace it with real pixel art any time. Install a pack by dropping its `.zip` in **Settings → Worlds** or **Settings → Characters**, or copy its folder into `~/.ai-gramam`. Packs are validated (paths, image sizes, sprite-sheet rows and frames), and a broken pack is listed in Settings with its errors and never breaks the app.
+
+- [docs/WORLDS.md](docs/WORLDS.md): how to make a world (`world.json`, layers, locations, decor, lighting, weather).
+- [docs/PACKS.md](docs/PACKS.md): how to make a character (`pack.json`, sprite sheet) and choose one per project.
+- [docs/ART-STYLES.md](docs/ART-STYLES.md): the art styles, the Style lab and how to add a style.
 
 ## How it works
 
@@ -71,7 +75,7 @@ Claude Code HTTP hooks (opt.)  ┘
 - `client/src/world/`: the Phaser scene (sky, lighting, weather, decor, characters, camera) and HTML labels.
 - `client/src/app/`: the top bar, session dock, detail drawer and settings (React, Tailwind, Motion).
 
-Tests: `npx pnpm@10.4.1 test` · Types: `npx pnpm@10.4.1 check` · Production: `pnpm build` then `pnpm start`.
+Tests: `npx pnpm@10.4.1 test` · Types: `npx pnpm@10.4.1 check` · Production: `npx pnpm@10.4.1 build` then `npx pnpm@10.4.1 start`.
 
 ## Remote bridge (optional)
 

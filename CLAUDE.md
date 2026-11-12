@@ -1,6 +1,7 @@
 # Ai Gramam
 
 A local browser app that shows live Claude Code sessions as villagers in an animated Indian world (projects = places, sessions = villagers, subagents = companions). Research and the phased plan are in `docs/RESEARCH.md`.
+Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character pack.json), `docs/ART-STYLES.md` (art styles). Keep them in sync when the schemas or checks change.
 
 ## Run, test, check (Windows)
 - Install: `npx -y pnpm@10.4.1 install`. pnpm isn't installed globally.
