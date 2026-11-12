@@ -11,13 +11,17 @@ interface Prefs {
   artStyle: string;
   /** Sound cues when a session needs you (approval, question) or finishes its turn. */
   sound: boolean;
+  /** World: the village. Workspace: the Overview dashboard of projects and agents. */
+  view: AppView;
 }
+
+export type AppView = "world" | "workspace";
 
 const KEY = "ai-gramam.display";
 
 function load(): Prefs {
   const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true };
+  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true, view: "world" };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

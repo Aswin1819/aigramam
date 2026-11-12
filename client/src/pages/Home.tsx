@@ -18,6 +18,7 @@ import SessionDock from "@/app/SessionDock";
 import DetailDrawer from "@/app/DetailDrawer";
 import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
 import BrandMark from "@/app/BrandMark";
+import Overview from "@/app/workspace/Overview";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
@@ -134,8 +135,21 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
-      {/* The world */}
-      {styled ? (
+      {/* Workspace: the Overview dashboard. World: the village. */}
+      {prefs.view === "workspace" ? (
+        <Overview
+          sessions={sessions}
+          projects={projects}
+          now={now}
+          mode={mode}
+          connected={connected}
+          hooksInstalled={hooks.installed}
+          selectedId={selectedId}
+          onSelect={select}
+          onDecide={decide}
+          onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+        />
+      ) : styled ? (
         <StyledWorldView
           ref={worldRef}
           style={styled}
@@ -195,26 +209,30 @@ export default function Home() {
         onTime={(time) => update({ time })}
         sound={prefs.sound}
         onSound={(sound) => update({ sound })}
+        view={prefs.view}
+        onView={(view) => update({ view })}
         onSelect={select}
         onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
         onDecide={decide}
         now={now}
       />
 
-      <SessionDock
-        sessions={sessions}
-        projects={projects}
-        world={world}
-        characters={cast}
-        assignments={assignments}
-        selectedId={selectedId}
-        open={prefs.dockOpen}
-        onToggle={() => update({ dockOpen: !prefs.dockOpen })}
-        onSelect={select}
-        onHover={setHoveredId}
-        now={now}
-        emptyHint={emptyHint}
-      />
+      {prefs.view === "world" && (
+        <SessionDock
+          sessions={sessions}
+          projects={projects}
+          world={world}
+          characters={cast}
+          assignments={assignments}
+          selectedId={selectedId}
+          open={prefs.dockOpen}
+          onToggle={() => update({ dockOpen: !prefs.dockOpen })}
+          onSelect={select}
+          onHover={setHoveredId}
+          now={now}
+          emptyHint={emptyHint}
+        />
+      )}
 
       <AnimatePresence>
         {selected && (
@@ -240,7 +258,7 @@ export default function Home() {
 
       {/* Empty state */}
       <AnimatePresence>
-        {sessions.length === 0 && mode === "live" && world && (
+        {prefs.view === "world" && sessions.length === 0 && mode === "live" && world && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

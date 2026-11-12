@@ -1,10 +1,16 @@
 /**
- * Agents Router - real Claude Code skills/agents CRUD, config and connection status
+ * Agents Router - READ-ONLY view of Claude Code skills/agents, plus app config
+ * (in ~/.ai-gramam) and connection status.
  *
  * Claude Code file structure:
  *   Transcripts: ~/.claude/projects/<encoded-path>/<session-id>.jsonl
  *   Global skills: ~/.claude/skills/<skill-name>/SKILL.md
  *   Project skills: <project>/.claude/skills/<skill-name>/SKILL.md
+ *   Global agents: ~/.claude/agents/<agent-name>.md
+ *   Project agents: <project>/.claude/agents/<agent-name>.md
+ *
+ * Nothing here writes, creates or deletes anything in ~/.claude or in a
+ * project's .claude/ folder. Edit skills and agents in Claude Code or an editor.
  */
 
 import { z } from "zod";
@@ -14,16 +20,6 @@ import path from "path";
 import os from "os";
 import { getOrCreateApiKey } from "../bridge";
 import { TRPCError } from "@trpc/server";
-import { safeChildPath } from "../_core/security";
-
-/** safeChildPath, reported to the client as a 400 instead of a 500. */
-function childPath(dir: string, name: string, suffix = ""): string {
-  try {
-    return safeChildPath(dir, name, suffix);
-  } catch (e) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
-  }
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +39,6 @@ export interface ClaudeSkill {
 const HOME_DIR = os.homedir();
 const CLAUDE_DIR = path.join(HOME_DIR, ".claude");
 const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
-const GLOBAL_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
 import { DATA_DIR } from "../_core/paths";
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 
@@ -131,26 +126,6 @@ function readSkillsFromDir(
   return skills;
 }
 
-/**
- * Write a skill to disk (create or update)
- * Creates: <skillsDir>/<skillName>/SKILL.md
- */
-function writeSkill(skillsDir: string, skillName: string, content: string): void {
-  const skillDir = childPath(skillsDir, skillName);
-  if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true });
-  fs.writeFileSync(path.join(skillDir, "SKILL.md"), content, "utf-8");
-}
-
-/**
- * Delete a skill directory
- */
-function deleteSkill(skillsDir: string, skillName: string): void {
-  const skillDir = childPath(skillsDir, skillName);
-  if (fs.existsSync(skillDir)) {
-    fs.rmSync(skillDir, { recursive: true, force: true });
-  }
-}
-
 // ─── Real Claude Code Agents File System ──────────────────────────────────────────────────
 
 export interface ClaudeAgent {
@@ -219,26 +194,6 @@ function readAgentsFromDir(
     console.error("[Agents] Read failed:", e);
   }
   return agents;
-}
-
-/**
- * Write an agent .md file
- * Creates: <agentsDir>/<agentName>.md
- */
-function writeAgent(agentsDir: string, agentName: string, content: string): void {
-  const agentPath = childPath(agentsDir, agentName, ".md");
-  if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
-  fs.writeFileSync(agentPath, content, "utf-8");
-}
-
-/**
- * Delete an agent .md file
- */
-function deleteAgent(agentsDir: string, agentName: string): void {
-  const agentPath = childPath(agentsDir, agentName, ".md");
-  if (fs.existsSync(agentPath)) {
-    fs.unlinkSync(agentPath);
-  }
 }
 
 /**
@@ -320,14 +275,14 @@ export function guessPathFromEncodedName(encoded: string, exists: (p: string) =>
 /**
  * Get all projects from ~/.claude/projects/
  */
-function getTrackedProjects(): Array<{ encodedName: string; realPath: string; sessionCount: number }> {
-  if (!fs.existsSync(CLAUDE_PROJECTS_DIR)) return [];
+function getTrackedProjects(projectsDir: string = CLAUDE_PROJECTS_DIR): Array<{ encodedName: string; realPath: string; sessionCount: number }> {
+  if (!fs.existsSync(projectsDir)) return [];
   try {
-    const entries = fs.readdirSync(CLAUDE_PROJECTS_DIR, { withFileTypes: true });
+    const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory())
       .map((e) => {
-        const projectDir = path.join(CLAUDE_PROJECTS_DIR, e.name);
+        const projectDir = path.join(projectsDir, e.name);
         const sessionFiles = fs.existsSync(projectDir)
           ? fs.readdirSync(projectDir).filter((f) => f.endsWith(".jsonl"))
           : [];
@@ -342,213 +297,110 @@ function getTrackedProjects(): Array<{ encodedName: string; realPath: string; se
   }
 }
 
+/**
+ * Path safety for the project-scoped reads: the path must be absolute and be
+ * one of the projects Claude Code tracks (from ~/.claude/projects), so the
+ * browser can't make the server list arbitrary folders.
+ */
+function samePath(a: string, b: string): boolean {
+  const ra = path.resolve(a);
+  const rb = path.resolve(b);
+  return process.platform === "win32" ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
+}
+
+function trackedProjectPath(projectsDir: string, projectPath: string): string {
+  if (!path.isAbsolute(projectPath) || projectPath.includes(String.fromCharCode(0))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Project path must be absolute" });
+  }
+  const match = getTrackedProjects(projectsDir).find((p) => path.isAbsolute(p.realPath) && samePath(p.realPath, projectPath));
+  if (!match) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Not a project Claude Code has been used in" });
+  }
+  return path.resolve(match.realPath);
+}
+
+const projectInput = z.object({ projectPath: z.string().min(1).max(1024) });
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
-export const agentsRouter = router({
-  // ── Config ───────────────────────────────────────────────────────────────────
-  getConfig: publicProcedure.query(() => loadConfig()),
+/**
+ * Read-only router. `claudeDir` can be injected (tests point it at a temp
+ * folder); the app uses ~/.claude.
+ */
+export function createAgentsRouter(opts: { claudeDir?: string } = {}) {
+  const claudeDir = opts.claudeDir ?? CLAUDE_DIR;
+  const projectsDir = path.join(claudeDir, "projects");
+  const globalSkillsDir = path.join(claudeDir, "skills");
+  const globalAgentsDir = path.join(claudeDir, "agents");
 
-  saveConfig: publicProcedure
-    .input(z.object({
-      claudeDir: z.string().optional(),
-      watchedProjectPaths: z.array(z.string()).optional(),
-      theme: z.enum(["dark", "light"]).optional(),
-    }))
-    .mutation(({ input }) => {
-      const current = loadConfig();
-      const updated: AppConfig = {
-        ...current,
-        ...(input.claudeDir !== undefined && { claudeDir: input.claudeDir }),
-        ...(input.watchedProjectPaths !== undefined && { watchedProjectPaths: input.watchedProjectPaths }),
-        ...(input.theme !== undefined && { theme: input.theme }),
+  return router({
+    // ── Config (~/.ai-gramam/config.json, never ~/.claude) ─────────────────────
+    getConfig: publicProcedure.query(() => loadConfig()),
+
+    saveConfig: publicProcedure
+      .input(z.object({
+        claudeDir: z.string().optional(),
+        watchedProjectPaths: z.array(z.string()).optional(),
+        theme: z.enum(["dark", "light"]).optional(),
+      }))
+      .mutation(({ input }) => {
+        const current = loadConfig();
+        const updated: AppConfig = {
+          ...current,
+          ...(input.claudeDir !== undefined && { claudeDir: input.claudeDir }),
+          ...(input.watchedProjectPaths !== undefined && { watchedProjectPaths: input.watchedProjectPaths }),
+          ...(input.theme !== undefined && { theme: input.theme }),
+        };
+        saveConfig(updated);
+        return { success: true, config: updated };
+      }),
+
+    // ── Connection Status ───────────────────────────────────────────────────────
+    connectionStatus: publicProcedure.query(() => {
+      const projects = getTrackedProjects(projectsDir);
+      const totalSessions = projects.reduce((sum, p) => sum + p.sessionCount, 0);
+      return {
+        claudeDir,
+        claudeExists: fs.existsSync(claudeDir),
+        projectsDir,
+        projectsExists: fs.existsSync(projectsDir),
+        globalSkillsDir,
+        globalSkillsExists: fs.existsSync(globalSkillsDir),
+        trackedProjects: projects.length,
+        totalSessions,
+        projects,
       };
-      saveConfig(updated);
-      return { success: true, config: updated };
     }),
 
-  // ── Connection Status ─────────────────────────────────────────────────────────
-  connectionStatus: publicProcedure.query(() => {
-    const claudeExists = fs.existsSync(CLAUDE_DIR);
-    const projectsExists = fs.existsSync(CLAUDE_PROJECTS_DIR);
-    const globalSkillsExists = fs.existsSync(GLOBAL_SKILLS_DIR);
+    // ── Skills (read-only) ──────────────────────────────────────────────────────
+    globalSkills: publicProcedure.query(() => readSkillsFromDir(globalSkillsDir, "global")),
 
-    const projects = getTrackedProjects();
-    const totalSessions = projects.reduce((sum, p) => sum + p.sessionCount, 0);
+    projectSkills: publicProcedure
+      .input(projectInput)
+      .query(({ input }) => {
+        const project = trackedProjectPath(projectsDir, input.projectPath);
+        return readSkillsFromDir(path.join(project, ".claude", "skills"), "project", project);
+      }),
 
-    return {
-      claudeDir: CLAUDE_DIR,
-      claudeExists,
-      projectsDir: CLAUDE_PROJECTS_DIR,
-      projectsExists,
-      globalSkillsDir: GLOBAL_SKILLS_DIR,
-      globalSkillsExists,
-      trackedProjects: projects.length,
-      totalSessions,
-      projects,
-    };
-  }),
+    // ── All Projects ────────────────────────────────────────────────────────────
+    trackedProjects: publicProcedure.query(() => getTrackedProjects(projectsDir)),
 
-  // ── Global Skills (real ~/.claude/skills/) ────────────────────────────────────
-  globalSkills: publicProcedure.query(() => {
-    return readSkillsFromDir(GLOBAL_SKILLS_DIR, "global");
-  }),
+    // ── Agents (read-only) ──────────────────────────────────────────────────────
+    globalAgents: publicProcedure.query(() => readAgentsFromDir(globalAgentsDir, "global")),
 
-  createGlobalSkill: publicProcedure
-    .input(z.object({
-      skillName: z.string().min(1).regex(/^[a-z0-9-_]+$/, "Skill name must be lowercase letters, numbers, hyphens, or underscores"),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      writeSkill(GLOBAL_SKILLS_DIR, input.skillName, input.content);
-      return { success: true };
+    projectAgents: publicProcedure
+      .input(projectInput)
+      .query(({ input }) => {
+        const project = trackedProjectPath(projectsDir, input.projectPath);
+        return readAgentsFromDir(path.join(project, ".claude", "agents"), "project", project);
+      }),
+
+    // ── Bridge API Key (stored in ~/.ai-gramam) ─────────────────────────────────
+    bridgeApiKey: publicProcedure.query(() => {
+      const apiKey = getOrCreateApiKey();
+      return { apiKey, exists: true };
     }),
+  });
+}
 
-  updateGlobalSkill: publicProcedure
-    .input(z.object({
-      skillName: z.string(),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      writeSkill(GLOBAL_SKILLS_DIR, input.skillName, input.content);
-      return { success: true };
-    }),
-
-  deleteGlobalSkill: publicProcedure
-    .input(z.object({ skillName: z.string() }))
-    .mutation(({ input }) => {
-      deleteSkill(GLOBAL_SKILLS_DIR, input.skillName);
-      return { success: true };
-    }),
-
-  // ── Project Skills (real <project>/.claude/skills/) ───────────────────────────
-  projectSkills: publicProcedure
-    .input(z.object({ projectPath: z.string() }))
-    .query(({ input }) => {
-      const skillsDir = path.join(input.projectPath, ".claude", "skills");
-      return readSkillsFromDir(skillsDir, "project", input.projectPath);
-    }),
-
-  createProjectSkill: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      skillName: z.string().min(1).regex(/^[a-z0-9-_]+$/),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const skillsDir = path.join(input.projectPath, ".claude", "skills");
-      writeSkill(skillsDir, input.skillName, input.content);
-      return { success: true };
-    }),
-
-  updateProjectSkill: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      skillName: z.string(),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const skillsDir = path.join(input.projectPath, ".claude", "skills");
-      writeSkill(skillsDir, input.skillName, input.content);
-      return { success: true };
-    }),
-
-  deleteProjectSkill: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      skillName: z.string(),
-    }))
-    .mutation(({ input }) => {
-      const skillsDir = path.join(input.projectPath, ".claude", "skills");
-      deleteSkill(skillsDir, input.skillName);
-      return { success: true };
-    }),
-
-  // ── All Projects ──────────────────────────────────────────────────────────────
-  trackedProjects: publicProcedure.query(() => getTrackedProjects()),
-
-  // ── Global Agents (~/.claude/agents/) ────────────────────────────────────────
-  globalAgents: publicProcedure.query(() => {
-    const agentsDir = path.join(CLAUDE_DIR, "agents");
-    return readAgentsFromDir(agentsDir, "global");
-  }),
-
-  createGlobalAgent: publicProcedure
-    .input(z.object({
-      agentName: z.string().min(1).regex(/^[a-z0-9-_]+$/, "Agent name must be lowercase letters, numbers, hyphens, or underscores"),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(CLAUDE_DIR, "agents");
-      writeAgent(agentsDir, input.agentName, input.content);
-      return { success: true };
-    }),
-
-  updateGlobalAgent: publicProcedure
-    .input(z.object({
-      agentName: z.string(),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(CLAUDE_DIR, "agents");
-      writeAgent(agentsDir, input.agentName, input.content);
-      return { success: true };
-    }),
-
-  deleteGlobalAgent: publicProcedure
-    .input(z.object({ agentName: z.string() }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(CLAUDE_DIR, "agents");
-      deleteAgent(agentsDir, input.agentName);
-      return { success: true };
-    }),
-
-  // ── Project Agents (<project>/.claude/agents/) ────────────────────────────────
-  projectAgents: publicProcedure
-    .input(z.object({ projectPath: z.string() }))
-    .query(({ input }) => {
-      const agentsDir = path.join(input.projectPath, ".claude", "agents");
-      return readAgentsFromDir(agentsDir, "project", input.projectPath);
-    }),
-
-  createProjectAgent: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      agentName: z.string().min(1).regex(/^[a-z0-9-_]+$/),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(input.projectPath, ".claude", "agents");
-      writeAgent(agentsDir, input.agentName, input.content);
-      return { success: true };
-    }),
-
-  updateProjectAgent: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      agentName: z.string(),
-      content: z.string().min(1),
-    }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(input.projectPath, ".claude", "agents");
-      writeAgent(agentsDir, input.agentName, input.content);
-      return { success: true };
-    }),
-
-  deleteProjectAgent: publicProcedure
-    .input(z.object({
-      projectPath: z.string(),
-      agentName: z.string(),
-    }))
-    .mutation(({ input }) => {
-      const agentsDir = path.join(input.projectPath, ".claude", "agents");
-      deleteAgent(agentsDir, input.agentName);
-      return { success: true };
-    }),
-
-  // ── Bridge API Key ────────────────────────────────────────────────────────────
-  bridgeApiKey: publicProcedure.query(() => {
-    // Use the same getOrCreateApiKey from bridge.ts to ensure consistency
-    const apiKey = getOrCreateApiKey();
-    return { apiKey, exists: true };
-  }),
-});
+export const agentsRouter = createAgentsRouter();
