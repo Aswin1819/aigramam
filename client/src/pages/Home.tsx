@@ -5,7 +5,7 @@ import { toast, Toaster } from "sonner";
 import WorldView, { type WorldHandle } from "@/world/WorldView";
 import StyledWorldView from "@/world/StyledWorldView";
 import { ART_STYLES } from "@/styles/live/registry";
-import type { LiveStyle } from "@/styles/live/types";
+import { placeThemeOf, type LiveStyle } from "@/styles/live/types";
 import { useWorldChoice } from "@/world/useWorldChoice";
 import { assignmentsKey, pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
@@ -147,6 +147,7 @@ export default function Home() {
           reducedMotion={prefs.reducedMotion}
           hourOverride={hourOverride}
           paletteOf={paletteOf}
+          theme={placeThemeOf(world)}
         />
       ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
         <WorldView

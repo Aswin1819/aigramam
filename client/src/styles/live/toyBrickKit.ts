@@ -467,3 +467,545 @@ export function paintBuilding(g: C2, w: number, wallH: number, roofH: number, do
   g.textBaseline = "middle";
   g.fillText(text, w / 2, ty + rh - 1.5);
 }
+
+// ── Bengaluru: the same bricks, a city setting ──────────────────────────────
+
+export const KB = {
+  paver: "#c7c1b4", paverB: "#b88f78", hedge: "#2f8f3f", hedgeL: "#4caf50",
+  asphalt: "#4b5059", asphaltL: "#5a606a", kerbY: "#f7c52b", kerbK: "#2a2d33",
+  glass: "#4f9fd8", glassL: "#8fd0f5", glassD: "#2f6fa8", concrete: "#d8d3c8", concreteD: "#aba496",
+  purple: "#7c4dcc", apart: "#efe9dc", apartB: "#f3d9b1", haze: "#c3d6e8", hazeD: "#adc4da",
+  bloom: "#ff4f1f", bloom2: "#ff8a1a", leaf: "#2f8f3f", leafL: "#58b846", trunk: "#7a5236",
+  autoG: "#2f9a4f", autoY: "#f7c52b", hood: "#22252b", bus: "#1f9e8f",
+  brickR: "#b4553a", brickRD: "#94402b", steel: "#c9cfd6", streetGreen: "#1f7a43",
+};
+
+/** Bengaluru sky tile (0..waterTop): the style's sky plus a hazy low skyline of brick blocks. */
+export function paintBlrSkyTile(g: C2) {
+  const sky = g.createLinearGradient(0, 0, 0, GROUND.waterTop);
+  sky.addColorStop(0, K.sky);
+  sky.addColorStop(1, K.skyLow);
+  g.fillStyle = sky;
+  g.fillRect(0, 0, BACK_W, GROUND.waterTop);
+  const r = rng(311);
+  let x = 0;
+  while (x < BACK_W) {
+    const w = P * (3 + Math.floor(r() * 4));
+    const ww = Math.min(w, BACK_W - x);
+    const h = 18 + Math.floor(r() * 5) * 6;
+    const col = r() < 0.5 ? KB.haze : KB.hazeD;
+    g.fillStyle = col;
+    g.fillRect(x, GROUND.waterTop - h, ww, h);
+    g.fillStyle = "rgba(255,255,255,0.35)";
+    for (let wy = GROUND.waterTop - h + 4; wy < GROUND.waterTop - 3; wy += 6)
+      for (let wx = x + 3; wx < x + ww - 3; wx += 6) g.fillRect(wx, wy, 2.5, 2.5);
+    g.strokeStyle = shade(col, -0.18);
+    g.lineWidth = 0.6;
+    g.strokeRect(x + 0.3, GROUND.waterTop - h + 0.3, ww - 0.6, h - 0.6);
+    x += ww + (r() < 0.3 ? P : 0);
+  }
+}
+
+/** Deck top (train wheels) and deck bottom of the metro viaduct in the water band. */
+export const DECK_TOP = 152;
+export const DECK_BOT = 164;
+/** Bengaluru band tile (waterTop..waterBottom): park greenery and the metro viaduct. Repeats. */
+export function paintBlrBandTile(g: C2) {
+  const bot = GROUND.waterBottom;
+  // Park greenery: stacks of green bricks, a few red blooms.
+  const r = rng(77);
+  for (let x = -8; x < BACK_W; x += 28 + Math.floor(r() * 3) * 6) {
+    const w = 30 + Math.floor(r() * 3) * 8;
+    const col = r() < 0.5 ? KB.leaf : KB.leafL;
+    const cx = Math.max(0, Math.min(x, BACK_W - w));
+    const ht = 14 + Math.floor(r() * 3) * 5;
+    brick(g, cx, bot - ht + 8, w, ht - 8, col, false);
+    brick(g, cx + 6, bot - ht, w - 12, 8, col, true);
+    if (r() < 0.45) stud(g, cx + 10 + r() * (w - 20), bot - ht - 1.5, KB.bloom, 2.5);
+  }
+  // Pillars (T-shaped), every 128 units.
+  for (let px = 64; px < BACK_W; px += 128) {
+    brick(g, px - 6, DECK_BOT, 12, bot - DECK_BOT, KB.concrete, false);
+    g.fillStyle = "rgba(0,0,0,0.1)";
+    g.fillRect(px + 2, DECK_BOT, 4, bot - DECK_BOT);
+    brick(g, px - 14, DECK_BOT, 28, 4, KB.concreteD, false);
+  }
+  // Deck: a long concrete beam of bricks with a purple stripe.
+  let x = 0, i = 0;
+  while (x < BACK_W) {
+    const len = Math.min(P * (i % 2 ? 6 : 8), BACK_W - x);
+    brick(g, x, DECK_TOP, len, DECK_BOT - DECK_TOP, i % 3 ? KB.concrete : shade(KB.concrete, -0.05), false);
+    x += len;
+    i++;
+  }
+  g.fillStyle = KB.purple;
+  g.fillRect(0, DECK_TOP + 5, BACK_W, 2.4);
+  g.fillStyle = "rgba(255,255,255,0.5)";
+  g.fillRect(0, DECK_TOP + 0.4, BACK_W, 0.9);
+  g.fillStyle = KB.concreteD;
+  g.fillRect(0, DECK_TOP, BACK_W, 1);
+}
+
+/** Skyline building for a far-bank slot: 0 glass tower, 1 apartment block with water tanks, 2 glass slab, 3 under construction with a crane. */
+export function towerOf(x: number): { kind: number; h: number; w: number } {
+  const a = hash(x * 0.137 + 3.1), b = hash(x * 0.711 + 9.4);
+  const kind = a < 0.34 ? 0 : a < 0.72 ? 1 : a < 0.9 ? 2 : 3;
+  const h = kind === 0 ? 70 + Math.round(b * 5) * 10 : kind === 1 ? 40 + Math.round(b * 4) * 8 : kind === 2 ? 50 + Math.round(b * 4) * 8 : 50 + Math.round(b * 2) * 10;
+  const w = kind === 1 ? 40 : kind === 2 ? 46 : 32;
+  return { kind, h, w };
+}
+
+/** One skyline building; origin = base centre (on the waterTop line). */
+export function paintTower(g: C2, kind: number, h: number, w: number) {
+  const x0 = -w / 2;
+  if (kind === 1) {
+    const rows = Math.floor(h / 8);
+    for (let r = 0; r < rows; r++) brick(g, x0, -(r + 1) * 8, w, 8, r % 2 ? KB.apart : KB.apartB, r === rows - 1);
+    for (let r = 1; r < rows - 1; r++) for (let c = 0; c < 4; c++) {
+      g.fillStyle = (r + c) % 3 ? "#5b7fa6" : "#3d5f86";
+      g.fillRect(x0 + 4 + c * ((w - 8) / 4), -(r + 1) * 8 + 2, (w - 8) / 4 - 3, 4);
+    }
+    const tt = -rows * 8 - 2;
+    for (const tx of [x0 + 7, x0 + w - 13]) {
+      brick(g, tx, tt - 7, 7, 7, "#2a2d33", false);
+      stud(g, tx + 3.5, tt - 7.5, "#2a2d33", 2.6);
+    }
+    return;
+  }
+  if (kind === 3) {
+    const rows = Math.floor(h / 10);
+    for (let r = 0; r < rows; r++) {
+      const y = -(r + 1) * 10;
+      brick(g, x0, y + 7, w, 3, KB.concreteD, false);
+      brick(g, x0, y, 3, 7, KB.concrete, false);
+      brick(g, x0 + w - 3, y, 3, 7, KB.concrete, false);
+      if (r < rows - 2) { g.fillStyle = "rgba(70,90,110,0.35)"; g.fillRect(x0 + 3, y, w - 6, 7); }
+    }
+    const top = -rows * 10;
+    const mx = x0 + w - 8;
+    for (let y = top; y > top - 34; y -= 6) brick(g, mx, y - 6, 5, 6, K.yellow, false);
+    brick(g, mx - 34, top - 40, 52, 4, K.yellow, false);
+    brick(g, mx + 12, top - 38, 8, 6, K.greyD, false);
+    g.strokeStyle = K.ink;
+    g.lineWidth = 0.6;
+    g.beginPath();
+    g.moveTo(mx - 24, top - 36);
+    g.lineTo(mx - 24, top - 16);
+    g.stroke();
+    brick(g, mx - 27, top - 16, 6, 4, K.red, false);
+    return;
+  }
+  const rows = Math.floor(h / 6);
+  for (let r = 0; r < rows; r++) {
+    const y = -(r + 1) * 6;
+    const col = r % 2 ? KB.glass : shade(KB.glass, 0.08);
+    brick(g, x0, y, w, 6, col, false);
+    g.fillStyle = "rgba(255,255,255,0.28)";
+    for (let c = x0 + 4; c < x0 + w - 2; c += 8) g.fillRect(c, y + 1.5, 4, 3);
+  }
+  const top = -rows * 6;
+  g.fillStyle = "rgba(255,255,255,0.22)";
+  g.beginPath();
+  g.moveTo(x0 + 2, top);
+  g.lineTo(x0 + w * 0.45, top);
+  g.lineTo(x0 + 2, top * 0.4);
+  g.closePath();
+  g.fill();
+  if (kind === 0) {
+    brick(g, x0 + 4, top - 6, w - 8, 6, KB.glassD, true);
+    g.fillStyle = K.greyD;
+    g.fillRect(-0.8, top - 20, 1.6, 14);
+    stud(g, 0, top - 21, K.red, 1.8);
+  } else {
+    brick(g, x0, top - 5, w, 5, KB.concreteD, true);
+  }
+}
+
+/** Bengaluru ground tile (from GROUND_TOP): hedge strip, paver baseplate, kerbs, the asphalt road. */
+export function paintBlrGroundTile(g: C2) {
+  const top = GROUND.groundY;
+  brick(g, 0, GROUND_TOP, GROUND_W, top - GROUND_TOP, KB.hedge, false);
+  for (let x = 4; x < GROUND_W; x += P) stud(g, x, GROUND_TOP + 2, (x - 4) / P % 7 === 3 ? KB.bloom : KB.hedgeL, 2.4);
+  g.fillStyle = KB.paver;
+  g.fillRect(0, top, GROUND_W, WORLD_H - top);
+  g.fillStyle = shade(KB.paver, 0.3);
+  g.fillRect(0, top, GROUND_W, 1.4);
+  const py0 = GROUND.pathTop - 2, py1 = GROUND.pathBottom + 2;
+  for (let y = top + 5; y < WORLD_H + 2; y += P) {
+    if (y > py0 - 6 && y < py1 + 6) continue;
+    const band = Math.floor((y - top) / P);
+    for (let x = 4; x < GROUND_W; x += P) {
+      const c = band % 4 === 1 ? KB.paverB : (Math.floor(x / (P * 2)) + band) % 2 ? KB.paver : shade(KB.paver, -0.05);
+      stud(g, x, y, c, 2.5);
+    }
+  }
+  const fr = rng(17);
+  for (let i = 0; i < 3; i++) {
+    const lx = 16 + i * 84 + Math.floor(fr() * 3) * P, ly = top + 20 + Math.floor(fr() * 4) * P;
+    brick(g, lx, ly, P * 4, 6, KB.leafL, true);
+    stud(g, lx + 4 + Math.floor(fr() * 3) * P, ly - 1.5, [K.red, K.yellow, "#ff7ab6"][i % 3]!, 2.6);
+  }
+  g.fillStyle = KB.asphalt;
+  g.fillRect(0, py0, GROUND_W, py1 - py0);
+  g.strokeStyle = shade(KB.asphalt, -0.3);
+  g.lineWidth = 0.6;
+  const half = (py1 - py0) / 2;
+  for (let x = 0; x < GROUND_W; x += 64) g.strokeRect(x + 0.3, py0 + 0.3, 63.4, half - 0.6);
+  for (let x = -32; x < GROUND_W; x += 64) g.strokeRect(x + 0.3, py0 + half + 0.3, 63.4, half - 0.6);
+  g.fillStyle = "rgba(255,255,255,0.08)";
+  g.fillRect(0, py0 + 1, GROUND_W, 1.2);
+  const mid = py0 + half;
+  for (let x = 8; x < GROUND_W; x += 48) tile(g, x, mid - 1.6, 24, 3, K.white, 0.8);
+  for (const ky of [py0 - 4, py1]) for (let x = 0; x < GROUND_W; x += 16) brick(g, x, ky, 16, 4, (x / 16) % 2 ? KB.kerbK : KB.kerbY, false);
+  g.fillStyle = "rgba(0,0,0,0.14)";
+  g.fillRect(0, py1 + 4, GROUND_W, 1.5);
+}
+
+/** Gulmohar / rain tree; origin = trunk base. Brick trunk, stepped canopy crowned with red-orange bloom studs. */
+export function paintGulmohar(g: C2, h: number, lean: number) {
+  const seg = 8;
+  const n = Math.max(3, Math.round((h * 0.42) / seg));
+  let tx = 0, ty = 0;
+  for (let i = 0; i < n; i++) {
+    const u = (i + 1) / n;
+    const cx = lean * h * u * u * 0.6;
+    const cy = -(i + 1) * seg;
+    brick(g, cx - 4.5, cy, 9, seg, i % 2 ? KB.trunk : shade(KB.trunk, 0.14), false);
+    tx = cx;
+    ty = cy;
+  }
+  for (const a of [-0.7, 0.7]) {
+    g.save(); g.translate(tx, ty + 6); g.rotate(a); brick(g, -2.5, -14, 5, 14, KB.trunk, false); g.restore();
+  }
+  const W = h * 0.82;
+  const layers = [0.55, 0.85, 1, 0.92, 0.7];
+  const lh = 9;
+  const r = rng(Math.round(h * 7 + lean * 1000) + 5);
+  const base = ty + 2;
+  const widths = layers.map((l) => Math.round((W * l) / P) * P);
+  for (let li = 0; li < layers.length; li++) {
+    const lw = widths[li]!;
+    const y = base - (layers.length - li) * lh;
+    const x0 = tx - lw / 2;
+    let x = x0, j = 0;
+    while (x < x0 + lw - 1) {
+      const len = Math.min(P * (2 + ((j + li) % 3)), x0 + lw - x);
+      const bloomy = r() < (li < 2 ? 0.5 : 0.28);
+      const col = bloomy ? (r() < 0.6 ? KB.bloom : KB.bloom2) : (j + li) % 2 ? KB.leaf : KB.leafL;
+      brick(g, x, y, len, lh, col, false);
+      x += len;
+      j++;
+    }
+    const prev = li === 0 ? 0 : widths[li - 1]!;
+    for (let sx = x0 + P / 2; sx < x0 + lw; sx += P) {
+      if (li > 0 && Math.abs(sx - tx) < prev / 2 - 1) continue;
+      const c = r() < 0.6 ? (r() < 0.5 ? KB.bloom : KB.bloom2) : KB.leafL;
+      stud(g, sx, y - 1.5, c, 2.5);
+    }
+  }
+}
+
+/** Green street sign on grey posts; origin = sign anchor (x, y). */
+export function paintBlrSign(g: C2, text: string) {
+  for (const px of [-24, 20.5]) for (let i = 0; i < 4; i++) brick(g, px, 2 + i * 9.6, 3.5, 9.6, i % 2 ? K.grey : shade(K.grey, 0.1), false);
+  brick(g, -30, 40, 60, 4, K.greyD, true);
+  brick(g, -35, -18, 70, 21, KB.streetGreen, true);
+  g.strokeStyle = K.white;
+  g.lineWidth = 1;
+  rr(g, -31, -14, 62, 13, 1.6);
+  g.stroke();
+  g.fillStyle = K.white;
+  fitText(g, text, 54, "800", 8.5, 6);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, 0, -7.4);
+}
+
+/** Street light; origin = (x, lamp row y). The bulb sits at STREET_BULB relative to it. */
+export const STREET_BULB = { x: 9, y: -15.5 };
+export function paintStreetLight(g: C2) {
+  g.fillStyle = "rgba(20,30,25,0.25)";
+  g.fillRect(-6, 24, 14, 3);
+  brick(g, -6, 20, 12, 4, K.greyD, true);
+  for (let k = 0; k < 5; k++) {
+    const y = -18 + k * 7.6;
+    g.fillStyle = shade(K.grey, -0.25);
+    rr(g, -2.2, y, 4.4, 7.6, 1.4);
+    g.fill();
+    g.fillStyle = K.grey;
+    rr(g, -2.2, y, 3.6, 7, 1.4);
+    g.fill();
+  }
+  brick(g, -2, -22, 16, 3.5, K.greyD, false);
+  brick(g, 4, -19, 10, 3, shade(K.greyD, -0.15), false);
+  g.fillStyle = "#e9edf2";
+  rr(g, 6, -16.4, 6, 2, 1);
+  g.fill();
+}
+
+/** Height of a Bengaluru building above its base (for the urgent beacon). */
+export function blrTop(variant: number, wallH: number, roofH: number): number {
+  const v = ((variant % 4) + 4) % 4;
+  return v === 0 ? wallH + roofH + 20 : v === 2 ? wallH + roofH * 0.5 + 26 : v === 1 ? wallH + 18 : wallH + roofH * 0.6 + 4;
+}
+
+function nameBoard(g: C2, name: string, cx: number, y: number, maxW: number, h: number, bg: string, fg: string) {
+  const label = name.toUpperCase();
+  const size = fitText(g, label, maxW - 10, "800", 9, 6.5);
+  const text = clip(g, label, maxW - 10);
+  const tw = Math.min(maxW, g.measureText(text).width + 12);
+  tile(g, cx - tw / 2, y, tw, h, bg, 1.6);
+  g.fillStyle = fg;
+  g.font = `800 ${size}px ui-sans-serif, system-ui, sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, cx, y + h / 2 + 0.3);
+}
+
+function brickWall(g: C2, x0: number, w: number, rows: number, bh: number, col: (r: number, i: number) => string, studTop: boolean) {
+  for (let r = 0; r < rows; r++) {
+    const y = -(r + 1) * bh;
+    let x = x0 - (r % 2 ? P * 1.5 : 0);
+    let i = 0;
+    while (x < x0 + w) {
+      const len = P * (r % 3 === 0 ? 4 : 3);
+      const a = Math.max(x, x0), b = Math.min(x + len, x0 + w);
+      if (b - a > 1) brick(g, a, y, b - a, bh, col(r, i), studTop && r === rows - 1);
+      x += len;
+      i++;
+    }
+  }
+}
+
+function awning(g: C2, x: number, y: number, w: number, a: string, b: string) {
+  const n = Math.max(3, Math.round(w / 10));
+  const sw = w / n;
+  for (let i = 0; i < n; i++) {
+    const col = i % 2 ? a : b;
+    brick(g, x + i * sw, y, sw, 5, col, false);
+  }
+  for (let i = 0; i < n; i++) {
+    g.fillStyle = shade(i % 2 ? a : b, -0.1);
+    g.beginPath();
+    g.moveTo(x + i * sw, y + 5); g.lineTo(x + (i + 1) * sw, y + 5); g.lineTo(x + (i + 0.5) * sw, y + 9);
+    g.closePath();
+    g.fill();
+  }
+  brick(g, x - 2, y - 3, w + 4, 3, shade(a, -0.2), true);
+}
+
+/**
+ * A Bengaluru building for one place, same footprint as the tea shop:
+ * 0 glass office, 1 darshini cafe, 2 brick co-working loft, 3 kiosk with an awning.
+ * Origin = (b.x, b.baseY). The project name is on a signboard.
+ */
+export function paintBlrBuilding(g: C2, w: number, wallH: number, roofH: number, doorDX: number, variant: number, name: string) {
+  const v = ((variant % 4) + 4) % 4;
+  g.fillStyle = "rgba(20,30,25,0.28)";
+  g.fillRect(4, 0, w + 4, 5);
+  const top = -wallH;
+  const dx = doorDX - 12;
+  if (v === 0) {
+    // Glass office: concrete lobby, blue glass floors, frame columns, rooftop parapet + plant room.
+    const H = blrTop(0, wallH, roofH);
+    const x0 = 8, ww = w - 16;
+    const rows = Math.floor((H - 29) / 7);
+    const roofY = -24 - rows * 7;
+    for (let r = 0; r < rows; r++) {
+      const y = -24 - (r + 1) * 7;
+      brick(g, x0, y, ww, 7, r % 2 ? KB.glass : shade(KB.glass, 0.07), false);
+      g.fillStyle = "rgba(255,255,255,0.3)";
+      for (let c = x0 + 6; c < x0 + ww - 6; c += 12) g.fillRect(c, y + 1.6, 7, 3.6);
+    }
+    for (const cx of [x0, x0 + ww / 2 - 2, x0 + ww - 4]) brick(g, cx, roofY, 4, rows * 7, KB.concreteD, false);
+    g.fillStyle = "rgba(255,255,255,0.16)";
+    g.beginPath();
+    g.moveTo(x0 + 4, roofY);
+    g.lineTo(x0 + ww * 0.4, roofY);
+    g.lineTo(x0 + 4, -40);
+    g.closePath();
+    g.fill();
+    brick(g, x0 - 3, roofY - 5, ww + 6, 5, K.greyD, true);
+    brick(g, w - 44, roofY - 15, 20, 10, K.grey, true);
+    brick(g, x0, -24, ww, 24, KB.concrete, false);
+    g.fillStyle = KB.glassD;
+    g.fillRect(dx - 2, -20, 28, 20);
+    g.fillStyle = "rgba(255,255,255,0.45)";
+    g.fillRect(dx + 11.4, -20, 1.2, 20);
+    g.fillRect(dx + 1, -18, 1, 14);
+    g.fillStyle = KB.glassD;
+    g.fillRect(x0 + 6, -18, Math.max(10, dx - x0 - 14), 12);
+    nameBoard(g, name, w / 2, roofY + 6, ww - 8, 14, K.white, KB.glassD);
+    return;
+  }
+  if (v === 1) {
+    // Darshini: cream brick walls, steel counter with tumblers, striped awning, water tank, roof board.
+    brickWall(g, 0, w, 8, wallH / 8, (r, i) => (r === 0 ? KB.purple : (i + r) % 5 === 0 ? shade("#f3e3bd", -0.06) : "#f3e3bd"), false);
+    const cw = Math.min(72, doorDX - 24);
+    g.fillStyle = "#3a2a20";
+    g.fillRect(8, top + 20, cw, wallH - 40);
+    for (let i = 0; i < Math.floor((cw - 6) / 14); i++) {
+      const gx = 16 + i * 14;
+      brick(g, gx - 3, -30, 6, 8, KB.steel, false);
+      g.fillStyle = "#9a5a2a";
+      g.fillRect(gx - 2, -29, 4, 2);
+    }
+    brick(g, 4, -22, cw + 8, 14, KB.steel, true);
+    g.fillStyle = "rgba(255,255,255,0.6)";
+    g.fillRect(6, -18, cw + 4, 1);
+    awning(g, 4, top + 9, cw + 8, K.red, K.white);
+    g.fillStyle = "#3a2418";
+    g.fillRect(dx, top + 22, 24, wallH - 22);
+    brick(g, dx - 4, top + 18, 32, 4, K.red, false);
+    brick(g, dx - 4, top + 22, 4, wallH - 22, K.red, false);
+    brick(g, dx + 24, top + 22, 4, wallH - 22, K.red, false);
+    brick(g, -4, top - 4, w + 8, 4, shade("#f3e3bd", -0.12), true);
+    brick(g, w - 26, top - 18, 14, 14, "#2a2d33", false);
+    stud(g, w - 19, top - 18.5, "#2a2d33", 3);
+    nameBoard(g, name, w / 2 - 10, top - 20, w - 50, 16, K.yellow, K.red);
+    return;
+  }
+  if (v === 2) {
+    // Co-working loft: red brick, big dark-green framed windows, rooftop plants, dark name board over the door.
+    const H = wallH + roofH * 0.5;
+    const rows = Math.round(H / 7);
+    brickWall(g, 0, w, rows, H / rows, (r, i) => ((i + r) % 4 === 0 ? KB.brickRD : KB.brickR), false);
+    const wins = [-H + 9, -H / 2 + 1];
+    for (const wy of wins) {
+      for (let wx = 10; wx + 22 < w - 4; wx += 30) {
+        if (wy === wins[1] && wx + 26 > dx - 4 && wx < dx + 28) continue;
+        brick(g, wx - 2, wy - 2, 26, 22, "#1f5a3a", false);
+        g.fillStyle = "#2c4d63";
+        g.fillRect(wx, wy, 22, 18);
+        g.fillStyle = "#1f5a3a";
+        g.fillRect(wx + 10.4, wy, 1.2, 18);
+        g.fillRect(wx, wy + 8.4, 22, 1.2);
+        g.fillStyle = "rgba(255,255,255,0.3)";
+        g.fillRect(wx + 2, wy + 2, 1, 5);
+      }
+    }
+    g.fillStyle = "#2a2d33";
+    g.fillRect(dx, -26, 24, 26);
+    g.fillStyle = "#4a6a80";
+    g.fillRect(dx + 3, -23, 18, 10);
+    brick(g, dx - 4, -30, 32, 4, "#1f5a3a", false);
+    brick(g, -3, -H - 4, w + 6, 4, KB.brickRD, true);
+    for (const px of [4, w - 12]) {
+      brick(g, px, -H - 10, 8, 6, K.orange, false);
+      stud(g, px + 4, -H - 11, K.lime, 3);
+    }
+    brick(g, 26, -H - 10, 4, 6, K.greyD, false);
+    brick(g, w - 30, -H - 10, 4, 6, K.greyD, false);
+    nameBoard(g, name, w / 2, -H - 25, w - 30, 15, "#1f2430", K.white);
+    return;
+  }
+  // Kiosk / shop: pale walls, shelves of colourful goods, striped awning, a signboard on posts.
+  const H = blrTop(3, wallH, roofH);
+  brickWall(g, 4, w - 8, 8, wallH / 8, (r, i) => (r === 0 ? K.blue : (i + r) % 5 === 0 ? shade(K.sky2, -0.06) : K.sky2), false);
+  const ww = Math.min(76, doorDX - 24);
+  g.fillStyle = "#3a2a20";
+  g.fillRect(12, top + 20, ww, wallH - 30);
+  const cols = [K.red, K.yellow, K.blue, K.green, K.orange];
+  for (let sh = 0; sh < 3; sh++) {
+    const sy = top + 28 + sh * 13;
+    if (sy > -16) break;
+    for (let i = 0; i < Math.floor((ww - 4) / 7); i++) brick(g, 14 + i * 7, sy, 5, 7, cols[(i + sh * 2) % 5]!, false);
+    brick(g, 12, sy + 7, ww, 2.5, K.brown, false);
+  }
+  awning(g, 8, top + 8, ww + 8, K.blue, K.white);
+  g.fillStyle = "#3a2418";
+  g.fillRect(dx, top + 22, 24, wallH - 22);
+  brick(g, dx - 4, top + 18, 32, 4, K.blue, false);
+  brick(g, dx - 4, top + 22, 4, wallH - 22, K.blue, false);
+  brick(g, dx + 24, top + 22, 4, wallH - 22, K.blue, false);
+  brick(g, 0, top - 4, w, 4, K.greyD, true);
+  brick(g, 22, -H + 14, 4, H - wallH - 18, K.greyD, false);
+  brick(g, w - 26, -H + 14, 4, H - wallH - 18, K.greyD, false);
+  nameBoard(g, name, w / 2, -H, w - 16, 16, K.white, K.blue);
+}
+
+/** A brick auto-rickshaw; origin = ground between the wheels; dir 1 = facing right. */
+export function drawAuto(g: C2, x: number, y: number, dir: 1 | -1) {
+  g.save();
+  g.translate(x, y);
+  g.scale(dir, 1);
+  g.fillStyle = "rgba(0,0,0,0.25)";
+  ell(g, 0, 0.5, 18, 2.6);
+  g.fill();
+  brick(g, -15, -11, 26, 7, KB.autoG, false);
+  slope(g, 11, -11, 6, 7, KB.autoG, 1);
+  brick(g, -15, -19, 22, 8, KB.autoY, false);
+  slope(g, 7, -19, 7, 8, KB.autoY, 1);
+  g.fillStyle = "#9fdcf5";
+  g.beginPath();
+  g.moveTo(7.8, -18.4); g.lineTo(12.8, -12); g.lineTo(7.8, -12);
+  g.closePath();
+  g.fill();
+  g.fillStyle = "#1f2430";
+  g.fillRect(-10, -18, 12, 6);
+  brick(g, -16, -24, 26, 5, KB.hood, true);
+  for (const wx of [-10, 9]) {
+    g.fillStyle = "#1a1c20";
+    ell(g, wx, -2.8, 3.4, 3.4);
+    g.fill();
+    g.fillStyle = K.grey;
+    ell(g, wx, -2.8, 1.3, 1.3);
+    g.fill();
+  }
+  stud(g, 15.5, -9.5, "#fff3a8", 1.4);
+  g.restore();
+}
+
+/** A brick city bus; origin = ground between the wheels. */
+export function drawBus(g: C2, x: number, y: number, dir: 1 | -1) {
+  g.save();
+  g.translate(x, y);
+  g.scale(dir, 1);
+  g.fillStyle = "rgba(0,0,0,0.25)";
+  ell(g, 0, 0.5, 38, 3);
+  g.fill();
+  brick(g, -36, -14, 70, 11, KB.bus, false);
+  brick(g, -36, -30, 70, 16, K.white, false);
+  slope(g, 34, -30, 5, 27, K.white, 1);
+  g.fillStyle = KB.bus;
+  g.fillRect(-36, -17, 70, 2.4);
+  g.fillStyle = "#2c4d63";
+  for (let wx = -32; wx < 24; wx += 11) g.fillRect(wx, -28, 8, 8);
+  g.fillStyle = "#9fdcf5";
+  g.fillRect(27, -28, 7, 9);
+  brick(g, -37, -34, 72, 4, shade(KB.bus, -0.1), true);
+  for (const wx of [-24, 22]) {
+    g.fillStyle = "#1a1c20";
+    ell(g, wx, -3, 4, 4);
+    g.fill();
+    g.fillStyle = K.grey;
+    ell(g, wx, -3, 1.5, 1.5);
+    g.fill();
+  }
+  g.restore();
+}
+
+/** One metro car, origin = centre on the deck top; nose 1/-1 adds a sloped nose on that side. */
+export const METRO_CAR_W = 46;
+export function drawMetroCar(g: C2, x: number, y: number, nose: -1 | 0 | 1, lit = false) {
+  const w = 44, h = 21;
+  const x0 = x - w / 2;
+  brick(g, x0, y - h, w, h - 3, "#eef0f4", false);
+  brick(g, x0, y - 10, w, 7, KB.purple, false);
+  g.fillStyle = lit ? "#ffe39a" : "#2c4d63";
+  for (let wx = x0 + 5; wx < x0 + w - 6; wx += 10) g.fillRect(wx, y - h + 4, 7, 6);
+  g.fillStyle = "rgba(255,255,255,0.35)";
+  for (let wx = x0 + 5; wx < x0 + w - 6; wx += 10) g.fillRect(wx + 1, y - h + 4.6, 1, 4);
+  brick(g, x0 + 1, y - h - 3, w - 2, 3, "#c4c9d1", true);
+  if (nose) {
+    const nx = nose === 1 ? x0 + w : x0 - 8;
+    slope(g, nx, y - h, 8, h - 3, "#eef0f4", nose === 1 ? 1 : -1);
+    g.fillStyle = KB.purple;
+    g.fillRect(nx, y - 10, 8, 7);
+    g.fillStyle = "#fff3a8";
+    g.fillRect(nose === 1 ? nx + 3 : nx + 2, y - 8, 3, 2);
+  }
+  g.fillStyle = "#2a2d33";
+  g.fillRect(x0 + 4, y - 3, 11, 3);
+  g.fillRect(x0 + w - 15, y - 3, 11, 3);
+}

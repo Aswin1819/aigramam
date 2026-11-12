@@ -1,9 +1,17 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ProjectView, SessionView } from "@shared/model";
+import type { ProjectView, SessionView, SubagentView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
 import { elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
 import type { CharacterPositions, SignPos } from "./WorldScene";
+
+/** What a companion is doing, in words (its tag always says it, not only the sprite). */
+function companionText(a: SubagentView): string {
+  if (a.status === "error") return "Hit an error";
+  if (a.status === "waiting") return a.action?.kind === "question" ? "Has a question" : "Waiting";
+  if (a.status === "idle") return "Idle";
+  return a.action?.label ?? "Thinking";
+}
 
 interface SceneLike {
   positions: Map<string, CharacterPositions>;
@@ -172,8 +180,9 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
                   className="absolute left-1/2 top-[6px] max-w-[190px] -translate-x-1/2 truncate whitespace-nowrap rounded-full border border-sky-300/30 bg-sky-950/75 px-2 py-[2px] text-[10px] text-sky-100 backdrop-blur-md"
                   title={a.description || a.agentType}
                 >
-                  🤝 <b className="font-semibold">{a.agentType}</b>
-                  {a.action && a.status === "working" && <span className="text-sky-100/75"> · {a.action.label}</span>}
+                  <span aria-hidden>{a.status === "working" && a.action ? a.action.emoji : "🤝"} </span>
+                  <b className="font-semibold">{a.agentType}</b>
+                  <span className="text-sky-100/75"> · {companionText(a)}</span>
                 </motion.div>
               </div>
             ))}

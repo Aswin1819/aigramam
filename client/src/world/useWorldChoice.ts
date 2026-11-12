@@ -16,9 +16,26 @@ function readSaved(): string | null {
  * saved world is missing or broken, the default world is used instead.
  */
 export function useWorldChoice(state: WorldsState | null) {
-  const [chosenId, setChosenId] = useState<string | null>(readSaved);
+  const [savedId, setChosenId] = useState<string | null>(readSaved);
+  // "?world=<id>" previews a place for this visit without saving it.
+  const [previewId, setPreviewId] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("world");
+    } catch {
+      return null;
+    }
+  });
+  const chosenId = previewId ?? savedId;
 
   const choose = useCallback((id: string) => {
+    setPreviewId(null);
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("world")) {
+        url.searchParams.delete("world");
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+      }
+    } catch {}
     setChosenId(id);
     try {
       localStorage.setItem(KEY, id);
@@ -32,12 +49,12 @@ export function useWorldChoice(state: WorldsState | null) {
 
   // Keep the stored choice once the list has loaded and it exists again.
   useEffect(() => {
-    if (state && chosenId && worlds.some((w) => w.id === chosenId)) {
+    if (state && savedId && worlds.some((w) => w.id === savedId)) {
       try {
-        localStorage.setItem(KEY, chosenId);
+        localStorage.setItem(KEY, savedId);
       } catch {}
     }
-  }, [state, chosenId, worlds]);
+  }, [state, savedId, worlds]);
 
   return { active, choose, fellBack, chosenId };
 }

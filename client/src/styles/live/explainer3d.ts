@@ -10,28 +10,13 @@ import {
   FONT, ball, badgeHeight, bush, canoe, capsule, clayBadge, clayVillager, flower, paintCloud, palm, rrect, shade, shadow, softBox, steam, tumbler,
 } from "../protos/explainer3d";
 import { asVillagerFrame } from "./reference";
-import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStatus, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import {
+  COMP_MAX, TILE, blit, drawBengaluruScene, drawCompanionFigure, drawCompanionLabels, drawCompanionMore, drawCompanionOverlay, drawCompanionTether,
+  fitText, makeSprite, type Box, type Sprite,
+} from "./explainer3dKit";
+import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStatus, type LiveCompanion, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
 
 type C = CanvasRenderingContext2D;
-
-const TILE = 640;
-const CACHE_SCALE = 3;
-
-interface Sprite { cv: HTMLCanvasElement; x: number; y: number; w: number; h: number }
-
-/** Paint something (in world units) into an offscreen canvas covering [x, x+w] × [y, y+h]. */
-function makeSprite(x: number, y: number, w: number, h: number, paint: (c: C) => void, scale = CACHE_SCALE): Sprite {
-  const cv = document.createElement("canvas");
-  cv.width = Math.ceil(w * scale);
-  cv.height = Math.ceil(h * scale);
-  const c = cv.getContext("2d")!;
-  c.scale(scale, scale);
-  c.translate(-x, -y);
-  paint(c);
-  return { cv, x, y, w, h };
-}
-/** Tiles get +0.5 width so neighbours overlap and no hairline seam shows. */
-const blit = (ctx: C, s: Sprite, dx = 0, seam = 0) => ctx.drawImage(s.cv, s.x + dx, s.y, s.w + seam, s.h);
 
 // ── tiles ────────────────────────────────────────────────────────────────────
 
@@ -171,13 +156,6 @@ const PALETTES = [
   { roof: ["#b9e8c6", "#82cc9a", "#55a874"], ridge: "#66b583", wall: "#fde4dc", board: "#fde68a", boardInk: "#6b4a10", door: "#c48a5c", plinth: "#e3a184" },
   { roof: ["#e2cdf6", "#bea0e6", "#9474c4"], ridge: "#a688d6", wall: "#f9e7cf", board: "#bfe9f7", boardInk: "#1f4e66", door: "#b9774f", plinth: "#d8977a" },
 ] as const;
-
-function fitText(c: C, text: string, maxW: number): string {
-  if (c.measureText(text).width <= maxW) return text;
-  let t = text;
-  while (t.length > 1 && c.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
-  return `${t}…`;
-}
 
 function paintBuilding(c: C, p: LivePlace) {
   const b = p.building;
@@ -429,21 +407,6 @@ function confetti(c: C, v: LiveVillager, age: number) {
   c.globalAlpha = 1;
 }
 
-/** Little floating clay helper orbs, one per running subagent (max 3). */
-function helpers(c: C, v: LiveVillager, t: number, still: boolean) {
-  const n = Math.min(3, v.helpers);
-  for (let i = 0; i < n; i++) {
-    const x = v.x - v.facing * (16 + i * 9), y = v.y - 46 - i * 5 + (still ? 0 : Math.sin(t * 3 + i * 1.7) * 2.5);
-    shadow(c, x, v.y + 1, 4, 1.2, 0.25);
-    ball(c, x, y, 3.6, "#a5e8f5", 0.6, -0.25);
-    c.fillStyle = "#1f4e66";
-    c.beginPath();
-    c.arc(x + v.facing * 1.2 - 1, y - 0.3, 0.6, 0, Math.PI * 2);
-    c.arc(x + v.facing * 1.2 + 1, y - 0.3, 0.6, 0, Math.PI * 2);
-    c.fill();
-  }
-}
-
 const BADGE: Record<LiveStatus, { base: string; ink: string; sub: string; dot: string }> = {
   working: { base: "#c6f0e5", ink: "#1f5b52", sub: "#2f7468", dot: "#5eead4" },
   approval: { base: "#ff7566", ink: "#ffffff", sub: "#fff1ee", dot: "#ffffff" },
@@ -464,7 +427,7 @@ function drawBadge(c: C, v: LiveVillager, f: LiveFrame, view: ViewRect) {
   }
   clayBadge(c, {
     cx: v.labelX, top: v.labelY, name: v.name, label: v.label,
-    right: v.helpers > 0 ? `+${v.helpers} helper${v.helpers > 1 ? "s" : ""}` : v.linked ? "linked" : undefined,
+    right: v.companions.length > COMP_MAX ? `+${v.companions.length - COMP_MAX} helpers` : v.linked ? "linked" : undefined,
     base: st.base, ink: st.ink, sub: st.sub, dot: st.dot,
     urgent: v.urgent, pulse: f.reducedMotion ? 0.5 : f.pulse, t: f.reducedMotion ? 0 : f.t,
     minX: view.x + 4, maxX: view.x + view.w - 4,
@@ -504,6 +467,90 @@ function hud(c: C, f: LiveFrame, view: ViewRect) {
   c.restore();
 }
 
+/** Everything behind the villagers for Kerala (the original scenery). */
+function drawKeralaScene(ctx: C, f: LiveFrame, view: ViewRect) {
+  const vx0 = view.x, vx1 = view.x + view.w;
+  const inView = (x: number, pad: number) => x > vx0 - pad && x < vx1 + pad;
+  const t = f.t;
+  const still = f.reducedMotion;
+  if (!skyTile) {
+    skyTile = makeSprite(0, 0, TILE, GROUND.waterBottom + 8, paintSkyTile, 2.5);
+    groundTile = makeSprite(0, GROUND.groundY - 6, TILE, WORLD_H - GROUND.groundY + 8, paintGroundTile, 2.5);
+    cloudSprite = makeSprite(0, 0, 90, 44, paintCloud, 2);
+    farPalmSprite = makeSprite(0, 0, 40, 44, paintFarPalm, 2);
+  }
+
+  // Fill anything outside the 0..360 band, then repeat the tiles across the view.
+  ctx.fillStyle = "#8fc9e6";
+  ctx.fillRect(vx0, view.y, view.w, Math.max(0, -view.y) + 1);
+  ctx.fillStyle = "#f3d4b0";
+  ctx.fillRect(vx0, WORLD_H - 1, view.w, Math.max(0, view.y + view.h - WORLD_H) + 1);
+  const t0 = Math.floor(vx0 / TILE) * TILE;
+  for (let x = t0; x < vx1; x += TILE) blit(ctx, skyTile, x, 0.5);
+
+  // Sun (far away: fixed to the screen's upper left) with a warm halo.
+  const sx = vx0 + view.w * 0.16, sy = 50;
+  const halo = ctx.createRadialGradient(sx, sy, 6, sx, sy, 120);
+  halo.addColorStop(0, "rgba(255,240,200,0.9)");
+  halo.addColorStop(0.25, "rgba(255,228,180,0.45)");
+  halo.addColorStop(1, "rgba(255,228,180,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(sx - 120, sy - 120, 240, GROUND.waterTop - sy + 120);
+  ball(ctx, sx, sy, 15, "#ffe39a", 0.7, -0.08);
+
+  // Clouds drift, repeating every tile.
+  const cl: [number, number, number][] = [[60, 18, 1.0], [300, 40, 0.8], [470, 12, 1.15], [620, 56, 0.65]];
+  for (let x = t0 - TILE; x < vx1; x += TILE) for (const [cx0, cy, s] of cl) {
+    const cx = x + ((((cx0 + f.drift * (0.4 + s * 0.3)) % TILE) + TILE) % TILE);
+    if (cx + 90 * s < vx0 || cx > vx1) continue;
+    ctx.drawImage(cloudSprite!.cv, cx, cy, 90 * s, 44 * s);
+  }
+  for (const x of f.farPalms) if (inView(x, 30)) ctx.drawImage(farPalmSprite!.cv, x - 20, GROUND.waterTop + 1 - 40, 40, 44);
+
+  // Glossy water glints.
+  ctx.fillStyle = "#ffffff";
+  for (let x = t0; x < vx1; x += TILE) for (let i = 0; i < 12; i++) {
+    const sp = still ? 0 : 6 + hash(i) * 8;
+    const gx = x + ((hash(i + 20) * TILE + t * sp) % TILE);
+    ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 1.3 + i);
+    ctx.beginPath();
+    ctx.ellipse(gx, GROUND.waterTop + 8 + hash(i + 50) * 34, 6 + hash(i + 70) * 12, 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (inView(f.canoeX, 40)) canoe(ctx, f.canoeX, still ? 0 : t);
+
+  for (let x = t0; x < vx1; x += TILE) blit(ctx, groundTile!, x, 0.5);
+
+  // Palms, sign, places, lamps.
+  for (const p of f.palms) if (inView(p.x, 90)) blit(ctx, palmSprite(p));
+  if (inView(f.sign.x, 50)) drawSign(ctx, f.sign);
+  for (const p of f.places) {
+    const b = p.building;
+    if (!inView(b.x + b.w / 2, b.w / 2 + 50)) continue;
+    blit(ctx, placeSprite(p));
+    const oL = b.x + 8, oB = b.baseY - b.wallH + 50;
+    if (!still) for (let i = 0; i < 2; i++) steam(ctx, t, oL + 12 + i * 12, oB - 10, i + p.variant);
+    if (p.urgent > 0) {
+      // Subtle alert: a pulsing coral glow at the door and a bobbing "!" on the ridge.
+      const pulse = still ? 0.5 : f.pulse;
+      const g = ctx.createRadialGradient(b.doorX, b.baseY - 22, 2, b.doorX, b.baseY - 22, 34);
+      g.addColorStop(0, `rgba(255,110,90,${0.25 + 0.25 * pulse})`);
+      g.addColorStop(1, "rgba(255,110,90,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(b.doorX - 34, b.baseY - 56, 68, 68);
+      const rx = b.x + b.w / 2, ry = b.baseY - b.wallH - b.roofH - 12 - (still ? 0 : Math.abs(Math.sin(t * Math.PI * 1.2)) * 4);
+      ball(ctx, rx, ry, 7, "#ff4d3f", 0.5, -0.25);
+      ctx.font = `900 10px ${FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("!", rx, ry + 0.5);
+    }
+  }
+  if (inView(f.lamps.x0 + (f.lamps.count * f.lamps.dx) / 2, 140)) drawLamps(ctx, f);
+}
+
 export const explainer3dLive: LiveStyle = {
   id: "explainer-3d",
   name: "Explainer 3D",
@@ -511,90 +558,33 @@ export const explainer3dLive: LiveStyle = {
   bg: "#f3e6d6",
   lighting: "day",
   draw(ctx, f, view) {
-    if (!skyTile) {
-      skyTile = makeSprite(0, 0, TILE, GROUND.waterBottom + 8, paintSkyTile, 2.5);
-      groundTile = makeSprite(0, GROUND.groundY - 6, TILE, WORLD_H - GROUND.groundY + 8, paintGroundTile, 2.5);
-      cloudSprite = makeSprite(0, 0, 90, 44, paintCloud, 2);
-      farPalmSprite = makeSprite(0, 0, 40, 44, paintFarPalm, 2);
-    }
     const vx0 = view.x, vx1 = view.x + view.w;
     const inView = (x: number, pad: number) => x > vx0 - pad && x < vx1 + pad;
     const t = f.t;
     const still = f.reducedMotion;
+    if (f.theme === "bengaluru") drawBengaluruScene(ctx, f, view);
+    else drawKeralaScene(ctx, f, view);
 
-    // Fill anything outside the 0..360 band, then repeat the tiles across the view.
-    ctx.fillStyle = "#8fc9e6";
-    ctx.fillRect(vx0, view.y, view.w, Math.max(0, -view.y) + 1);
-    ctx.fillStyle = "#f3d4b0";
-    ctx.fillRect(vx0, WORLD_H - 1, view.w, Math.max(0, view.y + view.h - WORLD_H) + 1);
-    const t0 = Math.floor(vx0 / TILE) * TILE;
-    for (let x = t0; x < vx1; x += TILE) blit(ctx, skyTile, x, 0.5);
-
-    // Sun (far away: fixed to the screen's upper left) with a warm halo.
-    const sx = vx0 + view.w * 0.16, sy = 50;
-    const halo = ctx.createRadialGradient(sx, sy, 6, sx, sy, 120);
-    halo.addColorStop(0, "rgba(255,240,200,0.9)");
-    halo.addColorStop(0.25, "rgba(255,228,180,0.45)");
-    halo.addColorStop(1, "rgba(255,228,180,0)");
-    ctx.fillStyle = halo;
-    ctx.fillRect(sx - 120, sy - 120, 240, GROUND.waterTop - sy + 120);
-    ball(ctx, sx, sy, 15, "#ffe39a", 0.7, -0.08);
-
-    // Clouds drift, repeating every tile.
-    const cl: [number, number, number][] = [[60, 18, 1.0], [300, 40, 0.8], [470, 12, 1.15], [620, 56, 0.65]];
-    for (let x = t0 - TILE; x < vx1; x += TILE) for (const [cx0, cy, s] of cl) {
-      const cx = x + ((((cx0 + f.drift * (0.4 + s * 0.3)) % TILE) + TILE) % TILE);
-      if (cx + 90 * s < vx0 || cx > vx1) continue;
-      ctx.drawImage(cloudSprite!.cv, cx, cy, 90 * s, 44 * s);
-    }
-    for (const x of f.farPalms) if (inView(x, 30)) ctx.drawImage(farPalmSprite!.cv, x - 20, GROUND.waterTop + 1 - 40, 40, 44);
-
-    // Glossy water glints.
-    ctx.fillStyle = "#ffffff";
-    for (let x = t0; x < vx1; x += TILE) for (let i = 0; i < 12; i++) {
-      const sp = still ? 0 : 6 + hash(i) * 8;
-      const gx = x + ((hash(i + 20) * TILE + t * sp) % TILE);
-      ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 1.3 + i);
-      ctx.beginPath();
-      ctx.ellipse(gx, GROUND.waterTop + 8 + hash(i + 50) * 34, 6 + hash(i + 70) * 12, 0.9, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    if (inView(f.canoeX, 40)) canoe(ctx, f.canoeX, still ? 0 : t);
-
-    for (let x = t0; x < vx1; x += TILE) blit(ctx, groundTile!, x, 0.5);
-
-    // Palms, sign, places, lamps.
-    for (const p of f.palms) if (inView(p.x, 90)) blit(ctx, palmSprite(p));
-    if (inView(f.sign.x, 50)) drawSign(ctx, f.sign);
-    for (const p of f.places) {
-      const b = p.building;
-      if (!inView(b.x + b.w / 2, b.w / 2 + 50)) continue;
-      blit(ctx, placeSprite(p));
-      const oL = b.x + 8, oB = b.baseY - b.wallH + 50;
-      if (!still) for (let i = 0; i < 2; i++) steam(ctx, t, oL + 12 + i * 12, oB - 10, i + p.variant);
-      if (p.urgent > 0) {
-        // Subtle alert: a pulsing coral glow at the door and a bobbing "!" on the ridge.
-        const pulse = still ? 0.5 : f.pulse;
-        const g = ctx.createRadialGradient(b.doorX, b.baseY - 22, 2, b.doorX, b.baseY - 22, 34);
-        g.addColorStop(0, `rgba(255,110,90,${0.25 + 0.25 * pulse})`);
-        g.addColorStop(1, "rgba(255,110,90,0)");
-        ctx.fillStyle = g;
-        ctx.fillRect(b.doorX - 34, b.baseY - 56, 68, 68);
-        const rx = b.x + b.w / 2, ry = b.baseY - b.wallH - b.roofH - 12 - (still ? 0 : Math.abs(Math.sin(t * Math.PI * 1.2)) * 4);
-        ball(ctx, rx, ry, 7, "#ff4d3f", 0.5, -0.25);
-        ctx.font = `900 10px ${FONT}`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "#fff";
-        ctx.fillText("!", rx, ry + 0.5);
+    // Companions (first COMP_MAX per villager), culled to the view.
+    const comps: { v: LiveVillager; k: LiveCompanion }[] = [];
+    for (const v of f.villagers) {
+      if (v.alpha <= 0) continue;
+      for (let i = 0; i < Math.min(COMP_MAX, v.companions.length); i++) {
+        const k = v.companions[i]!;
+        if (k.alpha > 0 && inView(k.x, 40)) comps.push({ v, k });
       }
     }
-    if (inView(f.lamps.x0 + (f.lamps.count * f.lamps.dx) / 2, 140)) drawLamps(ctx, f);
+    // Errand tethers lie on the ground, behind every figure.
+    for (const { v, k } of comps) drawCompanionTether(ctx, v, k, t, still);
 
-    // Villagers back to front.
-    for (const v of f.villagers) {
-      if (!inView(v.x, 50) || v.alpha <= 0) continue;
+    // Villagers and companions back to front (by feet y).
+    const order: ({ y: number; v: LiveVillager; k?: LiveCompanion })[] = [];
+    for (const v of f.villagers) if (inView(v.x, 50) && v.alpha > 0) order.push({ y: v.y, v });
+    for (const { v, k } of comps) order.push({ y: k.y, v, k });
+    order.sort((a, b) => a.y - b.y);
+    for (const it of order) {
+      if (it.k) { drawCompanionFigure(ctx, it.v, it.k, t, still); continue; }
+      const v = it.v;
       const hop = hopShape(v, t);
       if (v.selected || v.hovered) {
         ctx.fillStyle = v.selected ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.3)";
@@ -611,7 +601,6 @@ export const explainer3dLive: LiveStyle = {
         happy, waiting: v.urgent || v.status === "turn", hair: v.hair, bun: (hash(v.id.length * 7.3 + v.id.charCodeAt(0)) > 0.5),
         sy: still ? 1 : hop.sy, raise: hop.raise,
       });
-      if (v.helpers > 0) helpers(ctx, v, t, still);
       if (v.status === "error") {
         const ex = v.x + v.facing * 12, ey = v.y - 70;
         ball(ctx, ex, ey, 5.5, "#f25c54", 0.5, -0.25);
@@ -623,8 +612,11 @@ export const explainer3dLive: LiveStyle = {
       }
       if (v.linked) ball(ctx, v.x + v.facing * 8, v.y - 46, 1.8, "#5eead4", 0.6, -0.2);
       ctx.globalAlpha = 1;
+      if (v.companions.length > COMP_MAX) drawCompanionMore(ctx, v);
       if (!still && v.status === "finished") confetti(ctx, v, hop.age);
     }
+    // Icons, puffs, ? / ! bubbles and hand-over sparkles float over every figure.
+    for (const { v, k } of comps) drawCompanionOverlay(ctx, v, k, t, still);
 
     // Soft studio vignette + warm light, over the visible rect.
     const vg = ctx.createRadialGradient(vx0 + view.w / 2, view.y + view.h * 0.45, view.h * 0.4, vx0 + view.w / 2, view.y + view.h * 0.5, Math.max(view.w, view.h) * 0.65);
@@ -641,6 +633,15 @@ export const explainer3dLive: LiveStyle = {
       drawBadge(ctx, v, f, view);
     }
     if (sel) drawBadge(ctx, sel, f, view);
+
+    // Tiny companion labels: only for the selected/hovered villager's helpers, or when zoomed in.
+    const zoomed = view.w < 700;
+    const boxes: Box[] = [];
+    for (const v of f.villagers) {
+      if (!(zoomed || v.selected || v.hovered) || v.alpha <= 0 || v.companions.length === 0) continue;
+      const ks = v.companions.slice(0, COMP_MAX).filter((k) => inView(k.x, 60));
+      if (ks.length) drawCompanionLabels(ctx, v, ks, boxes);
+    }
     hud(ctx, f, view);
   },
 };

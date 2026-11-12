@@ -6,7 +6,7 @@
  */
 import { BODY, hash, rng, skeleton } from "../scene";
 import { asVillagerFrame } from "./reference";
-import { GROUND, WORLD_H, type LivePlace, type LiveVillager } from "./types";
+import { GROUND, WORLD_H, type LiveCompanion, type LivePlace, type LiveVillager } from "./types";
 
 export const S = 2; // offscreen cache resolution factor
 export const TILE_W = 640;
@@ -930,5 +930,1240 @@ export function holoPanel(ctx: CanvasRenderingContext2D, x: number, y: number, w
   const sy = ((t * 0.7 + x * 0.01) % 1) * h;
   ctx.fillStyle = `rgba(${C},0.25)`;
   ctx.fillRect(0, sy, w, 0.8);
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Bengaluru (f.theme === "bengaluru"): the same CGI night, a city instead of
+// the backwaters. Cached separately from Kerala (own tiles and sprite keys).
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Metro viaduct geometry (world y): the train rides on DECK_TOP. */
+export const DECK_TOP = 160;
+export const DECK_BOT = 172;
+
+function softBlob(c: CanvasRenderingContext2D, x: number, y: number, r: number, sy: number, col: string) {
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, col);
+  g.addColorStop(1, col.replace(/[\d.]+\)$/, "0)"));
+  c.save();
+  c.translate(x, y);
+  c.scale(1, sy);
+  c.translate(-x, -y);
+  c.fillStyle = g;
+  c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.restore();
+}
+
+function litWindows(c: CanvasRenderingContext2D, r: () => number, x: number, y: number, w: number, h: number, cw: number, ch: number, p: number, dim = 1) {
+  for (let yy = y + 2; yy + ch <= y + h - 1; yy += ch + 2) {
+    for (let xx = x + 2; xx + cw <= x + w - 1; xx += cw + 1.6) {
+      const q = r();
+      if (q > p) continue;
+      c.fillStyle = q < p * 0.6 ? `rgba(255,205,130,${(0.45 + r() * 0.45) * dim})` : `rgba(150,225,255,${(0.35 + r() * 0.4) * dim})`;
+      c.fillRect(xx, yy, cw, ch);
+    }
+  }
+}
+
+// ── far tile: night sky, moonlit clouds, the tech skyline, park canopy ────
+
+function paintFarCity(c: CanvasRenderingContext2D) {
+  const sky = c.createLinearGradient(0, 0, 0, GROUND.waterTop);
+  sky.addColorStop(0, "#030a12");
+  sky.addColorStop(0.55, "#071f2c");
+  sky.addColorStop(1, "#123a48");
+  c.fillStyle = sky;
+  c.fillRect(0, -20, TILE_W, GROUND.waterTop + 22);
+  const r = rng(88);
+  for (let i = 0; i < 40; i++) {
+    const x = r() * TILE_W, y = r() * 80, a = 0.15 + r() * 0.5;
+    c.fillStyle = `rgba(200,240,255,${a})`;
+    c.fillRect(x, y, 0.8, 0.8);
+  }
+  // Soft moonlit clouds.
+  for (let i = 0; i < 4; i++) {
+    const cx = 60 + i * 160 + (i % 2) * 40, cy = 26 + (i % 3) * 16;
+    for (let k = 0; k < 6; k++) softBlob(c, cx + (k - 2.5) * 13, cy + Math.sin(k * 1.7) * 3, 18 + (k % 3) * 5, 0.45, "rgba(80,140,160,0.16)");
+  }
+  const hy = GROUND.waterTop + 4;
+  const s = rng(707);
+  // Back row: dim, hazy blocks.
+  for (let i = 0; i < 24; i++) {
+    const x = i * 27 + s() * 8, w = 14 + s() * 14, h = 34 + s() * 46;
+    c.fillStyle = "#0a2230";
+    c.fillRect(x, hy - h, w, h);
+    litWindows(c, s, x, hy - h, w, h, 1.6, 1.4, 0.18, 0.5);
+  }
+  // Cranes over sites under construction.
+  for (const cx of [190, 500]) {
+    const top = hy - 128;
+    c.strokeStyle = "#16343e";
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(cx - 2, hy);
+    c.lineTo(cx - 2, top);
+    c.moveTo(cx + 2, hy);
+    c.lineTo(cx + 2, top);
+    for (let y = hy; y > top + 4; y -= 6) {
+      c.moveTo(cx - 2, y);
+      c.lineTo(cx + 2, y - 6);
+    }
+    c.moveTo(cx - 22, top + 2);
+    c.lineTo(cx + 64, top + 2);
+    c.moveTo(cx - 22, top + 5);
+    c.lineTo(cx + 64, top + 5);
+    c.moveTo(cx, top - 10);
+    c.lineTo(cx + 60, top + 2);
+    c.moveTo(cx, top - 10);
+    c.lineTo(cx - 20, top + 2);
+    c.moveTo(cx + 44, top + 5);
+    c.lineTo(cx + 44, top + 30);
+    c.stroke();
+    c.fillStyle = "#16343e";
+    c.fillRect(cx - 22, top + 2, 8, 6);
+    c.fillStyle = "#ff5040";
+    c.fillRect(cx - 0.8, top - 11.5, 1.6, 1.6);
+    softBlob(c, cx, top - 10.5, 6, 1, "rgba(255,80,60,0.5)");
+  }
+  // Front row: glass towers and apartment blocks (some with water tanks).
+  for (let i = 0; i < 13; i++) {
+    const x = i * 50 + s() * 18 - 6;
+    if (s() < 0.55) {
+      const w = 18 + s() * 14, h = 60 + s() * 62;
+      const g = c.createLinearGradient(x, 0, x + w, 0);
+      g.addColorStop(0, "#123447");
+      g.addColorStop(1, "#071824");
+      c.fillStyle = g;
+      c.fillRect(x, hy - h, w, h);
+      c.strokeStyle = "rgba(120,200,220,0.12)";
+      c.lineWidth = 0.4;
+      c.beginPath();
+      for (let yy = hy - h + 4; yy < hy; yy += 4) {
+        c.moveTo(x, yy);
+        c.lineTo(x + w, yy);
+      }
+      c.stroke();
+      litWindows(c, s, x, hy - h, w, h, 2.2, 2, 0.32);
+      c.fillStyle = RIM + "0.45)";
+      c.fillRect(x + w - 0.8, hy - h, 0.8, h);
+      c.fillRect(x, hy - h, w, 0.6);
+      if (s() < 0.5) {
+        c.fillStyle = "#0b2230";
+        c.fillRect(x + w / 2 - 0.5, hy - h - 10, 1, 10);
+        c.fillStyle = "#ff5a4f";
+        c.fillRect(x + w / 2 - 0.8, hy - h - 11, 1.6, 1.6);
+      }
+    } else {
+      const w = 30 + s() * 16, h = 38 + s() * 30;
+      c.fillStyle = "#0d2429";
+      c.fillRect(x, hy - h, w, h);
+      for (let yy = hy - h + 5; yy < hy; yy += 5) {
+        c.fillStyle = "rgba(0,0,0,0.35)";
+        c.fillRect(x, yy, w, 1);
+      }
+      litWindows(c, s, x, hy - h, w, h, 3, 2.4, 0.3);
+      c.fillStyle = RIM + "0.35)";
+      c.fillRect(x + w - 0.8, hy - h, 0.8, h);
+      const tanks = 1 + (s() < 0.5 ? 1 : 0);
+      for (let k = 0; k < tanks; k++) {
+        const tx = x + 5 + k * 12;
+        c.fillStyle = "#06141a";
+        c.fillRect(tx, hy - h - 6, 7, 6);
+        c.beginPath();
+        c.ellipse(tx + 3.5, hy - h - 6, 3.5, 1.2, 0, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = RIM + "0.4)";
+        c.fillRect(tx + 6.3, hy - h - 6, 0.7, 6);
+      }
+    }
+  }
+  const haze = c.createLinearGradient(0, hy - 40, 0, hy);
+  haze.addColorStop(0, "rgba(40,130,140,0)");
+  haze.addColorStop(1, "rgba(60,160,170,0.3)");
+  c.fillStyle = haze;
+  c.fillRect(0, hy - 40, TILE_W, 40);
+  // Park behind the viaduct: dark lawn and tree canopy with a few blooms.
+  const lawn = c.createLinearGradient(0, GROUND.waterTop, 0, FAR_H);
+  lawn.addColorStop(0, "#0b2a28");
+  lawn.addColorStop(1, "#04151a");
+  c.fillStyle = lawn;
+  c.fillRect(0, GROUND.waterTop + 2, TILE_W, FAR_H - GROUND.waterTop - 2);
+  const p = rng(515);
+  for (let x = -4; x < TILE_W + 8; x += 9 + p() * 8) {
+    const y = GROUND.waterTop + 6 + p() * 8, rr = 7 + p() * 8;
+    c.fillStyle = p() < 0.5 ? "#0a2a24" : "#08221e";
+    c.beginPath();
+    c.arc(x, y, rr, 0, Math.PI * 2);
+    c.fill();
+    if (p() < 0.4) {
+      c.fillStyle = "rgba(190,70,45,0.55)";
+      for (let k = 0; k < 4; k++) c.fillRect(x - rr * 0.6 + p() * rr * 1.2, y - rr * 0.7 + p() * rr * 0.8, 1.4, 1.4);
+    }
+  }
+  for (let i = 0; i < 6; i++) softBlob(c, 50 + i * 107, GROUND.waterTop + 30, 18, 0.5, "rgba(255,190,110,0.12)");
+}
+
+// ── viaduct tile: deck, purple stripe, pillars (sharp, world-locked) ──────
+
+function paintViaduct(c: CanvasRenderingContext2D) {
+  for (let x = 40; x < TILE_W; x += 80) {
+    const pg = c.createLinearGradient(x - 4, 0, x + 4, 0);
+    pg.addColorStop(0, "#2c3d44");
+    pg.addColorStop(1, "#0d171b");
+    c.fillStyle = pg;
+    c.fillRect(x - 3.5, DECK_BOT, 7, FAR_H - DECK_BOT);
+    c.beginPath();
+    c.moveTo(x - 10, DECK_BOT);
+    c.lineTo(x + 10, DECK_BOT);
+    c.lineTo(x + 4, DECK_BOT + 6);
+    c.lineTo(x - 4, DECK_BOT + 6);
+    c.closePath();
+    c.fill();
+    c.fillStyle = RIM + "0.35)";
+    c.fillRect(x + 3, DECK_BOT + 4, 0.7, FAR_H - DECK_BOT - 4);
+  }
+  const d = c.createLinearGradient(0, DECK_TOP - 2, 0, DECK_BOT);
+  d.addColorStop(0, "#4a5d66");
+  d.addColorStop(0.3, "#2a3a42");
+  d.addColorStop(1, "#121c21");
+  c.fillStyle = d;
+  c.fillRect(0, DECK_TOP - 2, TILE_W, DECK_BOT - DECK_TOP + 2);
+  c.fillStyle = "#6a46b8";
+  c.fillRect(0, DECK_TOP + 4.5, TILE_W, 2);
+  c.fillStyle = "rgba(170,130,255,0.35)";
+  c.fillRect(0, DECK_TOP + 4.5, TILE_W, 0.6);
+  c.fillStyle = RIM + "0.7)";
+  c.fillRect(0, DECK_TOP - 2, TILE_W, 0.7);
+  c.fillStyle = "rgba(0,0,0,0.5)";
+  c.fillRect(0, DECK_BOT, TILE_W, 1.5);
+  // Small lights under the deck.
+  for (let x = 20; x < TILE_W; x += 40) {
+    c.fillStyle = "rgba(220,250,255,0.9)";
+    c.fillRect(x - 1, DECK_BOT - 1, 2, 1);
+    softBlob(c, x, DECK_BOT + 1, 5, 0.6, "rgba(180,240,255,0.35)");
+  }
+}
+
+// ── ground tile: wet pavers, black-yellow kerbs, asphalt road ─────────────
+
+function paintGroundCity(c: CanvasRenderingContext2D) {
+  const gy = GROUND.groundY, pt = GROUND.pathTop, pb = GROUND.pathBottom;
+  const gr = c.createLinearGradient(0, gy, 0, WORLD_H);
+  gr.addColorStop(0, "#0d2830");
+  gr.addColorStop(0.35, "#081b21");
+  gr.addColorStop(1, "#040e12");
+  c.fillStyle = gr;
+  c.fillRect(0, gy, TILE_W, WORLD_H - gy);
+  c.fillStyle = "rgba(120,220,230,0.22)";
+  c.fillRect(0, gy, TILE_W, 1);
+  // Lawn strip along the park railing.
+  c.fillStyle = "#0a2620";
+  c.fillRect(0, gy + 1, TILE_W, 7);
+  c.fillStyle = "rgba(120,220,180,0.12)";
+  c.fillRect(0, gy + 8, TILE_W, 0.6);
+  // Pavers (running bond).
+  c.strokeStyle = "rgba(130,210,220,0.07)";
+  c.lineWidth = 0.5;
+  c.beginPath();
+  let row = 0;
+  for (let y = gy + 12; y < pt - 4; y += 9, row++) {
+    c.moveTo(0, y);
+    c.lineTo(TILE_W, y);
+    for (let x = (row % 2) * 8; x < TILE_W; x += 16) {
+      c.moveTo(x, y);
+      c.lineTo(x, Math.min(y + 9, pt - 4));
+    }
+  }
+  c.stroke();
+  // The viaduct's purple stripe and deck lights mirrored in the wet pavers.
+  c.fillStyle = "rgba(120,80,200,0.12)";
+  c.fillRect(0, gy + 10, TILE_W, 3);
+  for (let x = 20; x < TILE_W; x += 40) softBlob(c, x, gy + 16, 9, 1.6, "rgba(180,240,255,0.08)");
+  // Road.
+  const road = c.createLinearGradient(0, pt, 0, pb);
+  road.addColorStop(0, "#0a1519");
+  road.addColorStop(0.5, "#0c1a1f");
+  road.addColorStop(1, "#071116");
+  c.fillStyle = road;
+  c.fillRect(0, pt, TILE_W, pb - pt);
+  const sheen = c.createLinearGradient(0, pt, 0, pb);
+  sheen.addColorStop(0, "rgba(90,170,190,0)");
+  sheen.addColorStop(0.5, "rgba(90,170,190,0.07)");
+  sheen.addColorStop(1, "rgba(90,170,190,0)");
+  c.fillStyle = sheen;
+  c.fillRect(0, pt, TILE_W, pb - pt);
+  c.fillStyle = "rgba(220,235,235,0.4)";
+  const mid = (pt + pb) / 2;
+  for (let x = 4; x < TILE_W; x += 40) c.fillRect(x, mid - 0.8, 18, 1.6);
+  c.fillStyle = "rgba(230,200,110,0.22)";
+  c.fillRect(0, pt + 4, TILE_W, 0.8);
+  c.fillRect(0, pb - 4.8, TILE_W, 0.8);
+  // Kerbs, black and yellow.
+  for (const ky of [pt - 4, pb]) {
+    for (let x = 0; x < TILE_W; x += 10) {
+      c.fillStyle = (x / 10) % 2 ? "#0d1012" : "#8f7426";
+      c.fillRect(x, ky, 10, 4);
+    }
+    c.fillStyle = RIM + "0.3)";
+    c.fillRect(0, ky, TILE_W, 0.6);
+  }
+  // Puddles.
+  const r = rng(31);
+  for (let i = 0; i < 14; i++) {
+    const x = r() * TILE_W, y = 210 + r() * 140, rx = 14 + r() * 40;
+    softBlob(c, x, y, rx, 0.16, "rgba(90,180,195,0.16)");
+  }
+}
+
+export interface CityTiles { far: HTMLCanvasElement; viaduct: HTMLCanvasElement; ground: HTMLCanvasElement }
+let cityTiles: CityTiles | null = null;
+export function getCityTiles(): CityTiles {
+  if (!cityTiles) {
+    const groundCv = makeCanvas(TILE_W * S, WORLD_H * S);
+    const gc = groundCv.getContext("2d")!;
+    gc.scale(S, S);
+    paintGroundCity(gc);
+    cityTiles = { far: tileLayer(FAR_H, 2.4, paintFarCity), viaduct: tileLayer(FAR_H, 0, paintViaduct), ground: groundCv };
+  }
+  return cityTiles;
+}
+
+// ── gulmohar / rain trees (sprite per size/lean) ──────────────────────────
+
+function paintTree(c: CanvasRenderingContext2D, h: number, lean: number) {
+  const r = rng(Math.round(h * 13 + lean * 1000));
+  const topX = lean * h * 0.7, topY = -h * 0.62;
+  c.fillStyle = "rgba(0,0,0,0.4)";
+  c.beginPath();
+  c.ellipse(0, 1, 14, 3, 0, 0, Math.PI * 2);
+  c.fill();
+  // Trunk and branches.
+  c.lineCap = "round";
+  const tg = c.createLinearGradient(-4, 0, 4, 0);
+  tg.addColorStop(0, "#2b2a26");
+  tg.addColorStop(1, "#141412");
+  c.strokeStyle = tg;
+  c.lineWidth = 6;
+  c.beginPath();
+  c.moveTo(0, 0);
+  c.quadraticCurveTo(lean * h * 0.2, -h * 0.35, topX, topY);
+  c.stroke();
+  c.lineWidth = 3;
+  c.beginPath();
+  for (const [bx, by] of [[-0.3, -0.85], [0.32, -0.8], [0, -0.95]] as const) {
+    c.moveTo(topX, topY);
+    c.quadraticCurveTo(topX + bx * h * 0.2, topY - h * 0.1, topX + bx * h, by * h);
+  }
+  c.stroke();
+  c.strokeStyle = RIM + "0.4)";
+  c.lineWidth = 0.8;
+  c.beginPath();
+  c.moveTo(2.6, 0);
+  c.quadraticCurveTo(lean * h * 0.2 + 2.4, -h * 0.35, topX + 1.4, topY);
+  c.stroke();
+  // Canopy: a wide umbrella of leaf clusters.
+  const cx = topX, cy = -h * 0.82, R = h * 0.34;
+  const blobs: [number, number, number][] = [];
+  for (let i = 0; i < 16; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r());
+    blobs.push([cx + Math.cos(a) * R * d * 1.05, cy + Math.sin(a) * R * d * 0.45, R * (0.32 + r() * 0.18)]);
+  }
+  blobs.sort((a, b) => a[1] - b[1]);
+  for (const [x, y, rr] of blobs) {
+    const g = c.createRadialGradient(x - rr * 0.3, y - rr * 0.4, rr * 0.1, x, y, rr);
+    g.addColorStop(0, "#1a4a3a");
+    g.addColorStop(1, "#071a16");
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(x, y, rr, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = RIM + "0.28)";
+    c.lineWidth = 0.6;
+    c.beginPath();
+    c.arc(x, y, rr - 0.4, -Math.PI * 0.55, -Math.PI * 0.05);
+    c.stroke();
+  }
+  // Red-orange blooms, brighter on top.
+  for (let i = 0; i < 70; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r());
+    const x = cx + Math.cos(a) * R * d * 1.15, y = cy + Math.sin(a) * R * d * 0.5 - R * 0.1;
+    const top = y < cy;
+    c.fillStyle = top ? (r() < 0.5 ? "#e0582e" : "#f08a3c") : "#9a3420";
+    c.globalAlpha = top ? 0.9 : 0.7;
+    c.beginPath();
+    c.arc(x, y, 1 + r() * 1.2, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.globalAlpha = 1;
+}
+
+const treeCache = new Map<string, Sprite>();
+export function treeSprite(h: number, lean: number): Sprite {
+  const key = `city|${Math.round(h)}|${lean.toFixed(3)}`;
+  let s = treeCache.get(key);
+  if (!s) {
+    if (treeCache.size > 64) treeCache.clear();
+    const topX = lean * h * 0.7, R = h * 0.34;
+    const left = Math.min(0, topX) - R * 1.3 - 6, right = Math.max(0, topX) + R * 1.3 + 6;
+    const top = -h * 0.82 - R * 0.75 - 6, bottom = 8;
+    s = sprite(right - left, bottom - top, left, top, (c) => paintTree(c, h, lean));
+    treeCache.set(key, s);
+  }
+  return s;
+}
+
+// ── city buildings per variant ─────────────────────────────────────────────
+
+function cityBoardAndSpill(c: CanvasRenderingContext2D, p: LivePlace, y: number, doorX: number, glows: [number, number][]) {
+  const w = p.building.w;
+  const bw = w - 20, bx = 10, by = y + 6, bh = 14;
+  c.fillStyle = "#0c0e12";
+  c.beginPath();
+  c.roundRect(bx, by, bw, bh, 2.5);
+  c.fill();
+  c.strokeStyle = "rgba(255,190,110,0.55)";
+  c.lineWidth = 0.6;
+  c.stroke();
+  c.save();
+  const name = fitText(c, p.name.toUpperCase(), bw - 8, "700", 8, 5.5);
+  c.shadowColor = "#ffb35c";
+  c.shadowBlur = 8;
+  c.textAlign = "center";
+  c.fillStyle = "#ffd9a0";
+  c.fillText(name, bx + bw / 2, by + 10);
+  c.restore();
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  const spill = c.createRadialGradient(doorX, 4, 2, doorX, 4, 60);
+  spill.addColorStop(0, "rgba(255,160,70,0.32)");
+  spill.addColorStop(1, "rgba(255,160,70,0)");
+  c.fillStyle = spill;
+  c.save();
+  c.translate(doorX, 4);
+  c.scale(1, 0.35);
+  c.fillRect(-60, -60, 120, 120);
+  c.restore();
+  c.globalAlpha = 0.45;
+  for (const [x0, w0] of glows) c.drawImage(glow("#ff9a3a"), x0 - 4, -20, w0 + 8, 80);
+  c.restore();
+}
+
+function litDoor(c: CanvasRenderingContext2D, doorX: number, top: number, glass: boolean) {
+  const door = c.createLinearGradient(0, top, 0, 0);
+  door.addColorStop(0, glass ? "#d8f4ff" : "#ffcf86");
+  door.addColorStop(1, glass ? "#4aa0b8" : "#c4621f");
+  c.fillStyle = door;
+  c.fillRect(doorX - 11, top, 22, -top);
+  c.fillStyle = "#101418";
+  c.fillRect(doorX - 12, top - 1, 24, 1.5);
+  c.fillRect(doorX - 12, top - 1, 1.5, -top + 1);
+  c.fillRect(doorX + 10.5, top - 1, 1.5, -top + 1);
+  if (glass) c.fillRect(doorX - 0.5, top, 1, -top);
+}
+
+function paintCityBuilding(c: CanvasRenderingContext2D, p: LivePlace) {
+  const b = p.building;
+  const w = b.w, wallH = b.wallH, roofH = b.roofH, doorX = b.doorX - b.x;
+  const y = -wallH;
+  const v = p.variant % 4;
+  const r = rng(17 + v * 101 + Math.round(w));
+  c.fillStyle = "rgba(0,0,0,0.45)";
+  c.beginPath();
+  c.ellipse(w / 2, 2, w * 0.6, 6, 0, 0, Math.PI * 2);
+  c.fill();
+  const glows: [number, number][] = [[doorX - 10, 20]];
+
+  if (v === 0) {
+    // Glass office block.
+    const top = y - roofH;
+    const g = c.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, "#15405a");
+    g.addColorStop(1, "#071a26");
+    c.fillStyle = g;
+    c.fillRect(0, top, w, -top);
+    litWindows(c, r, 0, top + 2, w, -30 - top, 9, 6, 0.42);
+    c.strokeStyle = "rgba(140,220,240,0.22)";
+    c.lineWidth = 0.6;
+    c.beginPath();
+    for (let x = 0; x <= w; x += 10.6) {
+      c.moveTo(x, top);
+      c.lineTo(x, -30);
+    }
+    for (let yy = top + 8; yy < -30; yy += 8) {
+      c.moveTo(0, yy);
+      c.lineTo(w, yy);
+    }
+    c.stroke();
+    c.save();
+    c.beginPath();
+    c.rect(0, top, w, -top);
+    c.clip();
+    c.fillStyle = "rgba(150,236,255,0.07)";
+    c.beginPath();
+    c.moveTo(w * 0.55, top);
+    c.lineTo(w * 0.75, top);
+    c.lineTo(w * 0.25, 0);
+    c.lineTo(w * 0.05, 0);
+    c.fill();
+    c.restore();
+    c.fillStyle = "#0a1820";
+    c.fillRect(-2, top - 3, w + 4, 3);
+    c.fillStyle = RIM + "0.7)";
+    c.fillRect(-2, top - 3, w + 4, 0.7);
+    // Lit lobby under a canopy.
+    const lob = c.createLinearGradient(0, -30, 0, 0);
+    lob.addColorStop(0, "#ffe2b0");
+    lob.addColorStop(1, "#b86a2a");
+    c.fillStyle = lob;
+    c.fillRect(6, -28, w - 12, 28);
+    c.fillStyle = "rgba(20,30,36,0.55)";
+    for (let x = 10; x < w - 8; x += 18) c.fillRect(x, -28, 1.2, 28);
+    c.fillStyle = "#0b1a20";
+    c.fillRect(-4, -32, w + 8, 4);
+    c.fillStyle = RIM + "0.6)";
+    c.fillRect(-4, -32, w + 8, 0.6);
+    litDoor(c, doorX, -27, true);
+    glows.push([8, w - 16]);
+  } else if (v === 1) {
+    // Darshini café: open steel counter, menu board, flat roof.
+    const [wallA, wallB] = WALLS[1]!;
+    const g = c.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, wallA);
+    g.addColorStop(1, wallB);
+    c.fillStyle = g;
+    const top = y - roofH * 0.7;
+    c.fillRect(0, top, w, -top);
+    c.fillStyle = "#0e161b";
+    c.fillRect(-3, top - 3, w + 6, 4);
+    c.fillStyle = RIM + "0.6)";
+    c.fillRect(-3, top - 3, w + 6, 0.7);
+    // Upper floor: a home above the café, with a balcony.
+    for (let i = 0; i < 4; i++) {
+      const ux = 10 + i * ((w - 20) / 4), uw = (w - 20) / 4 - 8;
+      const on = r() < 0.6;
+      c.fillStyle = on ? "#e8a050" : "#0a1418";
+      c.fillRect(ux, top + 5, uw, 12);
+      c.fillStyle = "rgba(10,14,16,0.8)";
+      c.fillRect(ux + uw / 2 - 0.5, top + 5, 1, 12);
+    }
+    c.strokeStyle = "rgba(170,190,196,0.6)";
+    c.lineWidth = 0.6;
+    c.beginPath();
+    c.moveTo(4, top + 17);
+    c.lineTo(w - 4, top + 17);
+    for (let x = 6; x < w - 4; x += 4) {
+      c.moveTo(x, top + 17);
+      c.lineTo(x, top + 22);
+    }
+    c.moveTo(4, top + 22);
+    c.lineTo(w - 4, top + 22);
+    c.stroke();
+    c.fillStyle = "#0e161b";
+    c.fillRect(-3, y - 4, w + 6, 3);
+    const wx = 8, wy = y + 24, ww = Math.max(30, doorX - 12 - 18), wh = 30;
+    const inner = c.createLinearGradient(0, wy, 0, wy + wh);
+    inner.addColorStop(0, "#ffd08a");
+    inner.addColorStop(1, "#b9541c");
+    c.fillStyle = inner;
+    c.fillRect(wx, wy, ww, wh);
+    c.fillStyle = "rgba(240,255,255,0.95)";
+    c.fillRect(wx + 4, wy + 2, ww - 8, 1.2);
+    for (let i = 0; i < 3; i++) {
+      const vx = wx + 4 + i * 11;
+      const sg = c.createLinearGradient(vx, 0, vx + 9, 0);
+      sg.addColorStop(0, "#e8eef0");
+      sg.addColorStop(0.5, "#8d9aa2");
+      sg.addColorStop(1, "#3a454c");
+      c.fillStyle = sg;
+      c.beginPath();
+      c.roundRect(vx, wy + wh - 13, 9, 12, 2);
+      c.fill();
+    }
+    c.fillStyle = "rgba(30,14,6,0.8)";
+    c.fillRect(wx + ww - 18, wy + 6, 14, 10);
+    c.fillStyle = "rgba(255,240,210,0.6)";
+    for (let k = 0; k < 3; k++) c.fillRect(wx + ww - 16, wy + 8 + k * 3, 10 - k * 2, 0.8);
+    const counter = c.createLinearGradient(0, wy + wh, 0, wy + wh + 6);
+    counter.addColorStop(0, "#b8c4ca");
+    counter.addColorStop(1, "#3c464c");
+    c.fillStyle = counter;
+    c.fillRect(wx - 3, wy + wh - 1, ww + 6, 6);
+    for (let i = 0; i < 4; i++) {
+      const gx = wx + 40 + i * 7;
+      if (gx > wx + ww - 22) break;
+      c.fillStyle = "rgba(220,230,235,0.7)";
+      c.fillRect(gx, wy + wh - 6, 3.4, 5);
+      c.fillStyle = "#b8743a";
+      c.fillRect(gx, wy + wh - 4, 3.4, 3);
+    }
+    litDoor(c, doorX, y + 24, false);
+    if (w - doorX > 40) {
+      const sx = doorX + 18, sw = Math.min(26, w - doorX - 26);
+      c.fillStyle = "#e48f3e";
+      c.fillRect(sx, y + 28, sw, 16);
+      c.strokeStyle = "#101418";
+      c.lineWidth = 1.2;
+      c.strokeRect(sx, y + 28, sw, 16);
+    }
+    glows.push([wx + 4, ww - 8]);
+  } else if (v === 2) {
+    // Co-working loft: brick, big factory windows, a water tank on the roof.
+    const top = y - roofH * 0.55;
+    const g = c.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, "#4a2620");
+    g.addColorStop(1, "#1e0f0c");
+    c.fillStyle = g;
+    c.fillRect(0, top, w, -top);
+    c.strokeStyle = "rgba(0,0,0,0.35)";
+    c.lineWidth = 0.5;
+    c.beginPath();
+    let row = 0;
+    for (let yy = top + 3.5; yy < 0; yy += 3.5, row++) {
+      c.moveTo(0, yy);
+      c.lineTo(w, yy);
+      for (let x = (row % 2) * 4; x < w; x += 8) {
+        c.moveTo(x, yy);
+        c.lineTo(x, yy - 3.5);
+      }
+    }
+    c.stroke();
+    const win = (x: number, yy: number, ww: number, hh: number) => {
+      const ig = c.createLinearGradient(0, yy, 0, yy + hh);
+      ig.addColorStop(0, "#ffd79a");
+      ig.addColorStop(1, "#c46a28");
+      c.fillStyle = ig;
+      c.fillRect(x, yy, ww, hh);
+      c.strokeStyle = "#141010";
+      c.lineWidth = 1;
+      c.strokeRect(x, yy, ww, hh);
+      c.beginPath();
+      for (let gx = x + 6; gx < x + ww; gx += 6) {
+        c.moveTo(gx, yy);
+        c.lineTo(gx, yy + hh);
+      }
+      c.moveTo(x, yy + hh / 2);
+      c.lineTo(x + ww, yy + hh / 2);
+      c.stroke();
+    };
+    win(8, top + 4, w * 0.38, 14);
+    win(w * 0.55, top + 4, w * 0.38, 14);
+    const lw = Math.max(30, doorX - 32);
+    win(8, y + 24, lw, 26);
+    litDoor(c, doorX, y + 24, true);
+    c.fillStyle = "#120c0a";
+    c.fillRect(-2, top - 3, w + 4, 3);
+    c.fillStyle = RIM + "0.6)";
+    c.fillRect(-2, top - 3, w + 4, 0.7);
+    const tx = w - 34;
+    c.fillStyle = "#0c1114";
+    c.fillRect(tx, top - 15, 16, 12);
+    c.beginPath();
+    c.ellipse(tx + 8, top - 15, 8, 2.2, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = RIM + "0.5)";
+    c.fillRect(tx + 15, top - 15, 0.8, 12);
+    c.fillStyle = "#0c1114";
+    c.fillRect(tx + 2, top - 3, 1.5, 3);
+    c.fillRect(tx + 12.5, top - 3, 1.5, 3);
+    glows.push([12, lw - 8]);
+  } else {
+    // Kiosk / shop with a striped awning.
+    const [wallA, wallB] = WALLS[3]!;
+    const g = c.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, wallA);
+    g.addColorStop(1, wallB);
+    c.fillStyle = g;
+    c.fillRect(0, y - 6, w, wallH + 6);
+    c.fillStyle = "#0e1016";
+    c.fillRect(-2, y - 9, w + 4, 4);
+    c.fillStyle = RIM + "0.55)";
+    c.fillRect(-2, y - 9, w + 4, 0.7);
+    const sx = 6, sw = doorX - 16 - sx, sy = y + 32;
+    const ig = c.createLinearGradient(0, sy, 0, 0);
+    ig.addColorStop(0, "#ffd696");
+    ig.addColorStop(1, "#b55a20");
+    c.fillStyle = ig;
+    c.fillRect(sx, sy, sw, -sy - 6);
+    const cols = ["#3a7a9a", "#c8463a", "#d8b03a", "#5a9a4a", "#8a5ab8"];
+    for (let rr = 0; rr < 3; rr++) {
+      c.fillStyle = "rgba(60,24,10,0.6)";
+      c.fillRect(sx + 2, sy + 10 + rr * 10, sw - 4, 1.2);
+      for (let x = sx + 4; x < sx + sw - 6; x += 5) {
+        c.fillStyle = cols[(r() * cols.length) | 0]!;
+        c.globalAlpha = 0.85;
+        c.fillRect(x, sy + 3 + rr * 10, 3.6, 6.5 - r() * 2);
+      }
+      c.globalAlpha = 1;
+    }
+    c.fillStyle = "#3a2a1c";
+    c.fillRect(sx - 2, -7, sw + 4, 7);
+    litDoor(c, doorX, y + 32, false);
+    if (w - doorX > 30) {
+      const rx = doorX + 16, rw = w - doorX - 22;
+      c.fillStyle = "#e48f3e";
+      c.fillRect(rx, y + 32, rw, -y - 32);
+      const sh = c.createLinearGradient(0, y + 32, 0, y + 50);
+      sh.addColorStop(0, "#5a6168");
+      sh.addColorStop(1, "#2a2f34");
+      c.fillStyle = sh;
+      c.fillRect(rx, y + 32, rw, 18);
+      c.fillStyle = "rgba(0,0,0,0.35)";
+      for (let yy = y + 34; yy < y + 50; yy += 2) c.fillRect(rx, yy, rw, 0.6);
+    }
+    const ay = y + 22, ah = 10;
+    c.save();
+    c.beginPath();
+    c.moveTo(-6, ay + ah);
+    c.lineTo(2, ay);
+    c.lineTo(w - 2, ay);
+    c.lineTo(w + 6, ay + ah);
+    for (let x = w + 6; x > -6; x -= 8) c.quadraticCurveTo(x - 4, ay + ah + 4, x - 8, ay + ah);
+    c.closePath();
+    c.clip();
+    for (let x = -6, k = 0; x < w + 6; x += 8, k++) {
+      c.fillStyle = k % 2 ? "#d8cbb0" : "#8a2a22";
+      c.fillRect(x, ay, 8, ah + 5);
+    }
+    const sh = c.createLinearGradient(0, ay, 0, ay + ah + 4);
+    sh.addColorStop(0, "rgba(6,20,28,0.15)");
+    sh.addColorStop(1, "rgba(6,20,28,0.55)");
+    c.fillStyle = sh;
+    c.fillRect(-6, ay, w + 12, ah + 5);
+    c.restore();
+    c.strokeStyle = RIM + "0.6)";
+    c.lineWidth = 0.8;
+    c.beginPath();
+    c.moveTo(2, ay);
+    c.lineTo(w - 2, ay);
+    c.lineTo(w + 6, ay + ah);
+    c.stroke();
+    glows.push([sx + 4, sw - 8]);
+  }
+  c.fillStyle = RIM + "0.4)";
+  c.fillRect(w - 1, y, 1, wallH);
+  cityBoardAndSpill(c, p, y, doorX, glows);
+}
+
+const cityBuildingCache = new Map<string, Sprite>();
+export function cityBuildingSprite(p: LivePlace): Sprite {
+  const b = p.building;
+  const key = `city|${p.name}|${p.variant}|${b.w}|${b.wallH}|${b.roofH}|${b.doorX - b.x}`;
+  let s = cityBuildingCache.get(key);
+  if (!s) {
+    if (cityBuildingCache.size > 48) cityBuildingCache.clear();
+    const left = -40, right = b.w + 40, top = -b.wallH - b.roofH - 22, bottom = 80;
+    s = sprite(right - left, bottom - top, left, top, (c) => paintCityBuilding(c, p));
+    cityBuildingCache.set(key, s);
+  }
+  return s;
+}
+
+// ── green street sign, lamp posts, vehicles ────────────────────────────────
+
+let citySignSprite: Sprite | null = null;
+export function getCitySignSprite(text: string): Sprite {
+  if (!citySignSprite) {
+    citySignSprite = sprite(90, 100, -45, -20, (c) => {
+      c.fillStyle = "rgba(0,0,0,0.4)";
+      c.beginPath();
+      c.ellipse(0, 40, 8, 2, 0, 0, Math.PI * 2);
+      c.fill();
+      const post = c.createLinearGradient(-2, 0, 2, 0);
+      post.addColorStop(0, "#5a6a70");
+      post.addColorStop(1, "#1a2428");
+      c.fillStyle = post;
+      c.fillRect(-1.6, 0, 3.2, 40);
+      for (let k = 0; k < 4; k++) {
+        c.fillStyle = k % 2 ? "#0d1012" : "#c8c8c0";
+        c.fillRect(-1.6, 28 + k * 3, 3.2, 3);
+      }
+      const bg = c.createLinearGradient(0, -15, 0, 4);
+      bg.addColorStop(0, "#17663e");
+      bg.addColorStop(1, "#0a3a22");
+      c.fillStyle = bg;
+      c.beginPath();
+      c.roundRect(-33, -15, 66, 19, 2.5);
+      c.fill();
+      c.strokeStyle = "rgba(235,255,240,0.85)";
+      c.lineWidth = 0.7;
+      c.beginPath();
+      c.roundRect(-31.5, -13.5, 63, 16, 1.6);
+      c.stroke();
+      c.fillStyle = "#0a3a22";
+      c.beginPath();
+      c.roundRect(-22, 5.5, 44, 9, 1.5);
+      c.fill();
+      c.strokeStyle = "rgba(235,255,240,0.6)";
+      c.lineWidth = 0.5;
+      c.stroke();
+      c.save();
+      c.shadowColor = "#6ef0a8";
+      c.shadowBlur = 8;
+      c.textAlign = "center";
+      c.font = "800 8.5px ui-sans-serif, system-ui, sans-serif";
+      c.fillStyle = "#effff5";
+      c.fillText(text, 0, -2.8);
+      c.font = "700 5px ui-sans-serif, system-ui, sans-serif";
+      c.fillText("BENGALURU", 0, 12);
+      c.restore();
+      c.fillStyle = RIM + "0.6)";
+      c.fillRect(-33, -15, 66, 0.6);
+      c.globalCompositeOperation = "lighter";
+      c.globalAlpha = 0.3;
+      c.drawImage(glow("#4ade80"), -26, 26, 52, 50);
+    });
+  }
+  return citySignSprite;
+}
+
+/** A short lamp post; local (0,0) is the lantern, the base is at y = 23. */
+let postSprite: Sprite | null = null;
+export function getPostSprite(): Sprite {
+  if (!postSprite) {
+    postSprite = sprite(20, 34, -10, -8, (c) => {
+      c.fillStyle = "rgba(0,0,0,0.45)";
+      c.beginPath();
+      c.ellipse(0, 23, 6, 1.8, 0, 0, Math.PI * 2);
+      c.fill();
+      const pg = c.createLinearGradient(-2, 0, 2, 0);
+      pg.addColorStop(0, "#56646a");
+      pg.addColorStop(1, "#141c20");
+      c.fillStyle = pg;
+      c.fillRect(-1.1, 2, 2.2, 21);
+      c.fillRect(-2.6, 20, 5.2, 3);
+      c.fillStyle = "#0e1418";
+      c.beginPath();
+      c.moveTo(-3.5, -1.5);
+      c.lineTo(3.5, -1.5);
+      c.lineTo(2.4, 3);
+      c.lineTo(-2.4, 3);
+      c.closePath();
+      c.fill();
+      c.beginPath();
+      c.moveTo(-4, -2);
+      c.lineTo(0, -6);
+      c.lineTo(4, -2);
+      c.closePath();
+      c.fill();
+      c.fillStyle = "rgba(255,230,180,0.25)";
+      c.fillRect(-2.2, -1, 4.4, 3.4);
+      c.strokeStyle = RIM + "0.5)";
+      c.lineWidth = 0.6;
+      c.beginPath();
+      c.moveTo(1.1, 4);
+      c.lineTo(1.1, 20);
+      c.stroke();
+    });
+  }
+  return postSprite;
+}
+
+function paintAuto(c: CanvasRenderingContext2D) {
+  // Local origin at the road contact, facing right.
+  c.fillStyle = "rgba(0,0,0,0.5)";
+  c.beginPath();
+  c.ellipse(1, 0, 15, 2.4, 0, 0, Math.PI * 2);
+  c.fill();
+  const bg = c.createLinearGradient(0, -16, 0, -2);
+  bg.addColorStop(0, "#2f9a56");
+  bg.addColorStop(1, "#0e3a20");
+  c.fillStyle = bg;
+  c.beginPath();
+  c.moveTo(-13, -3);
+  c.lineTo(-13, -12);
+  c.quadraticCurveTo(-13, -14, -10, -14);
+  c.lineTo(4, -14);
+  c.lineTo(6, -3);
+  c.closePath();
+  c.fill();
+  const yg = c.createLinearGradient(0, -14, 0, -2);
+  yg.addColorStop(0, "#e8c040");
+  yg.addColorStop(1, "#6a5214");
+  c.fillStyle = yg;
+  c.beginPath();
+  c.moveTo(4, -14);
+  c.lineTo(9, -14);
+  c.quadraticCurveTo(14, -10, 14, -4);
+  c.lineTo(6, -3);
+  c.closePath();
+  c.fill();
+  c.fillStyle = "#d8b030";
+  c.fillRect(-13, -9.5, 18, 1.4);
+  c.fillStyle = "#081014";
+  c.fillRect(-5, -13.5, 8.5, 6.5);
+  c.fillStyle = "#1c242a";
+  c.beginPath();
+  c.arc(5.6, -16, 2, 0, Math.PI * 2);
+  c.fill();
+  c.fillRect(4.4, -14.5, 2.6, 5);
+  c.fillStyle = "#101214";
+  c.beginPath();
+  c.moveTo(-14, -14);
+  c.quadraticCurveTo(-13, -21, -4, -21);
+  c.lineTo(8, -21);
+  c.quadraticCurveTo(11, -20, 10, -14);
+  c.closePath();
+  c.fill();
+  c.fillStyle = "rgba(160,220,235,0.25)";
+  c.beginPath();
+  c.moveTo(9.2, -20);
+  c.lineTo(12.4, -12);
+  c.lineTo(10, -12);
+  c.lineTo(8.4, -20);
+  c.fill();
+  c.strokeStyle = RIM + "0.75)";
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.moveTo(-10, -21);
+  c.lineTo(8, -21);
+  c.quadraticCurveTo(11, -20, 10.4, -15);
+  c.moveTo(9.4, -14);
+  c.quadraticCurveTo(14, -10, 14, -4);
+  c.stroke();
+  for (const [wx, wr] of [[-8, 2.8], [10.5, 2.5]] as const) {
+    c.fillStyle = "#050708";
+    c.beginPath();
+    c.arc(wx, -2.6, wr, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#59646a";
+    c.beginPath();
+    c.arc(wx, -2.6, 0.9, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = "#fff4d0";
+  c.fillRect(13, -9, 1.6, 2.2);
+  c.fillStyle = "#ff3a2a";
+  c.fillRect(-13.6, -8, 1.2, 2);
+}
+
+function paintBus(c: CanvasRenderingContext2D) {
+  c.fillStyle = "rgba(0,0,0,0.5)";
+  c.beginPath();
+  c.ellipse(0, 0, 40, 3, 0, 0, Math.PI * 2);
+  c.fill();
+  const g = c.createLinearGradient(0, -30, 0, -3);
+  g.addColorStop(0, "#2a7a8a");
+  g.addColorStop(0.5, "#144a58");
+  g.addColorStop(1, "#08222a");
+  c.fillStyle = g;
+  c.beginPath();
+  c.roundRect(-38, -30, 76, 27, [4, 7, 3, 3]);
+  c.fill();
+  c.fillStyle = "#081418";
+  c.fillRect(-35, -26, 66, 10);
+  for (let x = -34; x < 28; x += 9) {
+    c.fillStyle = "rgba(255,236,190,0.92)";
+    c.fillRect(x, -25, 7.6, 8);
+  }
+  c.fillStyle = "rgba(200,240,255,0.55)";
+  c.beginPath();
+  c.moveTo(32, -26);
+  c.lineTo(37, -26);
+  c.lineTo(37.6, -14);
+  c.lineTo(32, -14);
+  c.fill();
+  c.fillStyle = "#d8a030";
+  c.fillRect(-38, -12, 76, 1.6);
+  c.fillStyle = "#ffb050";
+  c.fillRect(20, -29, 14, 2.4);
+  c.fillStyle = "#081014";
+  c.fillRect(22, -16, 6, 13);
+  c.strokeStyle = RIM + "0.75)";
+  c.lineWidth = 0.7;
+  c.beginPath();
+  c.moveTo(-36, -30);
+  c.lineTo(32, -30);
+  c.quadraticCurveTo(38, -30, 38, -24);
+  c.lineTo(38, -4);
+  c.stroke();
+  for (const wx of [-25, 25]) {
+    c.fillStyle = "#050708";
+    c.beginPath();
+    c.arc(wx, -3, 4, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#59646a";
+    c.beginPath();
+    c.arc(wx, -3, 1.4, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = "#fff4d0";
+  c.fillRect(36.5, -9, 1.6, 3);
+  c.fillStyle = "#ff3a2a";
+  c.fillRect(-38.4, -9, 1.4, 3);
+}
+
+/** Vehicles are painted small and scaled up to stand beside the villagers. */
+export const VEH_SCALE = { auto: 1.6, bus: 1.5 } as const;
+const vehicleCache = new Map<string, Sprite>();
+/** Vehicle sprite; local origin at road contact under its centre. */
+export function vehicleSprite(kind: "auto" | "bus", dir: 1 | -1): Sprite {
+  const key = `${kind}|${dir}`;
+  let s = vehicleCache.get(key);
+  if (!s) {
+    const k = VEH_SCALE[kind];
+    const hw = (kind === "bus" ? 44 : 18) * k, h = (kind === "bus" ? 36 : 28) * k;
+    s = sprite(hw * 2, h, -hw, -h + 5 * k, (c) => {
+      c.scale(dir * k, k);
+      if (kind === "bus") paintBus(c);
+      else paintAuto(c);
+    });
+    vehicleCache.set(key, s);
+  }
+  return s;
+}
+
+// ── subagent companions: rim-lit mini villagers with holo floor rings ──────
+
+/** Companion figure scale relative to a villager. */
+export const COMP_K = 0.7;
+const COMP_TINT: RGB = [190, 244, 255];
+const EMOJI_FONT = "'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif";
+
+const tintCache = new Map<string, string>();
+/** A parent colour pulled towards the cool companion tint (hex, so the villager palette can read it). */
+function compTint(hex: string, k: number) {
+  const key = `${hex}|${k}`;
+  let out = tintCache.get(key);
+  if (out) return out;
+  if (tintCache.size > 256) tintCache.clear();
+  const c = rgbOf(hex);
+  out = "#" + c.map((x, i) => Math.round(x + (COMP_TINT[i]! - x) * k).toString(16).padStart(2, "0")).join("");
+  tintCache.set(key, out);
+  return out;
+}
+
+/** The companion as a villager-shaped record so the villager drawing code can render it. */
+function asFigure(p: LiveVillager, c: LiveCompanion): LiveVillager {
+  return {
+    ...p,
+    id: c.id, x: c.x, y: c.y, facing: c.facing, moving: c.moving, phase: c.phase, jump: c.jump,
+    status: "working", carry: undefined, selected: false, hovered: false,
+    shirt: compTint(p.shirt, 0.38), mundu: compTint(p.mundu, 0.3),
+  };
+}
+
+export const compHeadTop = (c: LiveCompanion) => c.y - (BODY.height + c.jump * 26) * COMP_K;
+
+/** The rim-lit mini figure (or its mirrored reflection when the ctx is flipped). */
+export function drawCompanionFigure(ctx: CanvasRenderingContext2D, p: LiveVillager, c: LiveCompanion, t: number, alpha: number) {
+  const rim = c.activity === "error" ? "rgba(255,120,120,0.85)" : c.activity === "wait" ? "rgba(255,210,130,0.8)" : RIM + "0.9)";
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.scale(COMP_K, COMP_K);
+  ctx.translate(-c.x, -c.y);
+  drawVillager(ctx, asFigure(p, c), t, rim, alpha);
+  ctx.restore();
+}
+
+/** Floor work under a companion: the glowing tether to its parent, a cyan ring and a contact shadow. */
+export function companionFloor(ctx: CanvasRenderingContext2D, p: LiveVillager, c: LiveCompanion, t: number, reflect: boolean) {
+  const a = c.alpha * p.alpha;
+  if (c.away > 0.02) {
+    const ta = a * Math.min(1, c.away * 4) * (0.75 - 0.35 * c.away);
+    const mx = (p.x + c.x) / 2, my = Math.max(p.y, c.y) + 5;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = "rgba(94,234,255,1)";
+    ctx.globalAlpha = ta * 0.35;
+    ctx.lineWidth = 2.6;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.quadraticCurveTo(mx, my, c.x, c.y);
+    ctx.stroke();
+    ctx.globalAlpha = ta;
+    ctx.strokeStyle = "rgba(210,252,255,1)";
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+    // A light packet running along the tether.
+    const u = (t * 0.9 + (c.id.charCodeAt(0) % 7) / 7) % 1;
+    const qx = (1 - u) * (1 - u) * p.x + 2 * u * (1 - u) * mx + u * u * c.x;
+    const qy = (1 - u) * (1 - u) * p.y + 2 * u * (1 - u) * my + u * u * c.y;
+    ctx.globalAlpha = ta * 1.2;
+    ctx.drawImage(glow("#9be8ff"), qx - 4, qy - 2.5, 8, 5);
+    ctx.restore();
+  }
+  if (reflect) {
+    ctx.save();
+    ctx.translate(0, 2 * c.y + 1);
+    ctx.scale(1, -1);
+    drawCompanionFigure(ctx, p, c, t, a * 0.18);
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = a * 0.45;
+  ctx.drawImage(glow(c.activity === "error" ? "#f87171" : "#5eead4"), c.x - 13, c.y - 4, 26, 8);
+  ctx.globalAlpha = a * 0.85;
+  ctx.strokeStyle = c.activity === "error" ? "#f87171" : c.activity === "wait" ? "#f5b33d" : "#7ff0ff";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y, 6.5, 1.7, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  if (c.working) {
+    const ph = (t * 0.8 + (c.id.length % 5) / 5) % 1;
+    ctx.globalAlpha = a * (1 - ph) * 0.6;
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, 6.5 + ph * 10, (6.5 + ph * 10) * 0.26, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.fillStyle = `rgba(0,0,0,${(0.5 - c.jump * 0.3) * a})`;
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y, 6 - c.jump * 2, 1.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function emoji(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size: number) {
+  ctx.font = `${size}px ${EMOJI_FONT}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(s, x, y);
+  ctx.textBaseline = "alphabetic";
+}
+
+/** Above-head work: holo icon, puffs, "?" / "!" bubbles, leaving sparkles, and the hand-over burst at the parent. */
+export function companionOverlay(ctx: CanvasRenderingContext2D, p: LiveVillager, c: LiveCompanion, t: number) {
+  const a = c.alpha * p.alpha;
+  const hy = compHeadTop(c);
+  const seed = (c.id.charCodeAt(c.id.length - 1) % 10) / 10;
+  ctx.save();
+  if (c.working) {
+    const iy = hy - 10 + Math.sin(t * 3.2 + seed * 6) * 1.6;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = a * 0.5;
+    ctx.drawImage(glow("#5eead4"), c.x - 10, iy - 10, 20, 20);
+    ctx.globalAlpha = a * 0.7;
+    ctx.strokeStyle = "#9be8ff";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(c.x, iy + 6.5, 5, 1.3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // A faint projector beam from the head to the icon.
+    ctx.globalAlpha = a * 0.12;
+    ctx.fillStyle = "#9be8ff";
+    ctx.beginPath();
+    ctx.moveTo(c.x - 1, hy - 1);
+    ctx.lineTo(c.x + 1, hy - 1);
+    ctx.lineTo(c.x + 5, iy + 6.5);
+    ctx.lineTo(c.x - 5, iy + 6.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = a;
+    emoji(ctx, c.icon, c.x, iy, 8);
+    if (c.activity === "busy") {
+      // Sparks and puffs from the hands.
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 4; i++) {
+        const u = (t * 1.3 + i / 4 + seed) % 1;
+        const px = c.x + c.facing * 4 + Math.sin(i * 2.3 + t * 2) * 3 + (i % 2 ? 1 : -1) * u * 4;
+        const py = c.y - 26 * COMP_K - u * 12;
+        ctx.globalAlpha = a * (1 - u) * 0.8;
+        ctx.drawImage(glow(i % 2 ? "#ffd08a" : "#c8faff"), px - 2.5 - u * 2, py - 2.5 - u * 2, 5 + u * 4, 5 + u * 4);
+      }
+    }
+  } else if (c.activity === "wait" || c.activity === "error") {
+    const err = c.activity === "error";
+    const by = hy - 9 + (err ? 0 : Math.sin(t * 2.4 + seed * 6) * 1);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = a * (err ? 0.55 + 0.3 * Math.abs(Math.sin(t * 4)) : 0.4);
+    ctx.drawImage(glow(err ? "#ff4a4a" : "#f5b33d"), c.x - 9, by - 9, 18, 18);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = a;
+    ctx.fillStyle = err ? "rgba(60,6,6,0.9)" : "rgba(40,26,4,0.88)";
+    ctx.strokeStyle = err ? "#ff7a7a" : "#ffd27a";
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.arc(c.x, by, 4.6, 0, Math.PI * 2);
+    ctx.moveTo(c.x - 1.6, by + 4.2);
+    ctx.lineTo(c.x, by + 7);
+    ctx.lineTo(c.x + 1.6, by + 4.2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = "800 6.5px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = err ? "#ff9a9a" : "#ffe3a0";
+    ctx.fillText(err ? "!" : "?", c.x, by + 2.4);
+  } else if (c.activity === "leaving") {
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 5; i++) {
+      const ang = i * 1.257 + t * 2;
+      const r = 5 + ((t * 1.5 + i * 0.2) % 1) * 6;
+      const sx = c.x + Math.cos(ang) * r, sy = hy + 6 + Math.sin(ang) * r * 0.8;
+      ctx.globalAlpha = a * (0.5 + 0.5 * Math.sin(t * 9 + i));
+      ctx.drawImage(glow("#fff2b0"), sx - 2.5, sy - 2.5, 5, 5);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = a;
+    emoji(ctx, c.icon, c.x, hy - 7, 7);
+  }
+  ctx.restore();
+  if (c.handover > 0) handoverBurst(ctx, p, c.handover, t);
+}
+
+
+/** A small sparkle burst at the parent's chest when an errand's result is handed over. */
+function handoverBurst(ctx: CanvasRenderingContext2D, p: LiveVillager, h: number, t: number) {
+  const cx = p.x, cy = p.y - 40 - p.jump * 26;
+  const r = 4 + (1 - h) * 13;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = p.alpha * h * 0.8;
+  ctx.drawImage(glow("#c8faff"), cx - 12, cy - 12, 24, 24);
+  ctx.strokeStyle = "#e8fdff";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2 + t * 0.5;
+    ctx.moveTo(cx + Math.cos(ang) * r * 0.55, cy + Math.sin(ang) * r * 0.55);
+    ctx.lineTo(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r);
+  }
+  ctx.stroke();
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2 + 0.3;
+    ctx.drawImage(glow(i % 2 ? "#ffe9a8" : "#9be8ff"), cx + Math.cos(ang) * r * 1.2 - 2, cy + Math.sin(ang) * r * 1.2 - 2, 4, 4);
+  }
+  ctx.restore();
+}
+
+/** Tiny label pill under the companion's feet (on the floor, clear of the villager labels above heads). */
+export function companionLabel(ctx: CanvasRenderingContext2D, p: LiveVillager, c: LiveCompanion) {
+  const a = c.alpha * p.alpha;
+  if (a < 0.05 || !c.label) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.font = "500 5.2px ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  const tw = ctx.measureText(c.label).width;
+  const pw = tw + 7, ph = 7.6, px = c.x - pw / 2, py = c.y + 3.5;
+  ctx.fillStyle = "rgba(4,18,24,0.82)";
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 3.8);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(127,240,255,0.55)";
+  ctx.lineWidth = 0.45;
+  ctx.stroke();
+  ctx.fillStyle = "rgba(220,250,255,0.95)";
+  ctx.fillText(c.label, c.x, py + 5.5);
+  ctx.restore();
+}
+
+/** "+N" badge by the parent when there are more companions than figures drawn. */
+export function companionBadge(ctx: CanvasRenderingContext2D, p: LiveVillager, extra: number) {
+  const x = p.x + 13, y = p.y - BODY.height * 0.62 - p.jump * 26;
+  ctx.save();
+  ctx.globalAlpha = p.alpha;
+  ctx.fillStyle = "rgba(4,18,24,0.85)";
+  ctx.strokeStyle = "rgba(127,240,255,0.8)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.roundRect(x, y - 5, 13, 8, 4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = "700 5.5px ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#c8faff";
+  ctx.fillText(`+${extra}`, x + 6.5, y + 1);
   ctx.restore();
 }

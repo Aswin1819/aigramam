@@ -121,7 +121,7 @@ export default function TopBar(p: Props) {
           <span className="chip bg-white/5 text-cream/60">{idle} idle</span>
         </div>
 
-        {/* Places: which world the village is in (drawn in that world's own art). */}
+        {/* Place: which world the village is in. With an art style chosen, the place is drawn in that style. */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Place" title="Place (world)">
             <Globe2 size={15} className="text-brass" />
@@ -132,8 +132,7 @@ export default function TopBar(p: Props) {
           <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
             <DropdownMenuLabel className="text-xs text-cream/60">Places</DropdownMenuLabel>
             {p.worlds.map((w) => (
-              // Picking a place shows it in its own art, so a chosen art style steps aside.
-              <DropdownMenuItem key={w.id} onClick={() => { p.onWorld(w.id); p.onArtStyle("classic"); }} className="flex flex-col items-start gap-0 rounded-lg">
+              <DropdownMenuItem key={w.id} onClick={() => p.onWorld(w.id)} className="flex flex-col items-start gap-0 rounded-lg">
                 <span className={`text-sm font-semibold ${w.id === p.world?.id ? "text-brass" : ""}`}>{w.name}</span>
                 <span className="text-[11px] text-cream/55">by {w.author} · {w.license}</span>
               </DropdownMenuItem>

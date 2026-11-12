@@ -4,6 +4,7 @@ import type { ProjectView, SessionView } from "@shared/model";
 import { LiveSim } from "@/styles/live/sim";
 import { tintFor } from "@/styles/live/lighting";
 import { WORLD_H, type LiveFrame, type LiveStyle, type ViewRect } from "@/styles/live/types";
+import type { PlaceTheme } from "@/styles/live/types";
 import type { WorldHandle } from "./WorldView";
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
   hourOverride: number | null;
   /** Colours of the character chosen for a session's project. */
   paletteOf?: (s: SessionView) => CharacterPalette | undefined;
+  /** The chosen place, drawn in this style. */
+  theme: PlaceTheme;
 }
 
 interface Cam {

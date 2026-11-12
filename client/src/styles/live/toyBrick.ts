@@ -5,15 +5,22 @@
  * width; one brick building per project with its name on a roof tile; blocky
  * jointed toy figures; label tiles; 10 fps stop-motion with a tiny per-frame
  * jitter. Generic toy bricks only: no brand names or logos.
+ *
+ * f.theme "bengaluru" swaps the scenery, same bricks: a skyline of glass and
+ * apartment towers, a metro viaduct with a brick train, paver footpaths and an
+ * asphalt road with autos and a bus, gulmohar trees, city buildings per
+ * variant, a green street sign and street lights.
  */
 import { hash, poseOf } from "../scene";
 import { asVillagerFrame } from "./reference";
 import {
-  BACK_W, GROUND_TOP, GROUND_W, K, blit, brick, clip, ell, jit, makeSprite, paintBackTile, paintBuilding, paintCloud,
-  paintFarPalm, paintGroundTile, paintLampPost, paintPalm, paintSign, rr, seedOf, shade, slope, stud, tile,
+  BACK_W, DECK_TOP, TAU, GROUND_TOP, GROUND_W, K, METRO_CAR_W, STREET_BULB, blit, blrTop, brick, clip, drawAuto, drawBus,
+  drawMetroCar, ell, jit, makeSprite, paintBackTile, paintBlrBandTile, paintBlrBuilding, paintBlrGroundTile, paintBlrSign,
+  paintBlrSkyTile, paintBuilding, paintCloud, paintFarPalm, paintGroundTile, paintGulmohar, paintLampPost, paintPalm,
+  paintSign, paintStreetLight, paintTower, rr, seedOf, shade, slope, stud, tile, towerOf,
   type C2, type Sprite,
 } from "./toyBrickKit";
-import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
 
 const FPS = 10;
 
@@ -75,6 +82,137 @@ function signSprite(text: string): Sprite {
   return s;
 }
 
+// ── Bengaluru sprites (separate caches from Kerala's) ───────────────────────
+
+let blrSky: Sprite | null = null;
+let blrBand: Sprite | null = null;
+let blrGround: Sprite | null = null;
+let streetLight: Sprite | null = null;
+const treeSprites = new Map<string, Sprite>();
+const towerSprites = new Map<string, Sprite>();
+const blrBuildingSprites = new Map<string, Sprite>();
+const blrSignSprites = new Map<string, Sprite>();
+
+function blrStatics() {
+  if (!blrSky) blrSky = makeSprite(BACK_W, GROUND.waterTop, 0, 0, paintBlrSkyTile);
+  if (!blrBand) blrBand = makeSprite(BACK_W, GROUND.waterBottom - GROUND.waterTop, 0, 0, (g) => { g.translate(0, -GROUND.waterTop); paintBlrBandTile(g); });
+  if (!blrGround) blrGround = makeSprite(GROUND_W, WORLD_H - GROUND_TOP, 0, -GROUND_TOP, paintBlrGroundTile);
+  if (!streetLight) streetLight = makeSprite(28, 52, 10, 24, paintStreetLight);
+}
+
+function treeSprite(h: number, lean: number): Sprite {
+  const key = `${Math.round(h)}|${lean.toFixed(3)}`;
+  let s = treeSprites.get(key);
+  if (!s) {
+    const reach = h * 0.45 + 8;
+    const topX = lean * h * 0.6;
+    const left = Math.min(0, topX) - reach;
+    const right = Math.max(0, topX) + reach;
+    const up = h * 0.42 + 60;
+    s = makeSprite(right - left, up + 6, -left, up, (g) => paintGulmohar(g, h, lean));
+    if (treeSprites.size > 64) treeSprites.clear();
+    treeSprites.set(key, s);
+  }
+  return s;
+}
+
+function towerSprite(kind: number, h: number, w: number): Sprite {
+  const key = `${kind}|${h}|${w}`;
+  let s = towerSprites.get(key);
+  if (!s) {
+    const up = h + 46;
+    s = makeSprite(w + 60, up + 2, w / 2 + 40, up, (g) => paintTower(g, kind, h, w));
+    towerSprites.set(key, s);
+  }
+  return s;
+}
+
+function blrBuildingSprite(p: LivePlace): Sprite {
+  const b = p.building;
+  const key = `${p.name}|${p.variant}|${b.w}|${b.wallH}|${b.roofH}|${b.doorX - b.x}`;
+  let s = blrBuildingSprites.get(key);
+  if (!s) {
+    const pad = 24;
+    const up = blrTop(p.variant, b.wallH, b.roofH) + 24;
+    s = makeSprite(b.w + pad * 2, up + 8, pad, up, (g) => paintBlrBuilding(g, b.w, b.wallH, b.roofH, b.doorX - b.x, p.variant, p.name));
+    if (blrBuildingSprites.size > 64) blrBuildingSprites.clear();
+    blrBuildingSprites.set(key, s);
+  }
+  return s;
+}
+
+function blrSignSprite(text: string): Sprite {
+  let s = blrSignSprites.get(text);
+  if (!s) {
+    s = makeSprite(80, 68, 40, 22, (g) => paintBlrSign(g, text));
+    blrSignSprites.set(text, s);
+  }
+  return s;
+}
+
+/** The metro train on the viaduct: 3 brick cars centred on f.canoeX, heading right. */
+function metro(ctx: C2, f: LiveFrame, k: number) {
+  const y = DECK_TOP - 1.2 + jit(k, 44, 0.3);
+  const cx = f.canoeX + jit(k, 41, 0.5);
+  for (let i = 0; i < 3; i++) drawMetroCar(ctx, cx + (i - 1) * METRO_CAR_W, y, i === 2 ? 1 : i === 0 ? -1 : 0);
+}
+
+const LANE_A = GROUND.pathTop + 22;
+const LANE_B = GROUND.pathBottom - 6;
+const TRAFFIC = [
+  { kind: "auto", lane: LANE_A, dir: 1, speed: 26, off: 40 },
+  { kind: "auto", lane: LANE_B, dir: -1, speed: 21, off: 330 },
+  { kind: "bus", lane: LANE_A, dir: 1, speed: 15, off: 620 },
+  { kind: "auto", lane: LANE_B, dir: -1, speed: 31, off: 900 },
+] as const;
+
+function trafficX(f: LiveFrame, i: number) {
+  const v = TRAFFIC[i]!;
+  const span = f.worldW + 240;
+  const t = f.reducedMotion ? 0 : f.t;
+  const u = (((v.off + (i * f.worldW) / TRAFFIC.length + t * v.speed) % span) + span) % span;
+  return v.dir === 1 ? u - 120 : f.worldW + 120 - u;
+}
+
+function zebra(ctx: C2, f: LiveFrame) {
+  const x = f.sign.x + 62;
+  for (let i = 0; i < 6; i++) tile(ctx, x + i * 9, GROUND.pathTop + 2, 5.5, GROUND.pathBottom - GROUND.pathTop - 4, K.white, 0.8);
+}
+
+function kites(ctx: C2, f: LiveFrame, x0: number, x1: number) {
+  const KS = 720;
+  for (let i = Math.floor((x0 - 60) / KS); i * KS < x1 + 60; i++) {
+    if (hash(i * 2.3 + 0.7) < 0.25) continue;
+    const bob = f.reducedMotion ? 0 : Math.sin(f.t * 1.3 + i) * 3;
+    const kx = i * KS + 240 + hash(i * 4.1) * 300, ky = 34 + hash(i * 6.7) * 30 + bob;
+    const col = [K.red, K.yellow, "#ff7ab6", K.orange][Math.abs(i) % 4]!;
+    ctx.save();
+    ctx.translate(kx, ky);
+    ctx.rotate(0.25 + (f.reducedMotion ? 0 : Math.sin(f.t * 1.7 + i) * 0.08));
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0, -9); ctx.lineTo(7, 0); ctx.lineTo(0, 10); ctx.lineTo(-7, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = shade(col, -0.4);
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.moveTo(0, -9); ctx.lineTo(7, 0); ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(60,60,70,0.55)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(kx, ky + 9);
+    ctx.quadraticCurveTo(kx + 6, ky + 30, kx - 14, ky + 52);
+    ctx.stroke();
+    for (let j = 0; j < 3; j++) stud(ctx, kx - 2 - j * 3, ky + 13 + j * 4, j % 2 ? K.white : col, 1.4);
+  }
+}
+
 // ── dynamic pieces ──────────────────────────────────────────────────────────
 
 function canoe(ctx: C2, f: LiveFrame, k: number) {
@@ -127,11 +265,27 @@ function flame(ctx: C2, x: number, y: number, k: number, i: number) {
   ctx.globalAlpha = 1;
 }
 
-function placeExtras(ctx: C2, p: LivePlace, f: LiveFrame, k: number) {
+function placeExtras(ctx: C2, p: LivePlace, f: LiveFrame, k: number, blr = false) {
   const b = p.building;
   const top = b.baseY - b.wallH;
+  // Steam from the darshini's steel tumblers (Bengaluru café variant).
+  if (blr && p.variant === 1 && !f.reducedMotion) {
+    const cw = Math.min(72, b.doorX - b.x - 24);
+    const items = Math.floor((cw - 6) / 14);
+    for (let i = 0; i < items; i++) {
+      const gx = b.x + 16 + i * 14;
+      for (let j = 0; j < 2; j++) {
+        const u = (f.t * 0.6 + i * 0.33 + j * 0.5) % 1;
+        ctx.globalAlpha = 0.75 * (1 - u);
+        ctx.fillStyle = "#ffffff";
+        ell(ctx, gx + Math.sin(u * 6 + i) * 1.5 + jit(k, i * 7 + j, 0.3), b.baseY - 33 - u * 16, 2.2, 1.4);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
   // Steam from the tea glasses (tea-shop variant).
-  if (p.variant === 0 && !f.reducedMotion) {
+  if (!blr && p.variant === 0 && !f.reducedMotion) {
     const items = Math.max(1, Math.floor((Math.min(62, b.doorX - b.x - 26) - 8) / 16));
     for (let i = 0; i < items; i++) {
       const gx = b.x + 22 + i * 16;
@@ -147,7 +301,7 @@ function placeExtras(ctx: C2, p: LivePlace, f: LiveFrame, k: number) {
   }
   // Someone here needs the person: a red beacon brick on the roof ridge, pulsing.
   if (p.urgent > 0) {
-    const bx = b.x + b.w / 2, by = top - b.roofH - 2;
+    const bx = b.x + b.w / 2, by = blr ? b.baseY - blrTop(p.variant, b.wallH, b.roofH) - 8 : top - b.roofH - 2;
     ctx.globalAlpha = 0.2 + 0.35 * f.pulse;
     ctx.fillStyle = "#ff5a4f";
     ell(ctx, bx, by - 6, 14 + 4 * f.pulse, 11 + 3 * f.pulse);
@@ -218,7 +372,7 @@ function headTop(v: LiveVillager) {
   return v.y - LEG - 4 - 21 - 2 - 13.5 - 2.6 - v.jump * 26;
 }
 
-function figure(ctx: C2, v: LiveVillager, f: LiveFrame, k: number) {
+function figure(ctx: C2, v: LiveVillager, f: LiveFrame, k: number, cap?: string) {
   const vf = asVillagerFrame(v);
   const p = poseOf(vf);
   const seed = seedOf(v.id);
@@ -351,6 +505,22 @@ function figure(ctx: C2, v: LiveVillager, f: LiveFrame, k: number) {
     ctx.fill();
   }
 
+  // Helper companions wear a little round work cap (a 1×1 dome brick with a stud).
+  if (cap) {
+    ctx.fillStyle = cap;
+    ctx.beginPath();
+    ctx.ellipse(0, hy + 1.2, 7.6, 5.4, 0, Math.PI, TAU);
+    ctx.closePath();
+    ctx.fill();
+    outline(ctx, cap);
+    ctx.fillStyle = shade(cap, -0.12);
+    rr(ctx, -2, hy, 11, 2.2, 1);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(-4.2, hy - 2.6, 1.3, 2.6);
+    stud(ctx, 0, hy - 4.6, cap, 2.2);
+  }
+
   // Front arm and what it carries.
   if (v.carry === "laptop") {
     const h = { x: 5.5 + Math.sin(aF) * 13.8, y: shoulderY + Math.cos(aF) * 13.8 };
@@ -395,23 +565,171 @@ function figure(ctx: C2, v: LiveVillager, f: LiveFrame, k: number) {
     ctx.moveTo(ex + 2, ey - 2); ctx.lineTo(ex - 2, ey + 2);
     ctx.stroke();
   }
-  // Helpers (subagents): little 1×1 helper bricks with a stud beside the feet.
-  const n = Math.min(3, v.helpers);
-  for (let i = 0; i < n; i++) {
-    const hx = v.x - v.facing * (16 + i * 9) + jit(k, seed + 20 + i, 0.4) * amp;
-    const hy = v.y - 6 - (f.reducedMotion ? 0 : Math.abs(Math.sin(f.t * 5 + i)) * 2);
-    brick(ctx, hx - 3.5, hy, 7, 6, v.color.startsWith("#") ? v.color : K.yellow, true);
-    ctx.fillStyle = K.ink;
-    ctx.fillRect(hx - 1.6, hy + 2, 0.9, 0.9);
-    ctx.fillRect(hx + 0.8, hy + 2, 0.9, 0.9);
+}
+
+// ── companions (subagents): small helper figures doing their work ──────────
+
+const C_SCALE = 0.7;
+const MAX_COMPANIONS = 4;
+/** Head top (cap stud) above a companion's feet, without jump. */
+const C_HEAD = (LEG + 4 + 21 + 2 + 13.5 + 2.6 + 4.6) * C_SCALE;
+const EMOJI_FONT = "7.5px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif";
+const C_LABEL_FONT = "700 5.4px ui-sans-serif, system-ui, sans-serif";
+/** Work caps for helpers: bright toy colours, picked per companion. */
+const CAPS = [K.yellow, K.orange, "#14b8a6", "#ff7ab6"];
+
+/** Mix a #rrggbb colour toward white, staying hex (so the figure's own shading still works). */
+function lighten(hex: string, a: number): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (c: number) => Math.round(c + (255 - c) * a).toString(16).padStart(2, "0");
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
+}
+
+type Comp = LiveCompanion & { parent: LiveVillager; a: number };
+
+/** The parent's figure at companion size: lighter clothes (the cap is added by figure()). */
+const asFigure = (c: Comp): LiveVillager => ({
+  ...c.parent,
+  id: `${c.parent.id}/${c.id}`,
+  status: "working",
+  urgent: c.activity === "error",
+  x: 0, y: 0, facing: c.facing, moving: c.moving, phase: c.phase, jump: c.jump,
+  shirt: lighten(c.parent.shirt, 0.3), mundu: lighten(c.parent.mundu, 0.22),
+  carry: undefined, helpers: 0, companions: [], selected: false, hovered: false, alpha: c.a,
+});
+
+const companionsOf = (v: LiveVillager) => (v.companions.length > MAX_COMPANIONS ? v.companions.slice(0, MAX_COMPANIONS) : v.companions);
+
+/** A chain of tiny round studs from the parent to a companion out on an errand. */
+function tether(ctx: C2, c: Comp) {
+  if (c.away <= 0.02) return;
+  const v = c.parent;
+  const ax = v.x, ay = v.y - 26 - v.jump * 26, bx = c.x, by = c.y - 20 * C_SCALE - c.jump * 26 * C_SCALE;
+  const d = Math.hypot(bx - ax, by - ay);
+  const n = Math.max(2, Math.floor(d / 6));
+  ctx.globalAlpha = c.a * Math.min(1, c.away * 1.5) * 0.7;
+  const col = v.color.startsWith("#") ? v.color : K.yellow;
+  for (let i = 1; i < n; i++) {
+    const u = i / n;
+    const sag = Math.sin(u * Math.PI) * Math.min(8, d * 0.06);
+    stud(ctx, ax + (bx - ax) * u, ay + (by - ay) * u + sag, i % 2 ? col : K.white, 1.3);
   }
-  if (v.helpers > 3) {
+  ctx.globalAlpha = 1;
+}
+
+function sparkle(ctx: C2, x: number, y: number, r: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.lineTo(x + r * 0.28, y - r * 0.28); ctx.lineTo(x + r, y); ctx.lineTo(x + r * 0.28, y + r * 0.28);
+  ctx.lineTo(x, y + r); ctx.lineTo(x - r * 0.28, y + r * 0.28); ctx.lineTo(x - r, y); ctx.lineTo(x - r * 0.28, y - r * 0.28);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(120,80,0,0.45)";
+  ctx.lineWidth = 0.4;
+  ctx.stroke();
+}
+
+/** A little brick tile with an emoji (ink = null) or a bold glyph on it. */
+function iconTile(ctx: C2, x: number, y: number, text: string, color: string, ink: string | null) {
+  tile(ctx, x - 5.5, y - 5.5, 11, 10, color, 1.4);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (ink) {
+    ctx.fillStyle = ink;
+    ctx.font = "900 8px ui-sans-serif, system-ui, sans-serif";
+  } else {
     ctx.fillStyle = K.ink;
-    ctx.font = "800 6px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(`+${v.helpers - 3}`, v.x - v.facing * 50, v.y - 3);
+    ctx.font = EMOJI_FONT;
   }
+  ctx.fillText(text, x, y + 0.4);
+}
+
+function companion(ctx: C2, c: Comp, f: LiveFrame, k: number) {
+  const seed = seedOf(c.id);
+  ctx.globalAlpha = c.a;
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.scale(C_SCALE, C_SCALE);
+  figure(ctx, asFigure(c), f, k, CAPS[seed % CAPS.length]);
+  ctx.restore();
+
+  const head = c.y - C_HEAD - c.jump * 26 * C_SCALE;
+  // Busy: little puffs (white and yellow sawdust) popping off the hands.
+  if (c.activity === "busy" && !f.reducedMotion) {
+    for (let i = 0; i < 3; i++) {
+      const u = (((f.t * 1.4 + i / 3 + hash(seed + i)) % 1) + 1) % 1;
+      ctx.globalAlpha = c.a * 0.85 * (1 - u);
+      ctx.fillStyle = i === 1 ? K.yellow : "#ffffff";
+      const px = c.x + c.facing * (7 + u * 6) + Math.sin(u * 7 + i) * 2 + jit(k, seed + i, 0.4);
+      ell(ctx, px, c.y - 14 - u * 14, 1.6 + u * 1.4, 1.3 + u);
+      ctx.fill();
+    }
+    ctx.globalAlpha = c.a;
+  }
+  // Working: the activity icon on a brick tile, bobbing over the head.
+  if (c.working) {
+    const bob = f.reducedMotion ? 0 : Math.sin(f.t * 4 + seed) * 1.6 + jit(k, seed + 5, 0.3);
+    iconTile(ctx, c.x, head - 8 + bob, c.icon, K.white, null);
+  } else if (c.activity === "wait") {
+    const bob = f.reducedMotion ? 0 : Math.sin(f.t * 2.5 + seed);
+    iconTile(ctx, c.x, head - 8 + bob, "?", K.white, K.blue);
+  } else if (c.activity === "error") {
+    iconTile(ctx, c.x, head - 8, "!", K.red, "#ffffff");
+  } else if (c.activity === "leaving") {
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * TAU + (f.reducedMotion ? 0 : f.t * 3);
+      const r = 7 + (k % 3);
+      sparkle(ctx, c.x + Math.cos(ang) * r, head + 2 + Math.sin(ang) * r * 0.7, 2.2 + (i % 2), i % 2 ? K.yellow : "#ffffff");
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/** Hand-over burst at the parent when an errand ends. */
+function handover(ctx: C2, c: Comp) {
+  if (c.handover <= 0) return;
+  const v = c.parent;
+  const u = 1 - c.handover;
+  const cx = v.x, cy = v.y - 34 - v.jump * 26;
+  ctx.globalAlpha = c.a * c.handover;
+  for (let i = 0; i < 7; i++) {
+    const ang = (i / 7) * TAU + seedOf(c.id) * 0.1;
+    const r = 6 + u * 16;
+    sparkle(ctx, cx + Math.cos(ang) * r, cy + Math.sin(ang) * r * 0.75, 2.8 - u, i % 2 ? K.yellow : "#ffffff");
+  }
+  stud(ctx, cx, cy - 2 - u * 6, K.yellow, 2.6);
+  ctx.globalAlpha = 1;
+}
+
+/** A tiny label tile under a companion's feet. */
+function companionLabel(ctx: C2, c: Comp) {
+  ctx.font = C_LABEL_FONT;
+  const text = clip(ctx, c.label, 92);
+  const w = ctx.measureText(text).width + 6;
+  const x0 = Math.round(c.x - w / 2), y0 = c.y + 3;
+  ctx.globalAlpha = c.a * 0.95;
+  tile(ctx, x0, y0, w, 7.5, c.activity === "error" ? "#fde2e1" : K.white, 1);
+  ctx.fillStyle = c.activity === "error" ? "#b91c1c" : K.ink;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x0 + 3, y0 + 4);
+  ctx.globalAlpha = 1;
+}
+
+/** "+N" brick for helpers beyond the first four. */
+function moreBadge(ctx: C2, v: LiveVillager) {
+  const n = v.companions.length - MAX_COMPANIONS;
+  if (n <= 0) return;
+  const x = v.x - v.facing * 18, y = v.y - 4;
+  ctx.globalAlpha = v.alpha;
+  brick(ctx, x - 6, y, 12, 6, K.yellow, true);
+  ctx.fillStyle = K.ink;
+  ctx.font = "800 5.5px ui-sans-serif, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`+${n}`, x, y + 3.4);
+  ctx.globalAlpha = 1;
 }
 
 // ── labels on flat brick tiles ──────────────────────────────────────────────
@@ -538,6 +856,7 @@ export const toyBrickLive: LiveStyle = {
   bg: "#dcefff",
   lighting: "day",
   draw(ctx, f, view: ViewRect) {
+    if (f.theme === "bengaluru") return drawBengaluru(ctx, f, view);
     statics();
     const k = Math.round(f.t * FPS);
     const x0 = view.x, x1 = view.x + view.w;
@@ -596,35 +915,143 @@ export const toyBrickLive: LiveStyle = {
     }
     items.sort((a, b) => a.y - b.y);
     for (const it of items) it.draw();
-
-    // Villagers (already back-to-front), then labels; selected label last.
-    for (const v of f.villagers) {
-      if (!inView(v.x, 60) || v.alpha <= 0) continue;
-      ctx.globalAlpha = v.alpha;
-      figure(ctx, v, f, k);
-      ctx.globalAlpha = 1;
-    }
-    // Label stems first, so no stem crosses another villager's tile.
-    for (const v of f.villagers) {
-      if (!inView(v.labelX, 120) || v.alpha <= 0) continue;
-      ctx.globalAlpha = v.alpha;
-      label(ctx, v, f, k, true);
-      ctx.globalAlpha = 1;
-    }
-    let sel: LiveVillager | null = null;
-    for (const v of f.villagers) {
-      if (!inView(v.labelX, 120) || v.alpha <= 0) continue;
-      if (v.selected) { sel = v; continue; }
-      ctx.globalAlpha = v.alpha;
-      label(ctx, v, f, k);
-      ctx.globalAlpha = 1;
-    }
-    if (sel) {
-      ctx.globalAlpha = sel.alpha;
-      label(ctx, sel, f, k);
-      ctx.globalAlpha = 1;
-    }
-    hud(ctx, f, k);
+    drawPeople(ctx, f, k, inView, view);
   },
 };
 
+/** Villagers and their companions (back-to-front by y), then labels; selected label last; the HUD. Shared by both places. */
+function drawPeople(ctx: C2, f: LiveFrame, k: number, inView: (x: number, pad?: number) => boolean, view: ViewRect) {
+  const zoomed = view.w < 700;
+  type Body = { y: number; v: LiveVillager; c: Comp | null };
+  const bodies: Body[] = [];
+  const comps: Comp[] = [];
+  for (const v of f.villagers) {
+    if (v.alpha <= 0) continue;
+    if (inView(v.x, 60)) bodies.push({ y: v.y, v, c: null });
+    for (const c of companionsOf(v)) {
+      const a = c.alpha * v.alpha;
+      if (a <= 0.01 || !inView(c.x, 40)) continue;
+      const cc: Comp = { ...c, parent: v, a };
+      comps.push(cc);
+      bodies.push({ y: c.y, v, c: cc });
+    }
+  }
+  bodies.sort((a, b) => a.y - b.y);
+  // Tethers lie behind everyone.
+  for (const c of comps) tether(ctx, c);
+  for (const b of bodies) {
+    if (b.c) { companion(ctx, b.c, f, k); continue; }
+    ctx.globalAlpha = b.v.alpha;
+    figure(ctx, b.v, f, k);
+    ctx.globalAlpha = 1;
+    moreBadge(ctx, b.v);
+  }
+  for (const c of comps) handover(ctx, c);
+  // Companion labels: only for the selected/hovered villager's helpers, or when zoomed in.
+  for (const c of comps) if (zoomed || c.parent.selected || c.parent.hovered) companionLabel(ctx, c);
+  // Label stems first, so no stem crosses another villager's tile.
+  for (const v of f.villagers) {
+    if (!inView(v.labelX, 120) || v.alpha <= 0) continue;
+    ctx.globalAlpha = v.alpha;
+    label(ctx, v, f, k, true);
+    ctx.globalAlpha = 1;
+  }
+  let sel: LiveVillager | null = null;
+  for (const v of f.villagers) {
+    if (!inView(v.labelX, 120) || v.alpha <= 0) continue;
+    if (v.selected) { sel = v; continue; }
+    ctx.globalAlpha = v.alpha;
+    label(ctx, v, f, k);
+    ctx.globalAlpha = 1;
+  }
+  if (sel) {
+    ctx.globalAlpha = sel.alpha;
+    label(ctx, sel, f, k);
+    ctx.globalAlpha = 1;
+  }
+  hud(ctx, f, k);
+}
+
+// ── Bengaluru: same bricks, city scenery ────────────────────────────────────
+
+function drawBengaluru(ctx: C2, f: LiveFrame, view: ViewRect) {
+  statics();
+  blrStatics();
+  const k = Math.round(f.t * FPS);
+  const x0 = view.x, x1 = view.x + view.w;
+  const inView = (x: number, pad = 120) => x > x0 - pad && x < x1 + pad;
+
+  if (view.y < 0) {
+    ctx.fillStyle = K.sky;
+    ctx.fillRect(x0 - 1, view.y - 1, view.w + 2, -view.y + 1);
+  }
+  if (view.y + view.h > WORLD_H) {
+    ctx.fillStyle = PAVER_BELOW;
+    ctx.fillRect(x0 - 1, WORLD_H - 1, view.w + 2, view.y + view.h - WORLD_H + 2);
+  }
+
+  // Sky with a hazy far city.
+  for (let tx = Math.floor(x0 / BACK_W) * BACK_W; tx < x1; tx += BACK_W) blit(ctx, blrSky!, tx, 0);
+  const CS = 260;
+  const drift = f.reducedMotion ? 0 : f.drift;
+  for (let i = Math.floor((x0 - drift - 100) / CS); i * CS + drift < x1 + 20; i++) {
+    const hv = hash(i * 3.17 + 1);
+    if (hv < 0.3) continue;
+    const s = 0.7 + hash(i * 5.3) * 0.35;
+    ctx.drawImage(cloud!.img, i * CS + drift + hash(i * 7.1) * 80, 10 + hash(i * 9.7) * 50, 80 * s, 30 * s);
+  }
+  // Skyline towers at the far-bank slots.
+  for (const x of f.farPalms) {
+    if (!inView(x, 70)) continue;
+    const t = towerOf(x);
+    blit(ctx, towerSprite(t.kind, t.h, t.w), x, GROUND.waterTop);
+  }
+  kites(ctx, f, x0, x1);
+  // Metro viaduct band, then the train on the deck.
+  for (let tx = Math.floor(x0 / BACK_W) * BACK_W; tx < x1; tx += BACK_W) blit(ctx, blrBand!, tx, GROUND.waterTop);
+  if (inView(f.canoeX, 110)) metro(ctx, f, k);
+  // Footpath, kerbs and road.
+  for (let tx = Math.floor(x0 / GROUND_W) * GROUND_W; tx < x1; tx += GROUND_W) blit(ctx, blrGround!, tx, 0);
+  if (inView(f.sign.x + 90, 60)) zebra(ctx, f);
+
+  type Item = { y: number; draw: () => void };
+  const items: Item[] = [];
+  for (const p of f.palms) if (inView(p.x, p.h)) items.push({ y: p.baseY, draw: () => blit(ctx, treeSprite(p.h, p.lean), p.x, p.baseY) });
+  if (inView(f.sign.x, 60)) items.push({ y: f.sign.y + 40, draw: () => blit(ctx, blrSignSprite(f.sign.text), f.sign.x, f.sign.y) });
+  for (const p of f.places) {
+    const b = p.building;
+    if (!inView(b.x + b.w / 2, b.w)) continue;
+    items.push({ y: b.baseY, draw: () => { blit(ctx, blrBuildingSprite(p), b.x, b.baseY); placeExtras(ctx, p, f, k, true); } });
+  }
+  const L = f.lamps;
+  for (let i = 0; i < L.count; i++) {
+    const x = L.x0 + i * L.dx;
+    if (!inView(x, 20)) continue;
+    items.push({ y: L.y + 24, draw: () => { blit(ctx, streetLight!, x, L.y); if (i < L.lit) bulb(ctx, x + STREET_BULB.x, L.y + STREET_BULB.y, k, i); } });
+  }
+  for (let i = 0; i < TRAFFIC.length; i++) {
+    const v = TRAFFIC[i]!;
+    const x = trafficX(f, i);
+    if (!inView(x, 60)) continue;
+    const y = v.lane + jit(k, 90 + i, 0.3);
+    items.push({ y: v.lane, draw: () => (v.kind === "bus" ? drawBus(ctx, x, y, v.dir) : drawAuto(ctx, x, y, v.dir)) });
+  }
+  items.sort((a, b) => a.y - b.y);
+  for (const it of items) it.draw();
+  drawPeople(ctx, f, k, inView, view);
+}
+
+const PAVER_BELOW = "#b8b2a5";
+
+/** A lit street-light bulb: warm glow plus a bright lens. */
+function bulb(ctx: C2, x: number, y: number, k: number, i: number) {
+  const a = 0.85 + 0.15 * hash(k * 0.7 + i);
+  ctx.globalAlpha = 0.25 * a;
+  ctx.fillStyle = "#ffd36b";
+  ell(ctx, x, y + 3, 12, 9);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#fff3a8";
+  rr(ctx, x - 3, y - 1, 6, 2.4, 1);
+  ctx.fill();
+}
