@@ -5,6 +5,7 @@ import { LiveSim } from "@/styles/live/sim";
 import { tintFor } from "@/styles/live/lighting";
 import { WORLD_H, type LiveFrame, type LiveStyle, type ViewRect } from "@/styles/live/types";
 import type { PlaceTheme } from "@/styles/live/types";
+import { buildingRect, pickPlace } from "@/styles/live/placeHit";
 import type { WorldHandle } from "./WorldView";
 
 interface Props {
@@ -21,6 +22,10 @@ interface Props {
   paletteOf?: (s: SessionView) => CharacterPalette | undefined;
   /** The chosen place, drawn in this style. */
   theme: PlaceTheme;
+  /** Clicking a project's building (not a villager in front of it) calls this with the project id. */
+  onSelectProject?: (projectId: string) => void;
+  /** The project open in the app: its building gets a brass selection outline. */
+  selectedProjectId?: string | null;
 }
 
 interface Cam {
@@ -50,6 +55,8 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
   /** Session the camera follows (after focus), until the person drags. */
   const follow = useRef<string | null>(null);
   const lastFrame = useRef<LiveFrame | null>(null);
+  /** Project whose building is under the pointer (only while onSelectProject is given). */
+  const hoveredPlace = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /** Default zoom: whole height, or zoomed out (more sky) so ~4 places fit across. */
@@ -166,6 +173,9 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
           ctx.fillRect(0, 0, cw, ch);
           ctx.globalCompositeOperation = "source-over";
         }
+        // Selected / hovered project: a generic outline over whatever the style drew (after the tint, so it reads at night).
+        ctx.setTransform(s, 0, 0, s, -c.x * s, -c.y * s);
+        drawPlaceOutlines(ctx, frame, p.selectedProjectId ?? null, p.onSelectProject ? hoveredPlace.current : null, vs.scale);
       } catch (e) {
         cancelAnimationFrame(raf);
         console.error("[Ai Gramam] art style failed to draw", e);
@@ -186,19 +196,25 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
       const vs = viewSize(cam.current.z);
       return { x: cam.current.x + (e.clientX - r.left) / vs.scale, y: cam.current.y + (e.clientY - r.top) / vs.scale };
     };
-    const hit = (e: { clientX: number; clientY: number }) => {
+    type Hit = { kind: "villager" | "place"; id: string };
+    const hit = (e: { clientX: number; clientY: number }): Hit | null => {
       const f = lastFrame.current;
       if (!f) return null;
       const w = toWorld(e);
       for (let i = f.villagers.length - 1; i >= 0; i--) {
         const v = f.villagers[i]!;
         const top = v.y - 80 - v.jump * 26;
-        if (w.x > v.x - 16 && w.x < v.x + 16 && w.y > top && w.y < v.y + 6) return v.id;
+        if (w.x > v.x - 16 && w.x < v.x + 16 && w.y > top && w.y < v.y + 6) return { kind: "villager", id: v.id };
       }
       // Labels are big targets too.
       for (const v of f.villagers) {
         const half = Math.max(v.name.length * 5.4, v.label.length * 5.8) / 2 + 9;
-        if (w.x > v.labelX - half && w.x < v.labelX + half && w.y > v.labelY - 4 && w.y < v.labelY + 28) return v.id;
+        if (w.x > v.labelX - half && w.x < v.labelX + half && w.y > v.labelY - 4 && w.y < v.labelY + 28) return { kind: "villager", id: v.id };
+      }
+      // Then the buildings behind them (projects), when the parent wants project clicks.
+      if (latest.current.onSelectProject) {
+        const id = pickPlace(w.x, w.y, f.places.map(buildingRect));
+        if (id) return { kind: "place", id };
       }
       return null;
     };
@@ -221,12 +237,18 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
         }
         return;
       }
-      canvas.style.cursor = hit(e) ? "pointer" : "grab";
+      const h = hit(e);
+      hoveredPlace.current = h?.kind === "place" ? h.id : null;
+      canvas.style.cursor = h ? "pointer" : "grab";
+    };
+    const leave = () => {
+      if (!drag) hoveredPlace.current = null;
     };
     const up = (e: PointerEvent) => {
       if (drag && !drag.moved) {
-        const id = hit(e);
-        if (id) latest.current.onSelect(id);
+        const h = hit(e);
+        if (h?.kind === "villager") latest.current.onSelect(h.id);
+        else if (h?.kind === "place") latest.current.onSelectProject?.(h.id);
       }
       drag = null;
     };
@@ -249,11 +271,13 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
     canvas.addEventListener("pointerdown", down);
     canvas.addEventListener("pointermove", move);
     canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointerleave", leave);
     canvas.addEventListener("wheel", wheel, { passive: false });
     return () => {
       canvas.removeEventListener("pointerdown", down);
       canvas.removeEventListener("pointermove", move);
       canvas.removeEventListener("pointerup", up);
+      canvas.removeEventListener("pointerleave", leave);
       canvas.removeEventListener("wheel", wheel);
     };
   }, []);
@@ -269,5 +293,61 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
     </div>
   );
 });
+
+/**
+ * Outline the selected project's building (brass, with a soft glow) and the
+ * hovered one (lighter, dashed, with an "Open project" tab on its top-right corner).
+ * Drawn in world units on top of the style; `scale` is screen px per world
+ * unit, so strokes and text keep a steady on-screen size.
+ */
+function drawPlaceOutlines(ctx: CanvasRenderingContext2D, f: LiveFrame, selected: string | null, hovered: string | null, scale: number) {
+  if (!selected && !hovered) return;
+  const px = 1 / Math.max(0.01, scale);
+  for (const place of f.places) {
+    const isSel = place.id === selected;
+    const isHov = place.id === hovered;
+    if (!isSel && !isHov) continue;
+    const r = buildingRect(place);
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 10);
+    if (isSel) {
+      ctx.shadowColor = "rgba(227, 176, 75, 0.85)";
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = "#e3b04b";
+      ctx.lineWidth = 2.5 * px;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+    if (isHov) {
+      ctx.fillStyle = "rgba(255, 248, 231, 0.07)";
+      ctx.fill();
+      ctx.setLineDash([6 * px, 4 * px]);
+      ctx.strokeStyle = isSel ? "rgba(255, 248, 231, 0.9)" : "rgba(255, 248, 231, 0.7)";
+      ctx.lineWidth = 1.5 * px;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Hint: a small tab on the outline's top-right corner (clear of the centred sign and badges styles draw).
+      const text = "Open project";
+      ctx.font = `600 ${11 * px}px system-ui, sans-serif`;
+      const ph = 18 * px;
+      const pw = ctx.measureText(text).width + 16 * px;
+      const cx = r.x1 - pw / 2 - 4 * px;
+      const top = r.y0 - ph / 2;
+      ctx.beginPath();
+      ctx.roundRect(cx - pw / 2, top, pw, ph, ph / 2);
+      ctx.fillStyle = "rgba(13, 27, 24, 0.88)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(227, 176, 75, 0.8)";
+      ctx.lineWidth = px;
+      ctx.stroke();
+      ctx.fillStyle = "#fff8e7";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, cx, top + ph / 2 + 0.5 * px);
+    }
+    ctx.restore();
+  }
+}
 
 export default StyledWorldView;

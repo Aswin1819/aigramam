@@ -22,6 +22,10 @@ interface Props {
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
+  /** Clicking a project's place (building/prop or its signboard) calls this with the project id. */
+  onSelectProject?: (projectId: string) => void;
+  /** The project open in the app: its place and signboard get a brass highlight. */
+  selectedProjectId?: string | null;
   now: number;
   hourOverride: number | null;
   reducedMotion: boolean;
@@ -33,12 +37,12 @@ interface Props {
  * hot-reloading a pack remounts it.
  */
 const WorldView = forwardRef<WorldHandle, Props>(function WorldView(props, ref) {
-  const { world, characters, assignments, sessions, projects, selectedId, hoveredId, onSelect, now, hourOverride, reducedMotion } = props;
+  const { world, characters, assignments, sessions, projects, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId = null, now, hourOverride, reducedMotion } = props;
   const wrapRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<WorldScene | null>(null);
-  const latest = useRef({ sessions, selectedId, hoveredId, onSelect });
-  latest.current = { sessions, selectedId, hoveredId, onSelect };
+  const latest = useRef({ sessions, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId });
+  latest.current = { sessions, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId };
 
   useImperativeHandle(ref, () => ({
     focus: (id) => sceneRef.current?.focus(id),
@@ -70,15 +74,15 @@ const WorldView = forwardRef<WorldHandle, Props>(function WorldView(props, ref) 
   }, []);
 
   useEffect(() => {
-    sceneRef.current?.setInput({ sessions, selectedId, hoveredId, onSelect });
-  }, [sessions, selectedId, hoveredId, onSelect]);
+    sceneRef.current?.setInput({ sessions, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId });
+  }, [sessions, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId]);
   useEffect(() => sceneRef.current?.setHourOverride(hourOverride), [hourOverride]);
   useEffect(() => sceneRef.current?.setReducedMotion(reducedMotion), [reducedMotion]);
 
   return (
     <div ref={wrapRef} className="absolute inset-0 overflow-hidden" style={{ background: world.def.palette.background }}>
       <div ref={hostRef} className="absolute inset-0" />
-      <WorldLabels wrapRef={wrapRef} sceneRef={sceneRef} world={world} sessions={sessions} projects={projects} selectedId={selectedId} hoveredId={hoveredId} onSelect={onSelect} now={now} />
+      <WorldLabels wrapRef={wrapRef} sceneRef={sceneRef} world={world} sessions={sessions} projects={projects} selectedId={selectedId} hoveredId={hoveredId} onSelect={onSelect} onSelectProject={onSelectProject} selectedProjectId={selectedProjectId} now={now} />
     </div>
   );
 });

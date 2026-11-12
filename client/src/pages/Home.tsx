@@ -18,7 +18,9 @@ import SessionDock from "@/app/SessionDock";
 import DetailDrawer from "@/app/DetailDrawer";
 import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
 import BrandMark from "@/app/BrandMark";
-import Overview from "@/app/workspace/Overview";
+import Workspace from "@/app/workspace/Workspace";
+import ProjectDrawer from "@/app/ProjectDrawer";
+import { projectSummaries } from "@/app/workspace/attention";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
@@ -26,6 +28,9 @@ export default function Home() {
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
   const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The project open on Workspace → Projects, and (in the village) whether its drawer is showing.
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectDrawer, setProjectDrawer] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
@@ -70,8 +75,19 @@ export default function Home() {
   }, []);
   const close = useCallback(() => {
     setSelectedId(null);
+    setProjectDrawer(false);
     worldRef.current?.resetView();
   }, []);
+  /** A building clicked in the village: show its project. */
+  const openProject = useCallback((projectId: string) => {
+    setSelectedId(null);
+    setSelectedProjectId(projectId);
+    setProjectDrawer(true);
+  }, []);
+  const projectSummary = useMemo(
+    () => (selectedProjectId ? projectSummaries(projects, sessions).find((x) => x.project.id === selectedProjectId) ?? null : null),
+    [selectedProjectId, projects, sessions],
+  );
 
   // Esc closes the drawer / resets the camera.
   useEffect(() => {
@@ -137,15 +153,19 @@ export default function Home() {
     <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
       {/* Workspace: the Overview dashboard. World: the village. */}
       {prefs.view === "workspace" ? (
-        <Overview
+        <Workspace
+          page={prefs.workspacePage}
+          onPage={(workspacePage) => update({ workspacePage })}
           sessions={sessions}
           projects={projects}
           now={now}
           mode={mode}
           connected={connected}
           hooksInstalled={hooks.installed}
-          selectedId={selectedId}
-          onSelect={select}
+          selectedSessionId={selectedId}
+          onSelectSession={select}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProjectId}
           onDecide={decide}
           onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
         />
@@ -162,6 +182,8 @@ export default function Home() {
           hourOverride={hourOverride}
           paletteOf={paletteOf}
           theme={placeThemeOf(world)}
+          onSelectProject={openProject}
+          selectedProjectId={projectDrawer ? selectedProjectId : null}
         />
       ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
         <WorldView
@@ -178,6 +200,8 @@ export default function Home() {
           now={now}
           hourOverride={hourOverride}
           reducedMotion={prefs.reducedMotion}
+          onSelectProject={openProject}
+          selectedProjectId={projectDrawer ? selectedProjectId : null}
         />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,#173129,#0c1714)]">
@@ -252,6 +276,23 @@ export default function Home() {
             onSetupLink={() => setSettings("link")}
             demo={mode === "demo"}
             command={command}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!selected && projectDrawer && prefs.view === "world" && (
+          <ProjectDrawer
+            key="project-drawer"
+            summary={projectSummary}
+            now={now}
+            selectedSessionId={selectedId}
+            onSelectSession={select}
+            onOpenInWorkspace={() => {
+              setProjectDrawer(false);
+              update({ view: "workspace", workspacePage: "projects" });
+            }}
+            onClose={() => setProjectDrawer(false)}
           />
         )}
       </AnimatePresence>

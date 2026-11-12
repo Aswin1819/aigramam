@@ -17,6 +17,9 @@ interface SceneLike {
   positions: Map<string, CharacterPositions>;
   signs: SignPos[];
   toCanvas(x: number, y: number): { x: number; y: number; zoom: number };
+  /** Project pointed at on the canvas or via its signboard (highlights the sign and shows "Open project"). */
+  readonly hoveredProjectId?: string | null;
+  setSignHover?(projectId: string | null): void;
 }
 
 interface Props {
@@ -28,6 +31,8 @@ interface Props {
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
+  onSelectProject?: (projectId: string) => void;
+  selectedProjectId?: string | null;
   now: number;
 }
 
@@ -36,7 +41,7 @@ interface Props {
  * speech bubbles with the current action, name tags and subagent tags.
  * Positions follow the camera every animation frame without re-rendering.
  */
-export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projects, selectedId, hoveredId, onSelect, now }: Props) {
+export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projects, selectedId, hoveredId, onSelect, onSelectProject, selectedProjectId = null, now }: Props) {
   const els = useRef(new Map<string, HTMLDivElement>());
   const gameWidth = world.def.size.width;
 
@@ -83,6 +88,13 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
       const hits = (a: { l: number; r: number; t: number; b: number }) => placed.some((q) => a.l < q.r - 2 && a.r > q.l + 2 && a.t < q.b - 1 && a.b > q.t + 1);
       const order = { tag: 0, head: 1, sign: 2 } as const;
       items.sort((a, b) => order[a.kind] - order[b.kind] || a.y - b.y || a.x - b.x);
+      // Hovered project (canvas or signboard): mark its sign so CSS shows the hint.
+      const hovered = scene.hoveredProjectId ?? null;
+      for (const [key, el] of els.current) {
+        if (!key.startsWith("sign|")) continue;
+        const on = key.slice(5) === hovered ? "1" : "0";
+        if (el.dataset.hover !== on) el.dataset.hover = on;
+      }
       for (const it of items) {
         let y = it.y;
         if (it.alpha > 0.05 && it.w > 0) {
@@ -107,20 +119,50 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {projects.filter((p) => withSessions.has(p.id)).map((p) => (
-        <div key={`sign|${p.id}`} ref={setEl(`sign|${p.id}`)} className="absolute left-0 top-0" style={{ opacity: 0, zIndex: 1, willChange: "transform" }}>
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="signboard absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md px-2.5 py-1 text-center"
-            title={p.root}
-          >
+      {projects.filter((p) => withSessions.has(p.id)).map((p) => {
+        const selectedSign = p.id === selectedProjectId;
+        const body = (
+          <>
             <div className="max-w-[210px] truncate font-display text-[12.5px] font-semibold tracking-wide text-cream">{p.name}</div>
             {signLabel(p.id) && <div className="text-[10px] uppercase tracking-[0.14em] text-brass/90">{signLabel(p.id)}</div>}
-          </motion.div>
-        </div>
-      ))}
+          </>
+        );
+        const signClass = `signboard absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md px-2.5 py-1 text-center transition-[filter,box-shadow] ${
+          selectedSign ? "ring-2 ring-brass ring-offset-2 ring-offset-[#251a0e] shadow-[0_0_18px_rgba(227,176,75,0.75)]" : ""
+        }`;
+        const motionProps = {
+          initial: { opacity: 0, y: 8, scale: 0.9 },
+          animate: { opacity: 1, y: 0, scale: 1 },
+          transition: { type: "spring" as const, stiffness: 260, damping: 22 },
+        };
+        return (
+          <div key={`sign|${p.id}`} ref={setEl(`sign|${p.id}`)} data-hover="0" className="group absolute left-0 top-0" style={{ opacity: 0, zIndex: selectedSign ? 2 : 1, willChange: "transform" }}>
+            {onSelectProject ? (
+              <motion.button
+                {...motionProps}
+                type="button"
+                onClick={() => onSelectProject(p.id)}
+                onPointerEnter={() => sceneRef.current?.setSignHover?.(p.id)}
+                onPointerLeave={() => sceneRef.current?.setSignHover?.(null)}
+                className={`${signClass} pointer-events-auto cursor-pointer group-data-[hover=1]:brightness-125`}
+                title={`Open project · ${p.root}`}
+                aria-label={`Open project ${p.name}`}
+                aria-pressed={selectedSign}
+              >
+                {body}
+                {/* Hint under the sign while the place or the sign is pointed at. */}
+                <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-full border border-brass/60 bg-[#0d1b18]/90 px-2 py-[2px] text-[10.5px] font-semibold text-cream opacity-0 transition-opacity group-data-[hover=1]:opacity-100">
+                  Open project
+                </span>
+              </motion.button>
+            ) : (
+              <motion.div {...motionProps} className={signClass} title={p.root}>
+                {body}
+              </motion.div>
+            )}
+          </div>
+        );
+      })}
 
       {sessions.map((s) => {
         const urgent = isUrgent(s);

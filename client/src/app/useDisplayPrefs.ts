@@ -13,15 +13,18 @@ interface Prefs {
   sound: boolean;
   /** World: the village. Workspace: the Overview dashboard of projects and agents. */
   view: AppView;
+  /** The Workspace page last opened. */
+  workspacePage: WorkspacePage;
 }
 
 export type AppView = "world" | "workspace";
+export type WorkspacePage = "overview" | "projects" | "agents";
 
 const KEY = "ai-gramam.display";
 
 function load(): Prefs {
   const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true, view: "world" };
+  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true, view: "world", workspacePage: "overview" };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

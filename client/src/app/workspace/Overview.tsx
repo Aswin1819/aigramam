@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { motion } from "motion/react";
 import { AlertTriangle, Bell, CheckCircle2, Clock, FolderGit2, GitBranch, Link2, MessageCircleQuestion, Moon, Play, Unplug, Users, Zap } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
-import { STATUS_META, elapsed, statusColor, statusText } from "@/lib/status";
+import { elapsed } from "@/lib/status";
+import SessionRow from "./SessionRow";
 import type { AppMode } from "@/hooks/useLiveSessions";
 import { QUIET_AFTER_MS, RECENT_MS, attentionOf, projectSummaries } from "./attention";
 
@@ -17,6 +17,8 @@ interface Props {
   onSelect: (id: string) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   onSettings: (tab?: string) => void;
+  /** Open a project on the Projects page. */
+  onOpenProject: (projectId: string) => void;
 }
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
@@ -37,8 +39,7 @@ export default function Overview(p: Props) {
   );
 
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(ellipse_at_top,#173129,#0b1411_60%)] pb-6 pt-[76px]">
-      <div className="mx-auto max-w-[1280px] px-4">
+    <div>
         {/* Where the data comes from, and whether it's flowing at all. */}
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px]">
           {!p.connected ? (
@@ -127,7 +128,7 @@ export default function Overview(p: Props) {
               {projects.map((pr) => (
                 <button
                   key={pr.project.id}
-                  onClick={() => p.onSelect(pr.sessions.find((s) => s.status === "waiting")?.id ?? pr.sessions[0]!.id)}
+                  onClick={() => p.onOpenProject(pr.project.id)}
                   className="w-full rounded-xl border border-white/8 bg-black/15 px-3 py-2 text-left hover:bg-white/5"
                   title={pr.project.root}
                 >
@@ -149,7 +150,6 @@ export default function Overview(p: Props) {
             </Section>
           </div>
         )}
-      </div>
     </div>
   );
 }
@@ -178,39 +178,5 @@ function Section({ id, title, icon, tone, note, empty, children }: { id: string;
       {note && <p className="mb-2 text-[11.5px] text-cream/55">{note}</p>}
       {items.length > 0 ? <div className="space-y-1.5">{children}</div> : empty ? <p className="text-[12px] text-cream/45">{empty}</p> : null}
     </section>
-  );
-}
-
-function SessionRow({ s, project, now, selected, onSelect, extra }: { s: SessionView; project: string; now: number; selected: boolean; onSelect: () => void; extra?: ReactNode }) {
-  const color = statusColor(s);
-  const helpers = s.subagents.filter((x) => x.status === "working" || x.status === "waiting").length;
-  return (
-    <motion.div
-      layout
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect())}
-      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 ${selected ? "border-brass/60 bg-brass/10" : "border-white/8 bg-black/15 hover:bg-white/5"}`}
-    >
-      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] font-semibold text-cream">{s.title}</span>
-          <span className="shrink-0 text-[11px] text-cream/45">{project}</span>
-        </div>
-        <div className="truncate text-[12px] text-cream/65">
-          <span style={{ color }}>{STATUS_META[s.status].emoji} {statusText(s)}</span>
-          {s.action && <span> · {s.action.label}</span>}
-        </div>
-        <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10.5px] text-cream/40">
-          <span>for {elapsed(s.statusSince, now)}</span>
-          {s.gitBranch && <span>⎇ {s.gitBranch}</span>}
-          {helpers > 0 && <span>{helpers} subagent{helpers > 1 ? "s" : ""}</span>}
-          {s.link?.connected ? <span className="text-work">linked</span> : <span>not linked</span>}
-        </div>
-      </div>
-      {extra && <div className="shrink-0">{extra}</div>}
-    </motion.div>
   );
 }

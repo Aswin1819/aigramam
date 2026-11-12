@@ -32,7 +32,60 @@ function toRows(items: ChatItem[]): Row[] {
   return rows;
 }
 
-function ToolGroup({ items }: { items: ChatItem[] }) {
+function duration(ms: number): string {
+  if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`;
+  const sec = ms / 1000;
+  if (sec < 60) return `${sec < 10 ? sec.toFixed(1) : Math.round(sec)} s`;
+  const m = Math.floor(sec / 60);
+  return `${m} min ${Math.round(sec - m * 60)} s`;
+}
+
+/**
+ * One tool call: a compact line that opens to show its key input and the
+ * result text the transcript captured (plain text only, never HTML).
+ */
+function ToolLine({ t, working }: { t: ChatItem; working: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ended = t.endedAt !== undefined;
+  const running = !ended && working;
+  return (
+    <div className={`rounded-md ${t.isError ? "border-l-2 border-red-400 pl-1.5" : ""} ${open ? "bg-white/[0.03] pb-2" : ""}`}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full min-w-0 items-center gap-1 text-left text-[11.5px] text-cream/55 hover:text-cream/80"
+        title={`${t.text} · ${clockTime(t.at)}`}
+      >
+        <ChevronRight size={11} aria-hidden className={`shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+        <span aria-hidden className="shrink-0">{t.emoji ?? "🧰"}</span>
+        <span className="min-w-0 truncate">{t.text}</span>
+        {t.isError && <span className="shrink-0 rounded bg-red-500/20 px-1 text-[10px] font-medium text-red-300">failed</span>}
+        {running && <span className="shrink-0 text-[10px] text-work/80">running…</span>}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1.5 pl-4 pr-1 text-[11px]">
+          {t.detail && <div className="whitespace-pre-wrap break-all font-mono text-cream/75">{t.detail}</div>}
+          {t.output ? (
+            <>
+              <pre className={`max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-black/30 p-2 font-mono text-[10.5px] leading-snug ${t.isError ? "border-red-400/40 text-red-200/90" : "border-white/10 text-cream/70"}`}>
+                {t.output}
+              </pre>
+              {t.outputClipped && <div className="text-[10px] text-cream/40">Output clipped to the last {t.output.length.toLocaleString()} characters</div>}
+            </>
+          ) : ended ? (
+            <div className="text-[10.5px] italic text-cream/40">No output captured</div>
+          ) : null}
+          <div className="text-[10px] text-cream/35">
+            Started {clockTime(t.at)}
+            {ended ? ` · ended ${clockTime(t.endedAt!)} · took ${duration(t.endedAt! - t.at)}` : running ? " · still running" : " · no result recorded"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolGroup({ items, working }: { items: ChatItem[]; working: boolean }) {
   const [open, setOpen] = useState(false);
   const shown = open || items.length <= 3 ? items : items.slice(-2);
   return (
@@ -43,10 +96,7 @@ function ToolGroup({ items }: { items: ChatItem[] }) {
         </button>
       )}
       {shown.map((t) => (
-        <div key={t.id} className="truncate text-[11.5px] text-cream/55" title={`${t.text} · ${clockTime(t.at)}`}>
-          <span aria-hidden className="mr-1">{t.emoji ?? "🧰"}</span>
-          {t.text}
-        </div>
+        <ToolLine key={t.id} t={t} working={working} />
       ))}
     </div>
   );
@@ -97,7 +147,7 @@ export default function ChatPanel({ session: s, character, items, request, foote
           {rows.map((row) =>
             row.kind === "tools" ? (
               <motion.div key={row.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <ToolGroup items={row.items} />
+                <ToolGroup items={row.items} working={working} />
               </motion.div>
             ) : row.item.kind === "note" ? (
               <motion.div key={row.item.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-3 flex items-center gap-2 text-[10.5px] text-cream/40" title={clockTime(row.item.at)}>
