@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
 
 // Use a temp dir for testing
 const TEST_DIR = path.join(os.tmpdir(), "claude-dungeon-test-" + Date.now());
@@ -93,7 +94,7 @@ describe("Bridge API Key Management", () => {
 describe("Bridge Script Validation", () => {
   it("bridge script file exists", () => {
     const bridgePath = path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      path.dirname(fileURLToPath(import.meta.url)),
       "..",
       "bridge",
       "claude-dungeon-bridge.mjs"
@@ -103,7 +104,7 @@ describe("Bridge Script Validation", () => {
 
   it("bridge script is valid JavaScript (no syntax errors)", () => {
     const bridgePath = path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      path.dirname(fileURLToPath(import.meta.url)),
       "..",
       "bridge",
       "claude-dungeon-bridge.mjs"
@@ -118,7 +119,7 @@ describe("Bridge Script Validation", () => {
 
   it("bridge script has correct server URL", () => {
     const bridgePath = path.join(
-      path.dirname(new URL(import.meta.url).pathname),
+      path.dirname(fileURLToPath(import.meta.url)),
       "..",
       "bridge",
       "claude-dungeon-bridge.mjs"

@@ -7,13 +7,14 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { BIND_HOST, hostAndOriginGuard, localOnly } from "./security";
 import { initializeWebSocket, getBroadcastCallbacks } from "../websocket";
 import { createBridgeRouter } from "../bridge";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
-    server.listen(port, () => {
+    server.listen(port, BIND_HOST, () => {
       server.close(() => resolve(true));
     });
     server.on("error", () => resolve(false));
@@ -32,6 +33,8 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // Reject foreign Host headers (DNS rebinding) and cross-site browser requests
+  app.use(hostAndOriginGuard);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -40,6 +43,7 @@ async function startServer() {
   // tRPC API
   app.use(
     "/api/trpc",
+    localOnly,
     createExpressMiddleware({
       router: appRouter,
       createContext,
@@ -65,8 +69,8 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  server.listen(port, BIND_HOST, () => {
+    console.log(`Server running on http://localhost:${port}/ (bound to ${BIND_HOST})`);
     console.log(`WebSocket server available at ws://localhost:${port}/api/ws/agents`);
   });
 }

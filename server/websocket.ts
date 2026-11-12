@@ -21,6 +21,10 @@ import {
   ROOM_POSITIONS,
   detectHeroClass,
 } from "./routers/agents";
+import { verifyWsClient } from "./_core/security";
+
+/** Browser tabs currently viewing demo heroes; live updates are not sent to them. */
+const demoClients = new WeakSet<WebSocket>();
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -510,9 +514,15 @@ function checkClaudeProcesses() {
   import("child_process").then(({ execSync }) => {
     let claudeRunning = false;
     try {
-      // Check for running claude processes (works on macOS and Linux)
-      const result = execSync('pgrep -f "claude" 2>/dev/null || true', { encoding: 'utf-8', timeout: 3000 });
-      claudeRunning = result.trim().length > 0;
+      if (process.platform === 'win32') {
+        // Windows: pgrep doesn't exist; Claude Code runs as claude.exe
+        const result = execSync('tasklist /FI "IMAGENAME eq claude.exe" /NH', { encoding: 'utf-8', timeout: 3000, windowsHide: true });
+        claudeRunning = /claude\.exe/i.test(result);
+      } else {
+        // macOS and Linux
+        const result = execSync('pgrep -f "claude" 2>/dev/null || true', { encoding: 'utf-8', timeout: 3000 });
+        claudeRunning = result.trim().length > 0;
+      }
     } catch {
       claudeRunning = true; // Assume running if we can't check
     }
@@ -602,7 +612,7 @@ function broadcast(message: { type: string; payload: unknown }) {
   if (!wss) return;
   const data = JSON.stringify(message);
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
+    if (client.readyState === WebSocket.OPEN && !demoClients.has(client)) {
       try { client.send(data); } catch {}
     }
   });
@@ -644,8 +654,19 @@ function createDemoHeroes(): Hero[] {
   }));
 }
 
-function handleClientMessage(msg: Record<string, unknown>) {
+function sendTo(ws: WebSocket, message: { type: string; payload: unknown }) {
+  if (ws.readyState === WebSocket.OPEN) {
+    try { ws.send(JSON.stringify(message)); } catch {}
+  }
+}
+
+function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
   if (msg.type === "clear-heroes") {
+    if (demoClients.has(ws)) {
+      // In demo mode, only clear this tab's demo view; leave real heroes alone
+      sendTo(ws, { type: "heroes-batch", payload: [] });
+      return;
+    }
     heroes.clear();
     fileToHeroId.clear();
     nextHeroId = 1;
@@ -654,26 +675,27 @@ function handleClientMessage(msg: Record<string, unknown>) {
   }
 
   if (msg.type === "demo-start") {
-    // Generate and broadcast demo heroes
-    const demoHeroes = createDemoHeroes();
-    broadcast({ type: "heroes-batch", payload: demoHeroes });
+    // Demo is per-tab: stop live updates to this client and send it demo heroes
+    demoClients.add(ws);
+    sendTo(ws, { type: "heroes-batch", payload: createDemoHeroes() });
   }
 
-  if (msg.type === "demo-stop") {
-    // Switch to live mode: broadcast real persisted heroes
-    broadcast({ type: "heroes-batch", payload: [...heroes.values()] });
-  }
-
-  if (msg.type === "demo-mode") {
-    // Legacy: broadcast current state
-    broadcast({ type: "heroes-batch", payload: [...heroes.values()] });
+  if (msg.type === "demo-stop" || msg.type === "demo-mode") {
+    // Back to live mode: resume live updates and send the real heroes
+    demoClients.delete(ws);
+    sendTo(ws, { type: "heroes-batch", payload: [...heroes.values()] });
   }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export function initializeWebSocket(server: unknown) {
-  wss = new WebSocketServer({ server: server as any, path: "/api/ws/agents" });
+  wss = new WebSocketServer({
+    server: server as any,
+    path: "/api/ws/agents",
+    // Block other websites (and DNS-rebinding hosts) from connecting
+    verifyClient: (info: { origin: string; req: import("http").IncomingMessage }) => verifyWsClient(info),
+  });
 
   loadPersistedHeroes();
 
@@ -689,7 +711,7 @@ export function initializeWebSocket(server: unknown) {
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        handleClientMessage(msg);
+        handleClientMessage(ws, msg);
       } catch {}
     });
 

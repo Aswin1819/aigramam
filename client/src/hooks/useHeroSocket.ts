@@ -42,7 +42,9 @@ interface WsMessage {
 
 export function useHeroSocket() {
   const [heroes, setHeroes] = useState<Hero[]>([]);
-  const [mode, setMode] = useState<AppMode>("demo");
+  // Start in live mode: the server streams real Claude Code sessions on connect
+  const [mode, setMode] = useState<AppMode>("live");
+  const modeRef = useRef<AppMode>("live");
   const [connected, setConnected] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
@@ -71,6 +73,10 @@ export function useHeroSocket() {
     ws.onopen = () => {
       setConnected(true);
       addLog("Connected to dungeon server");
+      // Server treats new connections as live; restore demo after a reconnect
+      if (modeRef.current === "demo") {
+        ws.send(JSON.stringify({ type: "demo-start", payload: null }));
+      }
       if (reconnectTimer.current) {
         clearTimeout(reconnectTimer.current);
         reconnectTimer.current = null;
@@ -154,12 +160,14 @@ export function useHeroSocket() {
 
   const startDemo = useCallback(() => {
     setMode("demo");
+    modeRef.current = "demo";
     send({ type: "demo-start", payload: null });
     addLog("🎮 Demo mode started");
   }, [send, addLog]);
 
   const startLive = useCallback(() => {
     setMode("live");
+    modeRef.current = "live";
     send({ type: "demo-stop", payload: null });
     addLog("📡 Live mode - watching Claude Code...");
   }, [send, addLog]);

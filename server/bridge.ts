@@ -12,6 +12,8 @@ import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import crypto from "crypto";
+import { isLocalRequest } from "./_core/security";
 
 const DATA_DIR = path.join(os.homedir(), ".claude-dungeon");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
@@ -41,9 +43,8 @@ function getOrCreateApiKey(): string {
   const config = loadConfig();
   if (config.bridgeApiKey) return config.bridgeApiKey;
   // Generate a random API key
-  const key = "cpab_" + Array.from({ length: 32 }, () =>
-    Math.random().toString(36)[2]
-  ).join("");
+  // Must be unguessable: anyone holding it can push heroes to this server
+  const key = "cpab_" + crypto.randomBytes(24).toString("hex");
   saveConfig({ ...config, bridgeApiKey: key });
   return key;
 }
@@ -53,7 +54,10 @@ function getOrCreateApiKey(): string {
 function requireBridgeKey(req: Request, res: Response, next: () => void) {
   const key = req.headers["x-bridge-api-key"] as string | undefined;
   const validKey = getOrCreateApiKey();
-  if (!key || key !== validKey) {
+  const given = Buffer.from(typeof key === "string" ? key : "");
+  const expected = Buffer.from(validKey);
+  const ok = given.length === expected.length && crypto.timingSafeEqual(given, expected);
+  if (!ok) {
     res.status(401).json({ error: "Invalid or missing bridge API key" });
     return;
   }
@@ -88,9 +92,9 @@ export function createBridgeRouter(
    * Returns (or creates) the bridge API key — only accessible from localhost
    */
   router.get("/key", (req: Request, res: Response) => {
-    const host = req.hostname;
-    // Allow localhost access only
-    if (host !== "localhost" && host !== "127.0.0.1" && host !== "::1") {
+    // Allow localhost access only. Check the real socket address, not the
+    // Host header, which any client can set to "localhost".
+    if (!isLocalRequest(req)) {
       res.status(403).json({ error: "API key endpoint only accessible from localhost" });
       return;
     }

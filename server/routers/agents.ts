@@ -13,6 +13,17 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { getOrCreateApiKey } from "../bridge";
+import { TRPCError } from "@trpc/server";
+import { safeChildPath } from "../_core/security";
+
+/** safeChildPath, reported to the client as a 400 instead of a 500. */
+function childPath(dir: string, name: string, suffix = ""): string {
+  try {
+    return safeChildPath(dir, name, suffix);
+  } catch (e) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: (e as Error).message });
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -227,7 +238,7 @@ function readSkillsFromDir(
  * Creates: <skillsDir>/<skillName>/SKILL.md
  */
 function writeSkill(skillsDir: string, skillName: string, content: string): void {
-  const skillDir = path.join(skillsDir, skillName);
+  const skillDir = childPath(skillsDir, skillName);
   if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(path.join(skillDir, "SKILL.md"), content, "utf-8");
 }
@@ -236,7 +247,7 @@ function writeSkill(skillsDir: string, skillName: string, content: string): void
  * Delete a skill directory
  */
 function deleteSkill(skillsDir: string, skillName: string): void {
-  const skillDir = path.join(skillsDir, skillName);
+  const skillDir = childPath(skillsDir, skillName);
   if (fs.existsSync(skillDir)) {
     fs.rmSync(skillDir, { recursive: true, force: true });
   }
@@ -317,15 +328,16 @@ function readAgentsFromDir(
  * Creates: <agentsDir>/<agentName>.md
  */
 function writeAgent(agentsDir: string, agentName: string, content: string): void {
+  const agentPath = childPath(agentsDir, agentName, ".md");
   if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
-  fs.writeFileSync(path.join(agentsDir, `${agentName}.md`), content, "utf-8");
+  fs.writeFileSync(agentPath, content, "utf-8");
 }
 
 /**
  * Delete an agent .md file
  */
 function deleteAgent(agentsDir: string, agentName: string): void {
-  const agentPath = path.join(agentsDir, `${agentName}.md`);
+  const agentPath = childPath(agentsDir, agentName, ".md");
   if (fs.existsSync(agentPath)) {
     fs.unlinkSync(agentPath);
   }
