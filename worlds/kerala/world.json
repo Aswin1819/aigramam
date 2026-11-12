@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "id": "kerala",
+  "name": "Kerala Backwaters",
+  "description": "Houseboats, a chaya kada, the temple and Chinese fishing nets on the backwaters. Placeholder art.",
+  "author": "Aswin1819",
+  "license": "CC0-1.0",
+  "size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "palette": {
+    "background": "#0f3d47",
+    "accent": "#d4a531",
+    "label": "#fff8e7",
+    "labelBg": "#1d2b22dd",
+    "waiting": "#f59e0b",
+    "urgent": "#ef4444"
+  },
+  "layers": [
+    {
+      "id": "sky",
+      "image": "assets/sky.png"
+    },
+    {
+      "id": "hills",
+      "image": "assets/hills.png"
+    },
+    {
+      "id": "water",
+      "image": "assets/water.png",
+      "scrollX": 10
+    },
+    {
+      "id": "ground",
+      "image": "assets/ground.png"
+    }
+  ],
+  "locations": [
+    {
+      "id": "houseboat-west",
+      "kind": "houseboat",
+      "label": "Kettuvallam",
+      "x": 380,
+      "y": 700,
+      "prop": "assets/houseboat.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -132
+      },
+      "slots": 4,
+      "spacing": 70
+    },
+    {
+      "id": "houseboat-east",
+      "kind": "houseboat",
+      "label": "Kettuvallam",
+      "x": 1480,
+      "y": 715,
+      "prop": "assets/houseboat.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -132
+      },
+      "slots": 4,
+      "spacing": 70
+    },
+    {
+      "id": "chaya-kada",
+      "kind": "tea-shop",
+      "label": "Chaya Kada",
+      "x": 640,
+      "y": 905,
+      "prop": "assets/tea_shop.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -192
+      },
+      "slots": 4,
+      "spacing": 64
+    },
+    {
+      "id": "ambalam",
+      "kind": "temple",
+      "label": "Ambalam",
+      "x": 1240,
+      "y": 890,
+      "prop": "assets/temple.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -252
+      },
+      "slots": 5,
+      "spacing": 64
+    },
+    {
+      "id": "cheena-vala",
+      "kind": "fishing-nets",
+      "label": "Cheena Vala",
+      "x": 1780,
+      "y": 860,
+      "prop": "assets/fishing_nets.png",
+      "signboard": {
+        "dx": -30,
+        "dy": -232
+      },
+      "slots": 3,
+      "spacing": 60
+    },
+    {
+      "id": "kadavu",
+      "kind": "canoe-ghat",
+      "label": "Kadavu",
+      "x": 960,
+      "y": 770,
+      "prop": "assets/canoe.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -52
+      },
+      "slots": 3,
+      "spacing": 64
+    },
+    {
+      "id": "kallu-shap",
+      "kind": "toddy-shop",
+      "label": "Kallu Shap",
+      "x": 200,
+      "y": 950,
+      "prop": "assets/toddy_shop.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -172
+      },
+      "slots": 3,
+      "spacing": 62
+    },
+    {
+      "id": "thengin-thoppu",
+      "kind": "grove-hut",
+      "label": "Thengin Thoppu",
+      "x": 1560,
+      "y": 1000,
+      "prop": "assets/hut.png",
+      "signboard": {
+        "dx": 0,
+        "dy": -132
+      },
+      "slots": 3,
+      "spacing": 62
+    }
+  ],
+  "overflow": {
+    "area": {
+      "x": 720,
+      "y": 975,
+      "w": 560,
+      "h": 80
+    },
+    "prop": "assets/hut.png",
+    "propScale": 0.7,
+    "label": "Puthiya Veedu"
+  },
+  "scenes": {
+    "read": {
+      "anim": "read"
+    },
+    "search": {
+      "anim": "read",
+      "fx": "signal"
+    },
+    "write": {
+      "anim": "write"
+    },
+    "bash": {
+      "anim": "bash",
+      "fx": "sparks"
+    },
+    "tool": {
+      "anim": "bash"
+    },
+    "web": {
+      "anim": "read",
+      "fx": "signal"
+    },
+    "delegate": {
+      "anim": "idle"
+    },
+    "think": {
+      "anim": "idle",
+      "fx": "steam"
+    },
+    "question": {
+      "anim": "wait",
+      "fx": "bell"
+    },
+    "waiting": {
+      "anim": "wait",
+      "fx": "bell"
+    },
+    "idle": {
+      "anim": "idle"
+    },
+    "done": {
+      "anim": "celebrate",
+      "fx": "glow"
+    },
+    "error": {
+      "anim": "error",
+      "fx": "smoke"
+    }
+  },
+  "ambient": [
+    {
+      "type": "rain",
+      "chancePerMinute": 0.12,
+      "durationSec": [
+        40,
+        120
+      ],
+      "count": 140,
+      "color": "#cfe8ffcc"
+    },
+    {
+      "type": "birds",
+      "count": 4,
+      "color": "#1b2a2a"
+    }
+  ],
+  "completion": {
+    "effect": "lamp-row",
+    "params": {
+      "count": 7
+    }
+  },
+  "defaultCharacters": []
+}

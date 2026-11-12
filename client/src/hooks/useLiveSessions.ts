@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@shared/model";
+import type { WorldsState } from "@shared/world";
 
 export type AppMode = "live" | "demo";
 
@@ -15,6 +16,7 @@ export function useLiveSessions() {
   const [mode, setMode] = useState<AppMode>("live");
   const [connected, setConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [worlds, setWorlds] = useState<WorldsState | null>(null);
   const modeRef = useRef<AppMode>("live");
   const wsRef = useRef<WebSocket | null>(null);
   const skewRef = useRef(0);
@@ -39,6 +41,10 @@ export function useLiveSessions() {
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
+          if (msg?.type === "worlds") {
+            setWorlds(msg.payload as WorldsState);
+            return;
+          }
           if (msg?.type !== "snapshot") return;
           const snap = msg.payload as Snapshot;
           // Ignore a late live snapshot right after switching to demo (and vice versa).
@@ -77,5 +83,5 @@ export function useLiveSessions() {
     send("demo-stop");
   }, [send]);
 
-  return { snapshot, mode, connected, now, startDemo, startLive };
+  return { snapshot, worlds, mode, connected, now, startDemo, startLive };
 }

@@ -80,6 +80,31 @@ export function verifyWsClient(info: { origin: string; req: IncomingMessage }): 
 }
 
 /**
+ * Resolve a relative path like "assets/sky.png" inside `baseDir`.
+ * Only plain relative paths with forward or back slashes are accepted: no
+ * absolute paths, drive letters, "..", empty or hidden segments, or NUL.
+ * Returns null instead of throwing, for use while validating packs.
+ */
+export function safeRelativePath(baseDir: string, rel: string): string | null {
+  if (typeof rel !== "string" || rel.length === 0 || rel.length > 200 || /[\0:]/.test(rel)) return null;
+  if (/^[\\/]/.test(rel)) return null;
+  const segments = rel.split(/[\\/]+/);
+  if (segments.some((s) => s === "" || s === "." || s === ".." || s.startsWith("."))) return null;
+  const base = path.resolve(baseDir);
+  const target = path.resolve(base, ...segments);
+  const relBack = path.relative(base, target);
+  if (!relBack || relBack.startsWith("..") || path.isAbsolute(relBack)) return null;
+  return target;
+}
+
+/** Width/height from a PNG file header, or null if it isn't a PNG. */
+export function readPngSize(buf: Buffer): { width: number; height: number } | null {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (buf.length < 24 || sig.some((b, i) => buf[i] !== b) || buf.toString("ascii", 12, 16) !== "IHDR") return null;
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+/**
  * Resolve `name` (+ optional suffix) as a direct child of `parentDir`.
  * Throws if the name contains path separators or `..`, or would land anywhere
  * other than directly inside parentDir.

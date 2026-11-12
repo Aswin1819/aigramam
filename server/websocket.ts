@@ -13,6 +13,7 @@ import { demoSnapshot } from "./monitor/demo";
 import { Monitor } from "./monitor/monitor";
 import { resolveProject } from "./monitor/projectRoot";
 import type { HookPayload } from "./monitor/store";
+import type { WorldsState } from "@shared/world";
 
 const FLUSH_MS = 150;
 const DEMO_TICK_MS = 1000;
@@ -23,6 +24,7 @@ const demoClients = new Map<WebSocket, number>(); // tab → demo start time
 const bridgeSessions = new Map<string, SessionView>();
 let flushTimer: NodeJS.Timeout | null = null;
 let lastSent = "";
+let worldsState: (() => WorldsState) | null = null;
 
 export function getMonitor() {
   return monitor;
@@ -82,6 +84,24 @@ function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
   }
 }
 
+// ── Worlds ────────────────────────────────────────────────────────────────────
+
+function sendWorlds(ws: WebSocket) {
+  if (!worldsState || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(JSON.stringify({ type: "worlds", payload: worldsState() }));
+  } catch {}
+}
+
+/** Called once at startup; every tab gets the world list on connect and on change. */
+export function setWorldsSource(get: () => WorldsState) {
+  worldsState = get;
+}
+
+export function broadcastWorlds() {
+  wss?.clients.forEach((c) => sendWorlds(c));
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
 export function handleHook(payload: HookPayload) {
@@ -108,6 +128,7 @@ export function initializeWebSocket(server: unknown) {
   });
 
   wss.on("connection", (ws) => {
+    sendWorlds(ws);
     send(ws, liveSnapshot());
     ws.on("message", (data) => {
       try {

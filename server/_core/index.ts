@@ -11,6 +11,8 @@ import { isProduction, runtime } from "./runtime";
 import { initializeWebSocket, getBroadcastCallbacks, handleHook, setHooksInstalled } from "../websocket";
 import { createBridgeRouter } from "../bridge";
 import { createHooksRouter, getOrCreateHookKey, HooksInstaller, HOOK_PATH } from "../monitor/hooks";
+import { worldManager } from "../worlds";
+import { broadcastWorlds, setWorldsSource } from "../websocket";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -47,6 +49,12 @@ async function startServer() {
       createContext,
     })
   );
+  // World packs (hot reloaded) + their assets
+  setWorldsSource(() => worldManager.state);
+  worldManager.onChange(() => broadcastWorlds());
+  worldManager.start();
+  app.use("/world-assets", worldManager.assetsRouter());
+
   // Live session monitor + WebSocket
   initializeWebSocket(server);
 
