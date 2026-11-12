@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { ProjectView, SessionView } from "@shared/model";
 import { LiveSim } from "@/styles/live/sim";
+import { tintFor } from "@/styles/live/lighting";
 import { WORLD_H, type LiveFrame, type LiveStyle, type ViewRect } from "@/styles/live/types";
 import type { WorldHandle } from "./WorldView";
 
@@ -12,6 +13,8 @@ interface Props {
   hoveredId: string | null;
   onSelect: (id: string) => void;
   reducedMotion: boolean;
+  /** Chosen hour of day (0–24), or null to follow the clock. */
+  hourOverride: number | null;
 }
 
 interface Cam {
@@ -147,6 +150,16 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
         ctx.save();
         p.style.draw(ctx, frame, view);
         ctx.restore();
+        // Time of day: tint towards dusk/night when the chosen time is later than the style is painted.
+        const d = new Date();
+        const tint = tintFor(p.style.lighting, p.hourOverride ?? d.getHours() + d.getMinutes() / 60);
+        if (tint) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.globalCompositeOperation = "multiply";
+          ctx.fillStyle = tint;
+          ctx.fillRect(0, 0, cw, ch);
+          ctx.globalCompositeOperation = "source-over";
+        }
       } catch (e) {
         cancelAnimationFrame(raf);
         console.error("[Ai Gramam] art style failed to draw", e);

@@ -835,6 +835,7 @@ export const flatVectorLive: LiveStyle = {
   name: "Flat Vector",
   blurb: "Clean flat explainer illustration at dusk: no outlines, navy with warm accents, soft light cones and long shadows.",
   bg: "#1e2147",
+  lighting: "dusk",
   draw(ctx, f, view) {
     if (!tileLayer) tileLayer = makeCanvas(TILE, WORLD_H, paintTile);
     const t = f.t;

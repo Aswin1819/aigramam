@@ -1,7 +1,7 @@
 /**
  * A small, safe Markdown renderer for chat messages: builds React elements
  * (never raw HTML), so nothing in a message can run in the page.
- * Supports fenced code, headings, lists, quotes, paragraphs, and inline
+ * Supports fenced code, tables, headings, lists, quotes, paragraphs, and inline
  * code, bold, italic and https/http links.
  */
 import { Fragment, type ReactNode } from "react";
@@ -29,6 +29,11 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return out;
 }
 
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+/** "| a | b |" → ["a", "b"] */
+const cells = (row: string) => row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+
 export default function MiniMarkdown({ text }: { text: string }) {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
@@ -47,6 +52,31 @@ export default function MiniMarkdown({ text }: { text: string }) {
           {fence[1] && <div className="mb-1 text-[10px] uppercase tracking-wider text-cream/35">{fence[1]}</div>}
           <code>{code.join("\n")}</code>
         </pre>,
+      );
+      continue;
+    }
+    // Table: a | row |, then a | --- | separator, then rows.
+    if (TABLE_ROW.test(line) && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1]!)) {
+      const head = cells(line);
+      i += 2;
+      const body: string[][] = [];
+      while (i < lines.length && TABLE_ROW.test(lines[i]!)) body.push(cells(lines[i++]!));
+      const k = key++;
+      blocks.push(
+        <div key={k} className="my-1.5 overflow-x-auto rounded-lg border border-white/10">
+          <table className="w-full border-collapse text-[12px]">
+            <thead className="bg-white/5">
+              <tr>{head.map((h, n) => <th key={n} className="px-2 py-1 text-left font-semibold text-cream">{inline(h, `t${k}h${n}`)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {body.map((row, r) => (
+                <tr key={r} className="border-t border-white/8">
+                  {head.map((_, n) => <td key={n} className="px-2 py-1 align-top text-cream/85">{inline(row[n] ?? "", `t${k}r${r}c${n}`)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
       );
       continue;
     }

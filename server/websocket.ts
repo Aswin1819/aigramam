@@ -64,8 +64,11 @@ function liveSnapshot(now = Date.now()): Snapshot {
       if (info.approval) {
         // A request waiting in the browser is the most urgent thing about a session.
         s.status = "waiting";
-        s.waitingReason = "permission";
-        s.action = { kind: "waiting", emoji: "🔔", label: `Needs your approval: ${info.approval.label}`, startedAt: info.approval.since };
+        const question = !!info.approval.questions;
+        s.waitingReason = question ? "question" : "permission";
+        s.action = question
+          ? { kind: "question", emoji: "❓", label: `Asks: ${info.approval.label}`, startedAt: info.approval.since }
+          : { kind: "waiting", emoji: "🔔", label: `Needs your approval: ${info.approval.label}`, startedAt: info.approval.since };
         s.statusSince = info.approval.since;
       }
     }
@@ -148,8 +151,8 @@ function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
       return reply(ws, p.requestId, r);
     }
     const decision = p.decision === "allow" || p.decision === "deny" ? p.decision : null;
-    const ok = !!decision && link.decide(String(p.approvalId ?? ""), decision);
-    return reply(ws, p.requestId, ok ? { ok: true } : { ok: false, error: "That request was already answered or has expired." });
+    if (!decision) return reply(ws, p.requestId, { ok: false, error: "Unknown answer." });
+    return reply(ws, p.requestId, link.decide(String(p.approvalId ?? ""), decision, p.answers));
   }
   if (msg.type === "demo-start") {
     demoClients.set(ws, Date.now());

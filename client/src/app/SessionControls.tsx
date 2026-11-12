@@ -1,25 +1,22 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Link2Off, Send, ShieldQuestion, Square, X } from "lucide-react";
+import { Link2Off, Send, Square } from "lucide-react";
 import type { SessionView } from "@shared/model";
 import type { CommandOutcome } from "@/hooks/useLiveSessions";
-import { elapsed } from "@/lib/status";
 
 interface Props {
   session: SessionView;
-  now: number;
   demo: boolean;
   command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
   onSetupLink: () => void;
 }
 
-/** Talk to a live session through the Ai Gramam mod: approve, message, stop. */
-export default function SessionControls({ session: s, now, demo, command, onSetupLink }: Props) {
+/** Talk to a live session through the Ai Gramam mod: message it, stop it. Requests are answered in the thread (RequestCard). */
+export default function SessionControls({ session: s, demo, command, onSetupLink }: Props) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const linked = !!s.link?.connected;
-  const approval = s.link?.approval;
 
   const run = async (key: string, type: Parameters<Props["command"]>[0], payload: Record<string, unknown>, okText: string) => {
     setBusy(key);
@@ -38,7 +35,7 @@ export default function SessionControls({ session: s, now, demo, command, onSetu
       <div className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/20 p-3 text-[12px] text-cream/70">
         <Link2Off size={15} className="mt-0.5 shrink-0 text-cream/40" />
         <div>
-          This session isn't linked. With the <b className="text-cream">Ai Gramam mod</b> installed, you can message it, stop it and answer its permission requests from here.{" "}
+          This session isn't linked. With the <b className="text-cream">Ai Gramam mod</b> installed, you can message it, stop it, approve its requests and answer its questions from here.{" "}
           <button onClick={onSetupLink} className="text-brass underline underline-offset-2">How to link sessions</button>
         </div>
       </div>
@@ -47,42 +44,6 @@ export default function SessionControls({ session: s, now, demo, command, onSetu
 
   return (
     <div className="space-y-3">
-      <AnimatePresence>
-        {approval && (
-          <motion.div
-            key={approval.id}
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.97 }}
-            className="rounded-2xl border border-urgent/50 bg-urgent/12 p-3 shadow-[0_0_24px_rgba(255,90,79,0.18)]"
-            role="alert"
-          >
-            <div className="flex items-center gap-2 text-[12px] font-semibold text-red-100">
-              <ShieldQuestion size={16} className="text-urgent" /> Claude asks to run
-              <span className="ml-auto font-normal tabular-nums text-red-100/60">{elapsed(approval.since, now)}</span>
-            </div>
-            <div className="mt-1.5 break-words rounded-lg bg-black/30 px-2 py-1.5 font-mono text-[11.5px] text-cream">{approval.label}</div>
-            <div className="mt-2 flex gap-2">
-              <button
-                disabled={!!busy}
-                onClick={() => run("allow", "approval-decide", { approvalId: approval.id, decision: "allow" }, "Approved. Claude carries on.")}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-work px-3 py-1.5 text-[12.5px] font-semibold text-ink hover:brightness-110 disabled:opacity-50"
-              >
-                <Check size={15} /> Approve once
-              </button>
-              <button
-                disabled={!!busy}
-                onClick={() => run("deny", "approval-decide", { approvalId: approval.id, decision: "deny" }, "Denied. Claude was told no.")}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/20 px-3 py-1.5 text-[12.5px] font-semibold text-cream hover:bg-white/10 disabled:opacity-50"
-              >
-                <X size={15} /> Deny
-              </button>
-            </div>
-            <p className="mt-1.5 text-[10.5px] text-red-100/55">No answer within 45 s and the question appears in the terminal instead.</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <form
         onSubmit={async (ev) => {
           ev.preventDefault();
@@ -108,7 +69,7 @@ export default function SessionControls({ session: s, now, demo, command, onSetu
             {s.link?.queued ? `${s.link.queued} waiting to send` : "Ctrl+Enter to send · sent as your own message"}
           </span>
           <span className="ml-auto" />
-          {s.status === "working" && (
+          {(s.status === "working" || (s.status === "waiting" && s.waitingReason !== "turn_end")) && (
             <button
               type="button"
               disabled={!!busy}

@@ -509,6 +509,7 @@ export const explainer3dLive: LiveStyle = {
   name: "Explainer 3D",
   blurb: "Soft pastel 3D explainer look, bouncy rounded villagers.",
   bg: "#f3e6d6",
+  lighting: "day",
   draw(ctx, f, view) {
     if (!skyTile) {
       skyTile = makeSprite(0, 0, TILE, GROUND.waterBottom + 8, paintSkyTile, 2.5);

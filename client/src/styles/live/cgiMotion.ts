@@ -228,6 +228,7 @@ export const cgiMotionLive: LiveStyle = {
   name: "CGI Motion",
   blurb: "Cinematic CGI night: rim-lit villagers on wet reflective ground, light shafts, pulsing status rings and holographic code panels.",
   bg: "#04121a",
+  lighting: "night",
   draw(ctx, f, view: ViewRect) {
     const T = getTiles();
     const t = f.t;

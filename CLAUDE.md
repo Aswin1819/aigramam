@@ -1,6 +1,6 @@
 # Ai Gramam
 
-A local browser app that shows live Claude Code sessions as villagers in an animated Indian world (projects = places, sessions = villagers, subagents = companions). Started as a fork of thousandsky2024/claude-pixel-agent-web (MIT). Research and the phased plan are in `docs/RESEARCH.md`.
+A local browser app that shows live Claude Code sessions as villagers in an animated Indian world (projects = places, sessions = villagers, subagents = companions). Research and the phased plan are in `docs/RESEARCH.md`.
 
 ## Run, test, check (Windows)
 - Install: `npx -y pnpm@10.4.1 install`. pnpm isn't installed globally.
@@ -18,16 +18,19 @@ A local browser app that shows live Claude Code sessions as villagers in an anim
 - `server/packs/`: shared pack file checks (`files.ts`) and the hot-reloading `PackManager` (which also serves assets).
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
 - `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages, and takes browser commands (`session-message`, `session-stop`, `approval-decide`, answered with `command-result`). Demo mode is per tab and never acts on real sessions.
-- `server/link/link.ts`: the live link to the mod (`/api/link`, loopback + `x-ai-gramam-key`): events in, a per-session inbox (messages, stop), and approvals the mod long-polls.
-- `plugin/ai-gramam/`: the Claude Code mod (hooks module `hooks/register.ts`). `.claude-plugin/marketplace.json` at the repo root lists it. Check it with `claude plugin validate plugin/ai-gramam`; it hooks `classic.PermissionRequest`, so only asks that would reach the person go to the browser.
+- `server/link/link.ts`: the live link to the mod (`/api/link`, loopback + `x-ai-gramam-key`): events in, a per-session inbox (messages, stop), and requests the mod long-polls: approvals (allow/deny) and Claude's questions (answers, or "deny" = answer in the terminal).
+- `plugin/ai-gramam/`: the Claude Code mod (hooks module `hooks/register.ts`). `.claude-plugin/marketplace.json` at the repo root lists it. Check it with `claude plugin validate plugin/ai-gramam` and `tsc -p plugin/ai-gramam`. Approvals: it hooks `classic.PermissionRequest`, so only asks that would reach the person go to the browser (another plugin that answers that event first takes precedence). Questions (`AskUserQuestion`): answered at `tool.call`, the browser's answers become the tool's result; no answer in 45 s and the terminal dialog opens. Test with a session started as `claude --plugin-dir <repo>/plugin/ai-gramam` (it reloads the mod after each turn).
 - `server/_core/`:
   - `security.ts`: binds to 127.0.0.1, checks Host/Origin, `safeChildPath`/`safeRelativePath`;
-  - `paths.ts`: the data folder `~/.ai-gramam`, with a one-time copy of settings from the old folder;
+  - `paths.ts`: the data folder `~/.ai-gramam`;
   - `runtime.ts`.
 - `client/src/world/`:
   - `WorldScene.ts` (Phaser): sky and time-of-day lighting, layers, decor animation, weather, props, sprite characters, camera;
-  - `WorldView.tsx`, and `WorldLabels.tsx` (HTML labels with collision layout).
-- `client/src/app/`: `TopBar`, `SessionDock`, `DetailDrawer`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Page: `client/src/pages/Home.tsx`.
+  - `WorldView.tsx`, and `WorldLabels.tsx` (HTML labels with collision layout);
+  - `StyledWorldView.tsx`: the village drawn by an art style (Canvas 2D): camera, click-to-select, time-of-day tint.
+- `client/src/styles/`: art styles. `protos/` are the Style lab prototypes (`/styles`, fixed demo scene); `live/` are the selectable styles for the real village (`sim.ts` turns sessions into places and villagers, `registry.ts` lists them, `lighting.ts`, porting guide in `live/README.md`).
+- `client/src/app/`: `TopBar` (world/style menu, sound, time), `SessionDock`, `DetailDrawer`, `ChatPanel`, `RequestCard` (approvals and questions inline in the chat), `SessionControls`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Pages: `client/src/pages/Home.tsx`, `StyleLab.tsx`.
+- `client/src/lib/`: `status`, `miniMarkdown` (safe chat Markdown, tables included), `chime` (Web Audio sound cues, no files).
 - Built-in packs: `worlds/kerala`, `characters/{mundu-hero,shades-villain,chaya-sidekick}`. User packs go in `~/.ai-gramam/worlds|characters`.
 
 ## Rules
@@ -38,5 +41,5 @@ A local browser app that shows live Claude Code sessions as villagers in an anim
 - **Packs are data only** and are validated. A broken pack falls back and must never crash the app.
 - **Only original art ships**, and every pack shows its author and license.
 - **Text, not only icons**, for every state and action. Labels must not overlap (see the layout pass in `WorldLabels`).
-- Server changes need Vitest specs in `server/*.test.ts`.
+- Server changes need Vitest specs in `server/*.test.ts`; client logic without the DOM (e.g. `styles/live/sim.ts`) gets specs next to it (`client/src/**/*.test.ts`).
 - **Git:** commit and push as **Aswin1819** only (configured in this repo's local git config). Never use the aswin-alfredx account. `origin` = Aswin1819 private repo, `upstream` = the original repo. Work on feature branches.

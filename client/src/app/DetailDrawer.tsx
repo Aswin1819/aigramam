@@ -8,6 +8,7 @@ import { STATUS_META, clockTime, elapsed, isUrgent, statusColor, statusText } fr
 import type { CommandOutcome } from "@/hooks/useLiveSessions";
 import SessionControls from "./SessionControls";
 import ChatPanel from "./ChatPanel";
+import RequestCard from "./RequestCard";
 
 interface Props {
   session: SessionView;
@@ -92,7 +93,8 @@ export default function DetailDrawer({ session: s, project, character, chat, now
               session={s}
               character={character}
               items={chat}
-              footer={<SessionControls session={s} now={now} demo={demo} command={command} onSetupLink={onSetupLink} />}
+              request={s.link?.approval && !demo ? { id: s.link.approval.id, node: <RequestCard approval={s.link.approval} now={now} command={command} /> } : null}
+              footer={<SessionControls session={s} demo={demo} command={command} onSetupLink={onSetupLink} />}
             />
           </motion.div>
         ) : (

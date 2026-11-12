@@ -48,6 +48,14 @@ export interface ActivityEntry {
   agent?: string;
 }
 
+/** A multiple-choice question Claude asked (AskUserQuestion), offered in the browser by the mod. */
+export interface LinkQuestion {
+  question: string;
+  header: string;
+  options: Array<{ label: string; description?: string }>;
+  multiSelect: boolean;
+}
+
 /** One line of a session's conversation, for the chat view. */
 export interface ChatItem {
   id: string;
@@ -98,7 +106,7 @@ export interface SessionView {
     /** Messages queued in the browser, not yet picked up by the session. */
     queued: number;
     /** A permission request waiting for an answer in the browser. */
-    approval?: { id: string; tool: string; label: string; since: number };
+    approval?: { id: string; tool: string; label: string; since: number; questions?: LinkQuestion[] };
   };
   subagents: SubagentView[];
   recent: ActivityEntry[];
@@ -133,7 +141,8 @@ export type ClientMessage =
   | { type: "demo-stop"; payload: null }
   | { type: "session-message"; payload: { requestId: string; sessionId: string; text: string } }
   | { type: "session-stop"; payload: { requestId: string; sessionId: string } }
-  | { type: "approval-decide"; payload: { requestId: string; approvalId: string; decision: "allow" | "deny" } }
+  /** answers (question text → chosen label(s) or typed text) only for a question; "deny" on a question means "answer it in the terminal". */
+  | { type: "approval-decide"; payload: { requestId: string; approvalId: string; decision: "allow" | "deny"; answers?: Record<string, string> } }
   | { type: "chat-open"; payload: { sessionId: string } }
   | { type: "chat-close"; payload: null };
 
