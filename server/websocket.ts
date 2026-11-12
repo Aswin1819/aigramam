@@ -53,6 +53,11 @@ export function getMonitor() {
   return monitor;
 }
 
+/** The real projects the monitor knows right now (never demo ones); used to resolve a projectId to its folder. */
+export function liveProjects() {
+  return liveSnapshot().projects;
+}
+
 // ── Snapshots ─────────────────────────────────────────────────────────────────
 
 function liveSnapshot(now = Date.now()): Snapshot {

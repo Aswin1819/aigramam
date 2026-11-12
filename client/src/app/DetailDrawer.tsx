@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ExternalLink, Folder, GitBranch, Hash, Clock, X, Radio, Crosshair, MessageSquare, ListTree } from "lucide-react";
+import { ExternalLink, Folder, GitBranch, Hash, Clock, X, Radio, Crosshair, MessageSquare, ListTree, Users, GitCompare } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { CharacterInfo } from "@shared/character";
 import Avatar from "@/components/Avatar";
@@ -8,6 +8,8 @@ import { STATUS_META, clockTime, elapsed, isUrgent, statusColor, statusText } fr
 import type { CommandOutcome } from "@/hooks/useLiveSessions";
 import SessionControls from "./SessionControls";
 import ChatPanel from "./ChatPanel";
+import SubagentsPanel from "./SubagentsPanel";
+import ChangesPanel from "./ChangesPanel";
 import RequestCard from "./RequestCard";
 import CharacterPicker from "./CharacterPicker";
 
@@ -29,6 +31,14 @@ interface Props {
   command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
 }
 
+type DrawerTab = "chat" | "subagents" | "changes" | "details";
+const TABS: ReadonlyArray<readonly [DrawerTab, string, typeof MessageSquare]> = [
+  ["chat", "Chat", MessageSquare],
+  ["subagents", "Subagents", Users],
+  ["changes", "Changes", GitCompare],
+  ["details", "Details", ListTree],
+];
+
 function Meta({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2 text-[12px]">
@@ -41,7 +51,8 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 
 /** Slide-in panel for one session: its conversation (Chat) and everything else (Details). */
 export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command }: Props) {
-  const [tab, setTab] = useState<"chat" | "details">("chat");
+  const [tab, setTab] = useState<DrawerTab>("chat");
+  const runningSubagents = s.subagents.filter((a) => a.status !== "finished").length;
   const color = statusColor(s);
   const urgent = isUrgent(s);
   const source = s.source === "demo" ? "Demo data" : s.hooksActive ? "Live · hooks + transcript" : s.source === "bridge" ? "Remote bridge" : "Live · transcript";
@@ -81,11 +92,12 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
           </div>
         </div>
         <div className="relative mt-2 flex gap-1" role="tablist">
-          {([["chat", "Chat", MessageSquare], ["details", "Details", ListTree]] as const).map(([id, label, Icon]) => (
+          {TABS.map(([id, label, Icon]) => (
             <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className="relative flex items-center gap-1.5 px-3 py-2 text-[12.5px]">
               {tab === id && <motion.span layoutId="drawer-tab" className="absolute inset-x-1 bottom-0 h-[2px] rounded-full bg-brass" />}
               <Icon size={14} className={tab === id ? "text-brass" : "text-cream/45"} />
               <span className={tab === id ? "font-semibold text-cream" : "text-cream/60"}>{label}</span>
+              {id === "subagents" && runningSubagents > 0 && <span className="chip bg-sky-400/20 text-sky-200">{runningSubagents}</span>}
             </button>
           ))}
         </div>
@@ -101,6 +113,18 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               request={s.link?.approval && !demo ? { id: s.link.approval.id, node: <RequestCard approval={s.link.approval} now={now} command={command} /> } : null}
               footer={<SessionControls session={s} demo={demo} command={command} onSetupLink={onSetupLink} />}
             />
+          </motion.div>
+        ) : tab === "subagents" ? (
+          <motion.div key="subagents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="min-h-0 flex-1 overflow-y-auto">
+            <SubagentsPanel session={s} now={now} />
+          </motion.div>
+        ) : tab === "changes" ? (
+          <motion.div key="changes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="min-h-0 flex-1 overflow-y-auto">
+            {demo ? (
+              <p className="p-4 text-[12.5px] text-cream/55">The demo village has no real project folders, so there are no Git changes to show.</p>
+            ) : (
+              <ChangesPanel projectId={s.projectId} projectName={project?.name} />
+            )}
           </motion.div>
         ) : (
           <motion.div key="details" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="min-h-0 flex-1 overflow-y-auto">
@@ -132,23 +156,6 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
             {!demo && (
               <div className="border-b border-white/8 p-4">
                 <CharacterPicker projectName={project?.name ?? "this project"} cast={cast} chosenId={chosenCharacterId} onChoose={onChooseCharacter} />
-              </div>
-            )}
-            {s.subagents.length > 0 && (
-              <div className="border-b border-white/8 p-4">
-                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-300">Subagents</h3>
-                <ul className="space-y-1.5">
-                  {s.subagents.map((a) => (
-                    <li key={a.id} className="rounded-xl border border-sky-300/15 bg-sky-950/30 px-3 py-2 text-[12px]">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-cream">🤝 {a.agentType}</span>
-                        <span className="text-[11px]" style={{ color: STATUS_META[a.status].color }}>{STATUS_META[a.status].label}</span>
-                      </div>
-                      {a.description && <div className="text-cream/60">{a.description}</div>}
-                      {a.action && a.status === "working" && <div className="mt-0.5 text-cream/80">{a.action.emoji} {a.action.label}</div>}
-                    </li>
-                  ))}
-                </ul>
               </div>
             )}
             <div className="p-4">

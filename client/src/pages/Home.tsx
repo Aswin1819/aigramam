@@ -13,6 +13,7 @@ import { useLiveSessions } from "@/hooks/useLiveSessions";
 import { isUrgent, statusText } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
 import { playChime } from "@/lib/chime";
+import { desktopNotify } from "@/lib/desktopNotify";
 import TopBar from "@/app/TopBar";
 import SessionDock from "@/app/SessionDock";
 import DetailDrawer from "@/app/DetailDrawer";
@@ -104,13 +105,16 @@ export default function Home() {
     else toast.success(decision === "allow" ? "Approved" : "Denied");
   }, [command]);
 
-  // A toast (and a sound) the moment a session newly needs approval or asks a question.
+  // A toast (and a sound, and optionally a desktop notification) the moment a session newly needs you.
   const seenUrgent = useRef<Set<string> | null>(null);
   const seenTurns = useRef<Set<string> | null>(null);
+  const seenErrors = useRef<Set<string> | null>(null);
   const shownApprovals = useRef(new Set<string>());
   useEffect(() => {
     const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
     const turnsNow = new Set(sessions.filter((s) => s.status === "waiting" && s.waitingReason === "turn_end").map((s) => `${s.id}:${s.statusSince}`));
+    const errorsNow = new Set(sessions.filter((s) => s.status === "error").map((s) => `${s.id}:${s.statusSince}`));
+    const notify = (s: (typeof sessions)[number], body: string) => prefs.desktopNotify && desktopNotify(s.title, body, `ai-gramam:${s.id}`, () => select(s.id));
     if (seenUrgent.current && mode === "live") {
       let urgentNew = false;
       for (const s of sessions.filter(isUrgent)) {
@@ -127,12 +131,16 @@ export default function Home() {
           cancel: quick ? { label: "Deny", onClick: () => decide(quick.id, "deny") } : undefined,
           duration: approval ? 45000 : 8000,
         });
+        notify(s, approval?.questions ? `Asks: ${approval.label}` : `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`);
       }
       const turnNew = !!seenTurns.current && [...turnsNow].some((k) => !seenTurns.current!.has(k));
+      if (seenTurns.current) for (const s of sessions) if (turnsNow.has(`${s.id}:${s.statusSince}`) && !seenTurns.current.has(`${s.id}:${s.statusSince}`)) notify(s, "Finished its turn: your turn");
+      if (seenErrors.current) for (const s of sessions) if (errorsNow.has(`${s.id}:${s.statusSince}`) && !seenErrors.current.has(`${s.id}:${s.statusSince}`)) notify(s, "Stopped with an error");
       if (prefs.sound && urgentNew) playChime("urgent");
       else if (prefs.sound && turnNew) playChime("soft");
     }
     seenTurns.current = turnsNow;
+    seenErrors.current = errorsNow;
     // Close toasts for requests that were answered (here, in the terminal) or expired.
     const openApprovals = new Set(sessions.map((s) => s.link?.approval?.id).filter(Boolean));
     for (const id of shownApprovals.current) {
@@ -143,7 +151,7 @@ export default function Home() {
     }
     for (const id of openApprovals) shownApprovals.current.add(id as string);
     seenUrgent.current = urgentNow;
-  }, [sessions, mode, select, decide, prefs.sound]);
+  }, [sessions, mode, select, decide, prefs.sound, prefs.desktopNotify]);
 
   const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}|${assignmentsKey(assignments)}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
@@ -338,6 +346,8 @@ export default function Home() {
             lastHookAt={hooks.lastEventAt}
             reducedMotion={prefs.reducedMotion}
             onReducedMotion={(reducedMotion) => update({ reducedMotion })}
+            desktopNotify={prefs.desktopNotify}
+            onDesktopNotify={(desktopNotify) => update({ desktopNotify })}
             time={prefs.time}
             onTime={(time) => update({ time })}
             onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}

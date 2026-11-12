@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { notifyPermission, requestNotifyPermission, type NotifyPermission } from "@/lib/desktopNotify";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, Globe2, Users, Cable, MonitorCog, Wand2, X, Copy, Check, Link2 } from "lucide-react";
 import type { WorldsState } from "@shared/world";
@@ -21,6 +22,8 @@ interface Props {
   lastHookAt?: number;
   reducedMotion: boolean;
   onReducedMotion: (v: boolean) => void;
+  desktopNotify: boolean;
+  onDesktopNotify: (v: boolean) => void;
   time: TimeMode;
   onTime: (t: TimeMode) => void;
   onOpenSkills: () => void;
@@ -268,6 +271,7 @@ export default function SettingsSheet(p: Props) {
                     </span>
                     <input type="checkbox" checked={p.reducedMotion} onChange={(e) => p.onReducedMotion(e.target.checked)} className="h-5 w-5 accent-[#e3b04b]" />
                   </label>
+                  <DesktopNotifyToggle on={p.desktopNotify} onChange={p.onDesktopNotify} />
                   <div className="rounded-2xl border border-white/10 p-3">
                     <div className="mb-2 font-semibold">Time of day</div>
                     <div className="flex flex-wrap gap-1.5">
@@ -294,5 +298,29 @@ export default function SettingsSheet(p: Props) {
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/** Desktop notifications: asks the browser for permission on the click that turns them on. */
+function DesktopNotifyToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  const [perm, setPerm] = useState<NotifyPermission>(notifyPermission);
+  const toggle = async (want: boolean) => {
+    if (!want) return onChange(false);
+    const p = perm === "granted" ? perm : await requestNotifyPermission();
+    setPerm(p);
+    onChange(p === "granted");
+  };
+  return (
+    <label className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 p-3">
+      <span>
+        <span className="block font-semibold">Desktop notifications</span>
+        <span className="text-xs text-cream/55">
+          While Ai Gramam is in the background: approvals, questions, errors and "your turn".
+          {perm === "denied" && <span className="text-urgent"> Your browser blocks notifications for this page; allow them in the browser's site settings.</span>}
+          {perm === "unsupported" && <span className="text-urgent"> This browser doesn't support them.</span>}
+        </span>
+      </span>
+      <input type="checkbox" checked={on && perm === "granted"} disabled={perm === "unsupported"} onChange={(e) => toggle(e.target.checked)} className="h-5 w-5 accent-[#e3b04b]" />
+    </label>
   );
 }

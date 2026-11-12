@@ -6,7 +6,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 ## Run, test, check (Windows)
 - Install: `npx -y pnpm@10.4.1 install`. pnpm isn't installed globally.
 - Dev: `npx pnpm@10.4.1 dev` (`tsx watch`, restarts on server changes; reload the browser for client changes). The port comes from `.env` (`PORT=4317`, the default); if it's busy the server stops with an explanation rather than moving to a port the mod and hooks can't reach.
-- Open http://localhost:4317. Add `?demo` for simulated sessions, `?time=dawn|day|dusk|night` to preview lighting.
+- Open http://localhost:4317. Previews for one visit (not saved; a menu choice drops them): `?demo`, `?view=world|workspace`, `?world=<id>`, `?art=<style id>|classic`, `?time=dawn|day|dusk|night`.
 - Tests: `./node_modules/.bin/vitest run`. Types: `./node_modules/.bin/tsc --noEmit`.
 - Art: `node scripts/gen-art.mjs [worlds|characters]` regenerates the built-in placeholder art (deterministic, CC0).
 - Headless screenshot (when the Chrome extension isn't available): run msedge `--headless=new` with a scratch `--user-data-dir`, `--use-angle=swiftshader --virtual-time-budget=15000 --screenshot=<file>`.
@@ -18,6 +18,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
   - `hooks.ts`: the HTTP hook receiver (replies 204 with an empty body) plus install/uninstall.
 - `server/packs/`: shared pack file checks (`files.ts`), the hot-reloading `PackManager` (which also serves assets), and `upload.ts` (`POST /api/packs/upload?kind=world|character&replace=0|1`: a .zip checked in memory, staged in `.incoming-*`, validated by the loader, renamed into the user folder; replaced packs go to `~/.ai-gramam/backups`).
 - `server/routers/agents.ts`: read-only listing of Claude Code skills and agents (global and per tracked project) for the Skills & agents viewer (`client/src/components/SkillsManager.tsx`); it never writes to `~/.claude` or projects' `.claude/`.
+- `server/git/status.ts` + `server/routers/git.ts`: read-only Git status/diff for a known project (execFile, no shell, `--no-optional-locks`, only rev-parse/status/diff/log; the folder comes from the live project list, files must be ones `git status` lists). Shown in the drawer's Changes tab (`client/src/app/ChangesPanel.tsx`).
 - `server/characters/assignments.ts`: the character chosen per project, saved in `~/.ai-gramam/characters.json` and sent to tabs with the character list.
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
 - `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages, and takes browser commands (`session-message`, `session-stop`, `approval-decide`, answered with `command-result`). Demo mode is per tab and never acts on real sessions.
@@ -34,7 +35,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 - `client/src/styles/`: art styles. `protos/` are the Style lab prototypes (`/styles`, fixed demo scene); `live/` are the selectable styles for the real village (`sim.ts` turns sessions into places and villagers, `registry.ts` lists them, `lighting.ts`, porting guide in `live/README.md`).
 - `client/src/app/`: `TopBar` (world/style menu, sound, time), `SessionDock`, `DetailDrawer`, `ChatPanel`, `RequestCard` (approvals and questions inline in the chat), `CharacterPicker` (a project's character), `PackUpload` (zip install), `SessionControls`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Pages: `client/src/pages/Home.tsx`, `StyleLab.tsx`.
 - `client/src/app/workspace/`: Workspace Mode (World/Workspace switch in the top bar): `Workspace` (page tabs), `Overview`, `ProjectsPage`, `AgentsPage`, `ProjectDetail` (also used by `app/ProjectDrawer` when a building is clicked in the village), `SessionRow`; pure grouping/filters in `attention.ts` and `filters.ts` (tested). Show only real data: a quiet session is "No recent activity", never "stuck".
-- `client/src/lib/`: `status`, `miniMarkdown` (safe chat Markdown, tables included), `chime` (Web Audio sound cues, no files).
+- `client/src/lib/`: `status`, `miniMarkdown` (safe chat Markdown, tables included), `chime` (Web Audio sound cues, no files), `desktopNotify` (optional OS notifications while the tab is in the background; off by default).
 - Built-in packs: `worlds/kerala`, `characters/{mundu-hero,shades-villain,chaya-sidekick}`. User packs go in `~/.ai-gramam/worlds|characters`.
 
 ## Rules
