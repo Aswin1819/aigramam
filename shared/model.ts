@@ -120,6 +120,11 @@ export interface SessionView {
     /** A permission request waiting for an answer in the browser. */
     approval?: { id: string; tool: string; label: string; since: number; questions?: LinkQuestion[] };
   };
+  /**
+   * The Ai Gramam managed terminal this session runs in (its process descends
+   * from that terminal's shell). Unset when it was started anywhere else.
+   */
+  terminalId?: string;
   subagents: SubagentView[];
   recent: ActivityEntry[];
 }

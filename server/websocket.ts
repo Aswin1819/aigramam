@@ -7,7 +7,8 @@
  */
 import type { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { handleTerminalMessage, initTerminals, terminalClientClosed, terminalClientConnected } from "./terminal/socket";
+import { handleTerminalMessage, initTerminals, terminalClientClosed, terminalClientConnected, terminalForSession } from "./terminal/socket";
+import { attachTerminalIds } from "./terminal/links";
 import type { ActivityEntry, SessionStatus, SessionView, Snapshot } from "@shared/model";
 import { verifyWsClient } from "./_core/security";
 import { demoChat, demoSnapshot } from "./monitor/demo";
@@ -79,6 +80,8 @@ function liveSnapshot(now = Date.now()): Snapshot {
       }
     }
   }
+  // Sessions running in an Ai Gramam terminal (matched by process tree in server/terminal).
+  attachTerminalIds(snap.sessions, terminalForSession);
   if (bridgeSessions.size === 0) return snap;
   const sessions = [...snap.sessions, ...bridgeSessions.values()];
   const projects = new Map(snap.projects.map((p) => [p.id, p]));

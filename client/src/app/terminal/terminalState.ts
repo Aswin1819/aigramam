@@ -2,6 +2,7 @@
  * Pure helpers for the managed-terminal UI (no React, no DOM), so they can be tested.
  */
 import { TERMINAL_LIMITS, type TerminalInfo } from "@shared/terminal";
+import type { SessionView } from "@shared/model";
 import type { AppMode } from "@/hooks/useLiveSessions";
 
 /** The terminal to show: the chosen one if it's still open, otherwise the newest. */
@@ -50,4 +51,28 @@ export function chunkInput(data: string, maxUnits = 16_000): string[] {
 export function terminalStatusText(t: TerminalInfo): string {
   if (t.status === "running") return "Running";
   return t.exitCode === undefined ? "Exited" : `Exited (code ${t.exitCode})`;
+}
+
+/** How long "Starting Claude…" shows for a Claude terminal that has no linked session yet. */
+export const CLAUDE_STARTING_MS = 20_000;
+
+export type ClaudeLink =
+  | { kind: "linked"; sessionId: string; title: string; more: number }
+  | { kind: "starting" }
+  | null;
+
+/**
+ * What a terminal's status bar says about Claude Code: the session running in
+ * it (matched by process on the server), "starting" for a little while after
+ * "Start Claude Code", otherwise nothing (no guess).
+ */
+export function claudeLinkOf(t: TerminalInfo, sessions: Pick<SessionView, "id" | "title">[], now: number, startingMs = CLAUDE_STARTING_MS): ClaudeLink {
+  const ids = t.sessionIds ?? [];
+  if (ids.length) {
+    const first = ids[0]!;
+    const s = sessions.find((x) => x.id === first);
+    return { kind: "linked", sessionId: first, title: s?.title ?? `Session ${first.slice(0, 8)}`, more: ids.length - 1 };
+  }
+  if (t.started === "claude" && t.status === "running" && now - t.createdAt < startingMs) return { kind: "starting" };
+  return null;
 }

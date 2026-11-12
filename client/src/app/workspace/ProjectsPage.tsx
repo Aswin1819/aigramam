@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { TerminalStart } from "@shared/terminal";
 import { FolderGit2, Search } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import { elapsed } from "@/lib/status";
@@ -14,7 +15,7 @@ interface Props {
   onSelectProject: (id: string | null) => void;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
-  onOpenTerminal?: (projectId: string) => void;
+  onOpenTerminal?: (projectId: string, start?: TerminalStart) => void;
   terminalBlockedReason?: string | null;
 }
 

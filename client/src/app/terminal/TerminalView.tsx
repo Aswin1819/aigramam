@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { Eraser, FolderOpen, Power, TerminalSquare } from "lucide-react";
+import { Bot, Eraser, FolderOpen, Loader2, Power, TerminalSquare } from "lucide-react";
+import type { SessionView } from "@shared/model";
 import { TERMINAL_LIMITS as L, type TerminalInfo } from "@shared/terminal";
 import type { TerminalsApi } from "@/hooks/useTerminals";
-import { terminalStatusText } from "./terminalState";
+import { CLAUDE_STARTING_MS, claudeLinkOf, terminalStatusText } from "./terminalState";
 
 interface Props {
   info: TerminalInfo;
@@ -15,6 +16,10 @@ interface Props {
   /** The inline "Close terminal?" confirm is showing (also opened by a tab's ×). */
   confirmClose: boolean;
   onConfirmClose: (show: boolean) => void;
+  /** Live sessions, to name the Claude Code session running in this terminal. */
+  sessions?: Pick<SessionView, "id" | "title">[];
+  /** Show a session's details (opens the drawer). */
+  onOpenSession?: (sessionId: string) => void;
 }
 
 const THEME = {
@@ -43,7 +48,7 @@ const FONT = '"Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospac
  * are sent to the shell; output (including the scrollback replayed on attach)
  * is written as it arrives.
  */
-export default function TerminalView({ info, api, connected, confirmClose, onConfirmClose }: Props) {
+export default function TerminalView({ info, api, connected, confirmClose, onConfirmClose, sessions = [], onOpenSession }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -146,6 +151,16 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
 
   const error = api.errors[id];
 
+  // "Starting Claude…" shows for a little while after "Start Claude Code", until the session is linked.
+  const [now, setNow] = useState(() => Date.now());
+  const waitingForClaude = info.started === "claude" && running && !info.sessionIds?.length && Date.now() - info.createdAt < CLAUDE_STARTING_MS;
+  useEffect(() => {
+    if (!waitingForClaude) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, info.createdAt + CLAUDE_STARTING_MS - Date.now()) + 50);
+    return () => clearTimeout(timer);
+  }, [waitingForClaude, info.createdAt]);
+  const claude = claudeLinkOf(info, sessions, Math.max(now, Date.now()));
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1411]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/8 bg-black/25 px-3 py-1.5 text-[12px]">
@@ -156,11 +171,29 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
           <FolderOpen size={12} className="shrink-0" />
           <span className="truncate">{info.cwd}</span>
         </span>
-        <span className="text-cream/45">{info.shell}</span>
+        <span className="text-cream/45">{info.started === "claude" ? `${info.shell} · claude` : info.shell}</span>
         <span className={`flex items-center gap-1 ${running ? "text-work" : info.exitCode ? "text-urgent" : "text-cream/60"}`}>
           <span className={`h-2 w-2 rounded-full ${running ? "bg-work" : info.exitCode ? "bg-urgent" : "bg-idle"}`} />
           {terminalStatusText(info)}
         </span>
+        {claude?.kind === "linked" && (
+          <span className="flex min-w-0 items-center gap-1 text-cream/70">
+            <Bot size={13} className="shrink-0 text-brass" /> Claude:
+            {onOpenSession ? (
+              <button onClick={() => onOpenSession(claude.sessionId)} className="truncate font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200" title="Show this session's details">
+                {claude.title}
+              </button>
+            ) : (
+              <span className="truncate font-semibold text-cream">{claude.title}</span>
+            )}
+            {claude.more > 0 && <span className="shrink-0 text-cream/45">+{claude.more} more</span>}
+          </span>
+        )}
+        {claude?.kind === "starting" && (
+          <span className="flex items-center gap-1 text-cream/55" role="status">
+            <Loader2 size={12} className="animate-spin" /> Starting Claude…
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           <button onClick={() => termRef.current?.clear()} className="flex items-center gap-1 rounded-lg px-2 py-1 text-cream/70 hover:bg-white/10 hover:text-cream" title="Clear the screen here (the shell isn't affected)">
             <Eraser size={13} /> Clear

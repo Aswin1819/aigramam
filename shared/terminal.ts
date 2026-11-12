@@ -7,6 +7,12 @@
 
 export type TerminalStatus = "running" | "exited";
 
+/** What a terminal starts with besides the shell. Only Claude Code, and only from the person's click. */
+export type TerminalStart = "claude";
+
+/** Shown when "Start Claude Code" is asked for but the `claude` command isn't installed. */
+export const CLAUDE_CLI_MISSING = "Claude Code CLI wasn't found on PATH. Install it or open a plain terminal.";
+
 export interface TerminalInfo {
   id: string;
   projectId: string;
@@ -20,6 +26,14 @@ export interface TerminalInfo {
   status: TerminalStatus;
   exitCode?: number;
   exitedAt?: number;
+  /** Set when the terminal was opened with "Start Claude Code" (PowerShell runs `claude`, then stays open). */
+  started?: TerminalStart;
+  /**
+   * Claude Code sessions running inside this terminal right now: their process
+   * is a child (or grandchild) of this terminal's shell and is the pid in
+   * Claude Code's session registry. Exact pid matches only; empty otherwise.
+   */
+  sessionIds: string[];
 }
 
 /** Limits, shared so the UI can explain them. */
@@ -38,7 +52,7 @@ export const TERMINAL_LIMITS = {
 
 /** Browser → server. */
 export type TerminalClientMessage =
-  | { type: "term-create"; payload: { requestId: string; projectId: string; cols: number; rows: number } }
+  | { type: "term-create"; payload: { requestId: string; projectId: string; cols: number; rows: number; start?: TerminalStart } }
   | { type: "term-attach"; payload: { id: string } }
   | { type: "term-detach"; payload: { id: string } }
   | { type: "term-input"; payload: { id: string; data: string } }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TERMINAL_LIMITS, type TerminalInfo } from "@shared/terminal";
-import { chunkInput, neighbourAfterClose, resolveActive, terminalBlockedReason, terminalStatusText } from "./terminalState";
+import { chunkInput, claudeLinkOf, neighbourAfterClose, resolveActive, terminalBlockedReason, terminalStatusText } from "./terminalState";
 
 const t = (id: string, extra: Partial<TerminalInfo> = {}): TerminalInfo => ({
   id,
@@ -11,6 +11,7 @@ const t = (id: string, extra: Partial<TerminalInfo> = {}): TerminalInfo => ({
   pid: 1,
   createdAt: 0,
   status: "running",
+  sessionIds: [],
   ...extra,
 });
 
@@ -61,5 +62,20 @@ describe("terminalStatusText", () => {
   it("says running or the exit code", () => {
     expect(terminalStatusText(t("a"))).toBe("Running");
     expect(terminalStatusText(t("a", { status: "exited", exitCode: 4 }))).toBe("Exited (code 4)");
+  });
+});
+
+describe("claudeLinkOf", () => {
+  const sessions = [{ id: "s1", title: "Fix the login" }];
+  it("names the linked session", () =>
+    expect(claudeLinkOf(t("a", { sessionIds: ["s1"] }), sessions, 0)).toEqual({ kind: "linked", sessionId: "s1", title: "Fix the login", more: 0 }));
+  it("falls back to the id when the session isn't in the snapshot yet", () =>
+    expect(claudeLinkOf(t("a", { sessionIds: ["abcdef1234", "s1"] }), sessions, 0)).toMatchObject({ title: "Session abcdef12", more: 1 }));
+  it("says starting only briefly, only for Claude terminals that are running", () => {
+    const c = t("a", { started: "claude", createdAt: 1000 });
+    expect(claudeLinkOf(c, sessions, 2000, 5000)).toEqual({ kind: "starting" });
+    expect(claudeLinkOf(c, sessions, 7000, 5000)).toBeNull();
+    expect(claudeLinkOf({ ...c, status: "exited" }, sessions, 2000, 5000)).toBeNull();
+    expect(claudeLinkOf(t("b"), sessions, 0)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ExternalLink, Folder, GitBranch, Hash, Clock, X, Radio, Crosshair, MessageSquare, ListTree, Users, GitCompare } from "lucide-react";
+import { ExternalLink, Folder, GitBranch, Hash, Clock, X, Radio, Crosshair, MessageSquare, ListTree, Users, GitCompare, TerminalSquare } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { CharacterInfo } from "@shared/character";
 import Avatar from "@/components/Avatar";
@@ -29,6 +29,8 @@ interface Props {
   onSetupLink: () => void;
   demo: boolean;
   command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  /** Show a managed terminal (Workspace → Terminals) by id. */
+  onOpenTerminal?: (terminalId: string) => void;
 }
 
 type DrawerTab = "chat" | "subagents" | "changes" | "details";
@@ -50,7 +52,7 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 }
 
 /** Slide-in panel for one session: its conversation (Chat) and everything else (Details). */
-export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command }: Props) {
+export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command, onOpenTerminal }: Props) {
   const [tab, setTab] = useState<DrawerTab>("chat");
   const runningSubagents = s.subagents.filter((a) => a.status !== "finished").length;
   const color = statusColor(s);
@@ -146,6 +148,23 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               {s.gitBranch && <Meta icon={<GitBranch size={13} />} label="Branch">{s.gitBranch}</Meta>}
               <Meta icon={<Clock size={13} />} label="Started">{clockTime(s.startedAt)} · {elapsed(s.startedAt, now)} ago</Meta>
               <Meta icon={<Radio size={13} />} label="Source">{source}</Meta>
+              {!demo && s.source !== "bridge" && (
+                <Meta icon={<TerminalSquare size={13} />} label="Terminal">
+                  {s.terminalId ? (
+                    <>
+                      Running in an Ai Gramam terminal
+                      {onOpenTerminal && (
+                        <>
+                          {" — "}
+                          <button onClick={() => onOpenTerminal(s.terminalId!)} className="text-sky-300 underline underline-offset-2 hover:text-sky-200">Open</button>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-cream/60">Not started from an Ai Gramam terminal</span>
+                  )}
+                </Meta>
+              )}
               <Meta icon={<Hash size={13} />} label="Session"><span className="font-mono text-[10.5px]">{s.id}</span></Meta>
               {s.prUrl && (
                 <Meta icon={<ExternalLink size={13} />} label="PR">

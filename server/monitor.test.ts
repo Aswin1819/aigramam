@@ -551,3 +551,31 @@ describe("turn cut short mid-tool", () => {
     expect(evs.map((e) => e.t)).toEqual(["tool_end", "interrupted"]);
   });
 });
+
+describe("open sessions before their first message", () => {
+  it("shows an interactive session from the registry, and follows its transcript once it appears", () => {
+    const claude = path.join(tmp, ".claude");
+    const sessionsDir = path.join(claude, "sessions");
+    fs.mkdirSync(sessionsDir, { recursive: true });
+    fs.mkdirSync(path.join(claude, "projects"), { recursive: true });
+    const started = Date.now() - 5000;
+    fs.writeFileSync(path.join(sessionsDir, `${process.pid}.json`), JSON.stringify({ pid: process.pid, sessionId: SID, cwd: "C:\work\fresh", kind: "interactive", startedAt: started }));
+    const other = "11111111-2222-3333-4444-555555555555";
+    fs.writeFileSync(path.join(sessionsDir, "1.json"), JSON.stringify({ pid: process.pid, sessionId: other, cwd: "C:\work\batch", kind: "print" }));
+
+    const m = new Monitor({ claudeDir: claude });
+    (m as unknown as { pollRegistry: () => void }).pollRegistry();
+    const snap = m.store.snapshot(Date.now());
+    const s = snap.sessions.find((x) => x.id === SID);
+    expect(s).toMatchObject({ cwd: "C:\work\fresh", startedAt: started });
+    expect(s).toMatchObject({ status: "idle", action: { label: "Waiting for its first message" } });
+    expect(snap.sessions.some((x) => x.id === other)).toBe(false); // one-off runs aren't shown
+
+    // Its first message arrives: the transcript is picked up.
+    const proj = path.join(claude, "projects", "C--work-fresh");
+    fs.mkdirSync(proj);
+    fs.writeFileSync(path.join(proj, `${SID}.jsonl`), JSON.stringify({ type: "user", uuid: "u1", sessionId: SID, cwd: "C:\work\fresh", timestamp: new Date().toISOString(), message: { content: "hello" } }) + "\n");
+    m.scan();
+    expect(m.store.chat(SID).map((c) => c.text)).toEqual(["hello"]);
+  });
+});

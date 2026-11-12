@@ -9,6 +9,7 @@ import ProjectsPage from "./ProjectsPage";
 import AgentsPage from "./AgentsPage";
 import TerminalsPage from "./TerminalsPage";
 import type { TerminalsApi } from "@/hooks/useTerminals";
+import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
 
 interface Props {
@@ -28,8 +29,8 @@ interface Props {
   onSettings: (tab?: string) => void;
   /** Managed terminals (kept in Home so the list survives switching views). */
   terminals: TerminalsApi;
-  /** Start a terminal in a project's folder and show it on the Terminals page. */
-  onOpenTerminal: (projectId: string) => void;
+  /** Start a terminal in a project's folder (optionally running Claude Code) and show it on the Terminals page. */
+  onOpenTerminal: (projectId: string, start?: TerminalStart) => void;
 }
 
 const PAGES: Array<[WorkspacePage, string, typeof LayoutGrid]> = [
@@ -89,7 +90,7 @@ export default function Workspace(p: Props) {
             terminalBlockedReason={terminalBlockedReason(p.mode, p.connected, liveTerminals)}
           />
         )}
-        {p.page === "terminals" && <TerminalsPage api={p.terminals} sessions={p.sessions} projects={p.projects} mode={p.mode} connected={p.connected} />}
+        {p.page === "terminals" && <TerminalsPage api={p.terminals} sessions={p.sessions} projects={p.projects} mode={p.mode} connected={p.connected} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />}
         {p.page === "agents" && (
           <AgentsPage sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}
