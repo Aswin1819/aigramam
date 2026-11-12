@@ -9,11 +9,14 @@ interface Props {
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
   onOpenInWorkspace: () => void;
+  /** Start a terminal in this project's folder (opens Workspace → Terminals). */
+  onOpenTerminal?: (projectId: string) => void;
+  terminalBlockedReason?: string | null;
   onClose: () => void;
 }
 
 /** A building's project, opened from the village: the same details as Workspace → Projects. */
-export default function ProjectDrawer({ summary, now, selectedSessionId, onSelectSession, onOpenInWorkspace, onClose }: Props) {
+export default function ProjectDrawer({ summary, now, selectedSessionId, onSelectSession, onOpenInWorkspace, onOpenTerminal, terminalBlockedReason, onClose }: Props) {
   return (
     <motion.aside
       initial={{ x: 480, opacity: 0 }}
@@ -32,7 +35,14 @@ export default function ProjectDrawer({ summary, now, selectedSessionId, onSelec
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {summary ? (
-          <ProjectDetail summary={summary} now={now} selectedSessionId={selectedSessionId} onSelectSession={onSelectSession} />
+          <ProjectDetail
+            summary={summary}
+            now={now}
+            selectedSessionId={selectedSessionId}
+            onSelectSession={onSelectSession}
+            onOpenTerminal={onOpenTerminal}
+            terminalBlockedReason={terminalBlockedReason}
+          />
         ) : (
           <p className="text-[13px] text-cream/55">This place has no open session right now.</p>
         )}

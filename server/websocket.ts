@@ -7,6 +7,7 @@
  */
 import type { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
+import { handleTerminalMessage, initTerminals, terminalClientClosed, terminalClientConnected } from "./terminal/socket";
 import type { ActivityEntry, SessionStatus, SessionView, Snapshot } from "@shared/model";
 import { verifyWsClient } from "./_core/security";
 import { demoChat, demoSnapshot } from "./monitor/demo";
@@ -126,6 +127,7 @@ function reply(ws: WebSocket, requestId: unknown, result: { ok: boolean; error?:
 }
 
 function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
+  if (handleTerminalMessage(ws, msg, demoClients.has(ws))) return;
   const p = (msg.payload ?? {}) as Record<string, unknown>;
   if (msg.type === "chat-open" && typeof p.sessionId === "string") {
     const sessionId = p.sessionId;
@@ -213,8 +215,10 @@ export function initializeWebSocket(server: unknown) {
     verifyClient: (info: { origin: string; req: IncomingMessage }) => verifyWsClient(info),
   });
 
+  initTerminals(liveProjects);
   wss.on("connection", (ws) => {
     sendWorlds(ws);
+    terminalClientConnected(ws);
     send(ws, liveSnapshot());
     ws.on("message", (data) => {
       try {
@@ -224,6 +228,7 @@ export function initializeWebSocket(server: unknown) {
     ws.on("close", () => {
       demoClients.delete(ws);
       chatOpen.delete(ws);
+      terminalClientClosed(ws);
     });
     ws.on("error", (e) => console.error("[WebSocket] Error:", e.message));
   });

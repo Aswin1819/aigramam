@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, FolderGit2, GitBranch, Users } from "lucide-react";
+import { Check, Copy, FolderGit2, GitBranch, TerminalSquare, Users } from "lucide-react";
 import type { SessionView } from "@shared/model";
 import { elapsed } from "@/lib/status";
 import { attentionOf, type ProjectSummary } from "./attention";
@@ -10,6 +10,10 @@ interface Props {
   now: number;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
+  /** "Open terminal here": start PowerShell in this project's folder (Workspace → Terminals). */
+  onOpenTerminal?: (projectId: string) => void;
+  /** Why a terminal can't start right now (the button is disabled with this text). */
+  terminalBlockedReason?: string | null;
 }
 
 /**
@@ -17,7 +21,7 @@ interface Props {
  * sessions are on, and the sessions themselves, most urgent first. Shown on
  * the Projects page and when a building is clicked in the village.
  */
-export default function ProjectDetail({ summary: pr, now, selectedSessionId, onSelectSession }: Props) {
+export default function ProjectDetail({ summary: pr, now, selectedSessionId, onSelectSession, onOpenTerminal, terminalBlockedReason }: Props) {
   const [copied, setCopied] = useState(false);
   const a = attentionOf(pr.sessions, now);
   const ordered: SessionView[] = [...a.needsYou, ...a.yourTurn, ...a.errors, ...a.quiet, ...a.working, ...a.recentlyDone, ...a.idle];
@@ -41,6 +45,20 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
           </button>
         </div>
       </div>
+
+      {onOpenTerminal && (
+        <div className="mt-2.5">
+          <button
+            onClick={() => onOpenTerminal(pr.project.id)}
+            disabled={!!terminalBlockedReason}
+            title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root}`}
+            className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
+          >
+            <TerminalSquare size={14} className="text-brass" /> Open terminal here
+          </button>
+          {terminalBlockedReason && <p className="mt-1 text-[11px] text-cream/45">{terminalBlockedReason}</p>}
+        </div>
+      )}
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Fact label="Sessions" value={String(pr.sessions.length)} />

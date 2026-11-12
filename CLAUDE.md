@@ -18,6 +18,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
   - `hooks.ts`: the HTTP hook receiver (replies 204 with an empty body) plus install/uninstall.
 - `server/packs/`: shared pack file checks (`files.ts`), the hot-reloading `PackManager` (which also serves assets), and `upload.ts` (`POST /api/packs/upload?kind=world|character&replace=0|1`: a .zip checked in memory, staged in `.incoming-*`, validated by the loader, renamed into the user folder; replaced packs go to `~/.ai-gramam/backups`).
 - `server/routers/agents.ts`: read-only listing of Claude Code skills and agents (global and per tracked project) for the Skills & agents viewer (`client/src/components/SkillsManager.tsx`); it never writes to `~/.claude` or projects' `.claude/`.
+- `server/terminal/` (`manager.ts`, `socket.ts`) + `shared/terminal.ts`: managed terminals (roadmap Phase 2): PowerShell via node-pty (prebuilt binaries; its build script is intentionally skipped, see `pnpm.ignoredBuiltDependencies`) started only from a click, only in a known project's folder, never in demo tabs; output over the app WebSocket (term-* messages), 256 KB scrollback, max 8 open, all shells stopped on close/shutdown. UI: `client/src/hooks/useTerminals.ts`, `client/src/app/terminal/`, Workspace → Terminals, "Open terminal here" on projects. Never type anything into a terminal except the person's own input.
 - `server/git/status.ts` + `server/routers/git.ts`: read-only Git status/diff for a known project (execFile, no shell, `--no-optional-locks`, only rev-parse/status/diff/log; the folder comes from the live project list, files must be ones `git status` lists). Shown in the drawer's Changes tab (`client/src/app/ChangesPanel.tsx`).
 - `server/characters/assignments.ts`: the character chosen per project, saved in `~/.ai-gramam/characters.json` and sent to tabs with the character list.
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
@@ -41,7 +42,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 ## Rules
 - **Local only.** The server binds to `127.0.0.1`. No telemetry, CDNs, web fonts or external calls. Transcript content never leaves the machine and is never written to disk by this app.
 - **Never write inside `~/.claude`**, except our own hook entries when the user clicks Install. App data lives in `~/.ai-gramam`.
-- **Ask before adding any dependency.** Approved so far: `motion`, `fflate` (pack .zip upload).
+- **Ask before adding any dependency.** Approved so far: `motion`, `fflate` (pack .zip upload), `node-pty`, `@xterm/xterm`, `@xterm/addon-fit` (managed terminals).
 - **Windows first.** Use `path`; get the project from the record's `cwd`. Animation uses real elapsed time (`performance.now()`), never frame counts or Phaser's smoothed delta.
 - **Packs are data only** and are validated. A broken pack falls back and must never crash the app.
 - **Only original art ships**, and every pack shows its author and license.
