@@ -40,6 +40,8 @@ export interface LivePlace {
   /** Sessions here, and how many need the person (approval/question). */
   sessions: number;
   urgent: number;
+  /** The project open in the app (SimInput.selectedProjectId): styles may highlight it. */
+  selected?: boolean;
 }
 
 /** What a subagent companion is doing, which decides how it moves and what it carries. */

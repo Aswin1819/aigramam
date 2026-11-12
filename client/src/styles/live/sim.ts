@@ -49,6 +49,8 @@ export interface SimInput {
   projects: ProjectView[];
   selectedId: string | null;
   hoveredId: string | null;
+  /** The project open in the app, if any: its place gets `selected: true`. */
+  selectedProjectId?: string | null;
   reducedMotion: boolean;
   /** The place to draw (the chosen world's setting); Kerala when not given. */
   theme?: PlaceTheme;
@@ -115,6 +117,7 @@ export class LiveSim {
         variant: hashString(p.id) % 4,
         sessions: list.length,
         urgent: list.filter((s) => liveStatus(s) === "approval").length,
+        selected: !!input.selectedProjectId && p.id === input.selectedProjectId,
       };
     });
 

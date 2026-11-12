@@ -11,8 +11,10 @@ export type MonitorEvent =
   | { t: "title"; source: "custom" | "agent" | "ai"; title: string }
   | { t: "prompt"; at: number }
   | { t: "assistant"; at: number }
-  | { t: "tool_start"; at: number; id: string; name: string; input: unknown }
-  | { t: "tool_end"; at: number; id: string; isError: boolean; interrupted: boolean; async: boolean; agentId?: string }
+  /** detail: the call's key input for the chat view (see toolDetail). */
+  | { t: "tool_start"; at: number; id: string; name: string; input: unknown; detail?: string }
+  /** output: the result text (clipped, see toolOutput); undefined when the record has none. */
+  | { t: "tool_end"; at: number; id: string; isError: boolean; interrupted: boolean; async: boolean; agentId?: string; output?: string; outputClipped?: boolean }
   /** fromApp: the turn was stopped from Ai Gramam (reported by the mod). */
   | { t: "interrupted"; at: number; fromApp?: boolean }
   | { t: "turn_end"; at: number; pendingBackground: number }
@@ -79,6 +81,92 @@ export function chatTextOfPrompt(raw: string): string | null {
   return clipChat(t);
 }
 
+export const TOOL_DETAIL_MAX = 500;
+export const TOOL_OUTPUT_MAX = 6000;
+const REMINDER_RE = /<system-reminder>[\s\S]*?<\/system-reminder>/g;
+
+/**
+ * The key input of a tool call, for the chat view: the command, file path,
+ * search pattern, URL or query, or a subagent's task. Only well-known fields;
+ * never file contents. At most TOOL_DETAIL_MAX characters.
+ */
+export function toolDetail(name: string, rawInput: unknown): string | undefined {
+  const input = asRec(rawInput);
+  if (!input) return undefined;
+  const str = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = input[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
+  let d = "";
+  switch (name) {
+    case "Bash":
+    case "PowerShell":
+      d = str("command");
+      if (d) d = `$ ${d}`;
+      break;
+    case "Read":
+    case "Write":
+    case "Edit":
+    case "MultiEdit":
+    case "NotebookRead":
+    case "NotebookEdit":
+      d = str("file_path", "notebook_path", "path");
+      break;
+    case "Grep":
+    case "Glob": {
+      const p = str("pattern");
+      const where = str("path", "glob");
+      d = p ? (where ? `${p}  in ${where}` : p) : "";
+      break;
+    }
+    case "WebFetch":
+      d = str("url");
+      break;
+    case "WebSearch":
+      d = str("query");
+      break;
+    case "Agent":
+    case "Task": {
+      const type = str("subagent_type");
+      const desc = str("description");
+      d = [type, desc].filter(Boolean).join(": ");
+      break;
+    }
+    default:
+      d = str("command", "file_path", "path", "pattern", "url", "query", "description");
+  }
+  if (!d) return undefined;
+  return d.length > TOOL_DETAIL_MAX ? d.slice(0, TOOL_DETAIL_MAX - 1) + "…" : d;
+}
+
+/**
+ * A tool_result block's content as plain text: text blocks joined, images as
+ * "[image]", system reminders stripped, and only the last TOOL_OUTPUT_MAX
+ * characters kept (command output matters most at its end).
+ * Undefined when the block carries no content field.
+ */
+export function toolOutput(content: unknown): { output: string; clipped: boolean } | undefined {
+  let text: string;
+  if (typeof content === "string") text = content;
+  else if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const raw of content) {
+      const b = asRec(raw);
+      if (!b) continue;
+      if (b.type === "text" && typeof b.text === "string") parts.push(b.text);
+      else if (b.type === "image") parts.push("[image]");
+    }
+    text = parts.join("\n");
+  } else return undefined;
+  // Drop blank lines at the edges but keep the first line's indentation (e.g. Read's line numbers).
+  text = text.replace(REMINDER_RE, "").replace(/^(?:[ \t]*\r?\n)+/, "").trimEnd();
+  if (text.length <= TOOL_OUTPUT_MAX) return { output: text, clipped: false };
+  return { output: text.slice(text.length - TOOL_OUTPUT_MAX), clipped: true };
+}
+
 export function parseRecord(raw: unknown): MonitorEvent[] {
   const r = asRec(raw);
   if (!r) return [];
@@ -132,7 +220,8 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
       for (const b of blocksOf(r)) {
         if (b.type === "tool_use" && typeof b.id === "string") {
           sawTool = true;
-          events.push({ t: "tool_start", at, id: b.id, name: typeof b.name === "string" ? b.name : "tool", input: b.input });
+          const name = typeof b.name === "string" ? b.name : "tool";
+          events.push({ t: "tool_start", at, id: b.id, name, input: b.input, detail: toolDetail(name, b.input) });
         }
       }
       if (!sawTool) events.push({ t: "assistant", at });
@@ -144,6 +233,7 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
       if (results.length > 0) {
         const tur = asRec(r.toolUseResult);
         for (const b of results) {
+          const out = toolOutput(b.content);
           events.push({
             t: "tool_end",
             at,
@@ -152,6 +242,8 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
             interrupted: tur?.interrupted === true,
             async: tur?.isAsync === true,
             agentId: typeof tur?.agentId === "string" ? tur.agentId : undefined,
+            output: out?.output,
+            outputClipped: out?.clipped || undefined,
           });
         }
         // A turn ended mid-tool (stopped, or cut short for a queued message) records the call as not completed.

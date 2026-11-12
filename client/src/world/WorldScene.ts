@@ -9,6 +9,7 @@ import type { SessionView, SubagentView } from "@shared/model";
 import type { DecorDef, LightingDef, SceneKind, WorldInfo } from "@shared/world";
 import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import { hashString, placeProjects, standSpots, type Placement } from "@shared/placement";
+import { pickPlace, type PlaceRect } from "@/styles/live/placeHit";
 import { isUrgent } from "@/lib/status";
 import { pickCharacter } from "./characters";
 
@@ -98,6 +99,10 @@ export interface SceneInput {
   selectedId: string | null;
   hoveredId: string | null;
   onSelect: (id: string) => void;
+  /** Clicking a project's place (its prop/building, not a villager in front) calls this with the project id. */
+  onSelectProject?: (projectId: string) => void;
+  /** The project open in the app: its place glows brass. */
+  selectedProjectId?: string | null;
 }
 
 const hexToInt = (c: string) => parseInt(c.slice(1, 7), 16);
@@ -119,6 +124,12 @@ function atHour<T extends { hour: number }>(stops: T[], h: number): [T, T, numbe
 export class WorldScene extends Phaser.Scene {
   readonly positions = new Map<string, CharacterPositions>();
   signs: SignPos[] = [];
+  /** Project under the canvas pointer (only while onSelectProject is given). */
+  private canvasHoverProject: string | null = null;
+  /** Project whose HTML signboard is hovered (set by WorldLabels). */
+  private signHoverProject: string | null = null;
+  private placeGlow!: Phaser.GameObjects.Graphics;
+  private glowFx = new Map<Phaser.GameObjects.Image, { fx: Phaser.FX.Glow; level: "hover" | "selected" }>();
   private inp: SceneInput = { sessions: [], selectedId: null, hoveredId: null, onSelect: () => {} };
   private chars = new Map<string, Character>();
   private scrollers: Array<{ sprite: Phaser.GameObjects.TileSprite; speed: number }> = [];
@@ -163,6 +174,11 @@ export class WorldScene extends Phaser.Scene {
   setReducedMotion(on: boolean) { this.reduced = on; }
   startRain(seconds: number) { this.rainUntil = Date.now() + seconds * 1000; }
   isNight() { return this.night > 0.5; }
+  /** The project being pointed at (its place on the canvas, or its signboard), for highlights and the hint. */
+  get hoveredProjectId(): string | null {
+    return this.inp.onSelectProject ? this.signHoverProject ?? this.canvasHoverProject : null;
+  }
+  setSignHover(projectId: string | null) { this.signHoverProject = projectId; }
 
   /** Smoothly bring a character into view and zoom in a little. */
   focus(id: string) {
@@ -227,6 +243,7 @@ export class WorldScene extends Phaser.Scene {
     this.createCharacterAnims();
     this.tint = this.add.rectangle(0, 0, W, H, 0x000000, 0).setOrigin(0, 0).setDepth(DEPTH.tint);
     this.flash = this.add.rectangle(0, 0, W, H, 0xffffff, 0).setOrigin(0, 0).setDepth(DEPTH.flash);
+    this.placeGlow = this.add.graphics();
     this.createWeather();
     this.setupInput();
   }
@@ -466,6 +483,64 @@ export class WorldScene extends Phaser.Scene {
       if (wanted.has(pid)) continue;
       this.tweens.add({ targets: img, alpha: 0, duration: 400, onComplete: () => img.destroy() });
       this.overflowProps.delete(pid);
+    }
+  }
+
+  // ── Project places: hit boxes and highlight ───────────────────────────────
+  /** The prop drawn for a placed project (its location's prop, or its overflow hut). */
+  private placeImage(p: Placement): Phaser.GameObjects.Image | undefined {
+    return p.locationId ? this.props.get(p.locationId)?.img : this.overflowProps.get(p.projectId);
+  }
+
+  /** Clickable box of each placed project: its prop's bounds, or an area around its standing spots. */
+  private placeRects(): PlaceRect[] {
+    const out: PlaceRect[] = [];
+    for (const p of this.placements.values()) {
+      const img = this.placeImage(p);
+      if (img && img.active) {
+        const b = img.getBounds();
+        out.push({ id: p.projectId, x0: b.x, y0: b.y, x1: b.right, y1: b.bottom + 8 });
+      } else {
+        const half = Math.max(70, (p.slots * p.spacing) / 2);
+        out.push({ id: p.projectId, x0: p.anchor.x - half, y0: Math.min(p.sign.y, p.anchor.y - 140), x1: p.anchor.x + half, y1: p.anchor.y + 12 });
+      }
+    }
+    return out;
+  }
+
+  /** Brass glow on the selected project's prop, a lighter one on the hovered; a soft ground halo under each. */
+  private updatePlaceHighlight() {
+    const g = this.placeGlow;
+    g.clear();
+    const selected = this.inp.selectedProjectId ?? null;
+    const hovered = this.hoveredProjectId;
+    const wanted = new Map<Phaser.GameObjects.Image, "hover" | "selected">();
+    for (const p of this.placements.values()) {
+      const level = p.projectId === selected ? "selected" : p.projectId === hovered ? "hover" : null;
+      if (!level) continue;
+      const img = this.placeImage(p);
+      const b = img?.active ? img.getBounds() : null;
+      const cx = b ? b.centerX : p.anchor.x;
+      const by = b ? b.bottom : p.anchor.y;
+      const w = b ? Math.max(90, b.width * 0.85) : Math.max(140, p.slots * p.spacing);
+      const sel = level === "selected";
+      g.fillStyle(0xe3b04b, sel ? 0.2 : 0.1).fillEllipse(cx, by - 4, w, 34);
+      g.lineStyle(sel ? 3 : 2, sel ? 0xe3b04b : 0xfff8e7, sel ? 0.9 : 0.55).strokeEllipse(cx, by - 4, w, 34);
+      if (img?.active) {
+        wanted.set(img, level);
+        g.setDepth(img.depth - 0.05);
+      } else g.setDepth(DEPTH.scene + p.anchor.y / 10 - 1.1);
+    }
+    // Outline glow on the prop itself (WebGL only; preFX is null on the Canvas renderer).
+    for (const [img, cur] of this.glowFx) {
+      if (wanted.get(img) === cur.level && img.active) continue;
+      if (img.active) img.preFX?.remove(cur.fx);
+      this.glowFx.delete(img);
+    }
+    for (const [img, level] of wanted) {
+      if (!img || this.glowFx.has(img) || !img.preFX) continue;
+      const fx = level === "selected" ? img.preFX.addGlow(0xe3b04b, 5, 0, false, 0.1, 12) : img.preFX.addGlow(0xfff8e7, 3, 0, false, 0.1, 8);
+      this.glowFx.set(img, { fx, level });
     }
   }
 
@@ -943,7 +1018,15 @@ export class WorldScene extends Phaser.Scene {
       this.dragged = false;
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      if (!this.dragFrom || !p.isDown) return;
+      if (!this.dragFrom || !p.isDown) {
+        // Hover: pointer cursor over a villager or a project's place (villagers first).
+        if (p.event?.target !== this.game.canvas) { this.canvasHoverProject = null; return; }
+        const w = cam.getWorldPoint(p.x, p.y);
+        const villager = this.villagerAt(w.x, w.y);
+        this.canvasHoverProject = !villager && this.inp.onSelectProject ? pickPlace(w.x, w.y, this.placeRects()) : null;
+        this.game.canvas.style.cursor = villager || this.canvasHoverProject ? "pointer" : "";
+        return;
+      }
       const dx = p.x - this.dragFrom.x, dy = p.y - this.dragFrom.y;
       if (Math.hypot(dx, dy) > 6) this.dragged = true;
       if (this.dragged) cam.setScroll(this.dragFrom.sx - dx / cam.zoom, this.dragFrom.sy - dy / cam.zoom);
@@ -954,14 +1037,16 @@ export class WorldScene extends Phaser.Scene {
       // Phaser hears mouse-ups on the whole window: a click on an HTML label or
       // panel above the canvas must not also select (and so toggle) here.
       if (wasDrag || p.event?.target !== this.game.canvas) return;
-      for (const [id, c] of this.chars) {
-        if (c.phase === "leaving") continue;
-        const h = c.sprite.displayHeight;
-        if (Math.abs(c.x - p.worldX) < 26 && p.worldY > c.sprite.y - h && p.worldY < c.sprite.y + 6) {
-          this.inp.onSelect(id);
-          return;
-        }
-      }
+      const w = cam.getWorldPoint(p.x, p.y);
+      const villager = this.villagerAt(w.x, w.y);
+      if (villager) { this.inp.onSelect(villager); return; }
+      if (!this.inp.onSelectProject) return;
+      const project = pickPlace(w.x, w.y, this.placeRects());
+      if (project) this.inp.onSelectProject(project);
+    });
+    this.input.on("gameout", () => {
+      this.canvasHoverProject = null;
+      this.game.canvas.style.cursor = "";
     });
     this.input.on("wheel", (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
       const before = cam.getWorldPoint(p.x, p.y);
@@ -971,6 +1056,16 @@ export class WorldScene extends Phaser.Scene {
       cam.scrollX += before.x - after.x;
       cam.scrollY += before.y - after.y;
     });
+  }
+
+  /** The villager under a world point (villagers win over the place behind them). */
+  private villagerAt(x: number, y: number): string | null {
+    for (const [id, c] of this.chars) {
+      if (c.phase === "leaving") continue;
+      const h = c.sprite.displayHeight;
+      if (Math.abs(c.x - x) < 26 && y > c.sprite.y - h && y < c.sprite.y + 6) return id;
+    }
+    return null;
   }
 
   update() {
@@ -984,5 +1079,6 @@ export class WorldScene extends Phaser.Scene {
     this.updateLight(now);
     this.updateDecor();
     this.updateCharacters();
+    this.updatePlaceHighlight();
   }
 }

@@ -63,6 +63,18 @@ export interface ChatItem {
   kind: "user" | "assistant" | "tool" | "note";
   text: string;
   emoji?: string;
+  // Tool items only. What the transcript captured; not a full terminal.
+  /** Tool name, e.g. "Bash". */
+  tool?: string;
+  /** The key input: the command, file path, pattern, URL/query or agent task (≤ ~500 chars). */
+  detail?: string;
+  /** The result text (plain text, images as "[image]"), at most the last ~6000 chars. Undefined when nothing was captured (e.g. hook-only sessions). */
+  output?: string;
+  /** True when output was cut to its last part. */
+  outputClipped?: boolean;
+  isError?: boolean;
+  /** When the result arrived. */
+  endedAt?: number;
 }
 
 export interface SubagentView {

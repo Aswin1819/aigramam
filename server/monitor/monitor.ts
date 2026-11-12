@@ -108,13 +108,26 @@ export class Monitor {
       return;
     }
     const items: ChatItem[] = [];
+    const tools = new Map<string, ChatItem>(); // tool_use id → its line, to attach the result
     for (const line of text.split(NL)) {
       if (!line.includes('"assistant"') && !line.includes('"user"')) continue;
       for (const ev of parseLine(line)) {
         if (ev.t === "chat") items.push({ id: ev.id, at: ev.at, kind: ev.role, text: ev.text });
         else if (ev.t === "tool_start") {
           const a = describeTool(ev.name, ev.input, ev.at);
-          items.push({ id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: a.label, emoji: a.emoji });
+          const item: ChatItem = { id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: a.label, emoji: a.emoji, tool: ev.name, detail: ev.detail };
+          items.push(item);
+          tools.set(ev.id, item);
+        } else if (ev.t === "tool_end") {
+          const item = tools.get(ev.id);
+          if (item) {
+            item.endedAt ??= ev.at;
+            if (ev.isError) item.isError = true;
+            if (ev.output !== undefined) {
+              item.output = ev.output;
+              item.outputClipped = ev.outputClipped;
+            }
+          }
         } else if (ev.t === "interrupted") items.push({ id: interruptNoteId(ev.at), at: ev.at, kind: "note", text: "Interrupted" });
       }
     }

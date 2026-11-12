@@ -21,7 +21,7 @@ import type {
   WaitingReason,
 } from "@shared/model";
 import { describeTool, stateAction } from "./actions";
-import type { MonitorEvent } from "./parser";
+import { toolDetail, type MonitorEvent } from "./parser";
 import type { RegistryEntry } from "./registry";
 import { resolveProject } from "./projectRoot";
 
@@ -145,13 +145,44 @@ export class SessionStore {
     const s = this.sessions.get(sessionId);
     if (!s) return;
     for (const it of items) {
-      if (s.chatIds.has(it.id)) continue;
+      if (s.chatIds.has(it.id)) {
+        // A live tool line may have missed its result (e.g. it came before we started tailing); fill gaps from history.
+        if (it.kind === "tool") {
+          const i = s.chat.findIndex((c) => c.id === it.id);
+          const cur = s.chat[i];
+          if (cur && cur.output === undefined && it.output !== undefined) {
+            s.chat[i] = { ...cur, detail: cur.detail ?? it.detail, output: it.output, outputClipped: it.outputClipped, isError: cur.isError || it.isError, endedAt: cur.endedAt ?? it.endedAt };
+          }
+        }
+        continue;
+      }
       s.chatIds.add(it.id);
       s.chat.push(it);
     }
     s.chat.sort((a, b) => a.at - b.at);
     if (s.chat.length > TIMING.chatMax) {
       for (const old of s.chat.splice(0, s.chat.length - TIMING.chatMax)) s.chatIds.delete(old.id);
+    }
+  }
+
+  /** A tool call's result arrived: update its chat line and push it to open chat views. */
+  private endToolChat(s: SessState, ev: Extract<MonitorEvent, { t: "tool_end" }>) {
+    const id = `tool:${ev.id}`;
+    if (!s.chatIds.has(id)) return;
+    for (let i = s.chat.length - 1; i >= 0; i--) {
+      const cur = s.chat[i];
+      if (cur.id !== id) continue;
+      // The hook and the transcript both report the end; keep the first time and any captured output.
+      const next: ChatItem = {
+        ...cur,
+        endedAt: cur.endedAt ?? ev.at,
+        isError: cur.isError || ev.isError || undefined,
+        output: ev.output ?? cur.output,
+        outputClipped: ev.output !== undefined ? ev.outputClipped : cur.outputClipped,
+      };
+      s.chat[i] = next;
+      this.onChat(s.id, [next]);
+      return;
     }
   }
 
@@ -261,7 +292,7 @@ export class SessionStore {
         s.pending.set(ev.id, { id: ev.id, action, startedAt: ev.at });
         s.lastAction = action;
         this.log(s, ev.at, action.emoji, action.label);
-        this.addChat(s, { id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: action.label, emoji: action.emoji });
+        this.addChat(s, { id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: action.label, emoji: action.emoji, tool: ev.name, detail: ev.detail ?? toolDetail(ev.name, ev.input) });
         return;
       }
       case "tool_end": {
@@ -272,6 +303,7 @@ export class SessionStore {
         if (s.ended.size > 500) s.ended.delete(s.ended.values().next().value as string);
         if (s.hookWaiting) s.hookWaiting = undefined;
         if (ev.isError && p) this.log(s, ev.at, "⚠️", `${p.action.label} failed`, "warn");
+        this.endToolChat(s, ev);
         // A finished Agent call means its subagent is done (unless it was launched in the background).
         if (!ev.async) {
           for (const sub of s.subagents.values()) {

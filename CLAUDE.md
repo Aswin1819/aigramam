@@ -33,6 +33,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
   - `StyledWorldView.tsx`: the village drawn by an art style (Canvas 2D): camera, click-to-select, time-of-day tint.
 - `client/src/styles/`: art styles. `protos/` are the Style lab prototypes (`/styles`, fixed demo scene); `live/` are the selectable styles for the real village (`sim.ts` turns sessions into places and villagers, `registry.ts` lists them, `lighting.ts`, porting guide in `live/README.md`).
 - `client/src/app/`: `TopBar` (world/style menu, sound, time), `SessionDock`, `DetailDrawer`, `ChatPanel`, `RequestCard` (approvals and questions inline in the chat), `CharacterPicker` (a project's character), `PackUpload` (zip install), `SessionControls`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Pages: `client/src/pages/Home.tsx`, `StyleLab.tsx`.
+- `client/src/app/workspace/`: Workspace Mode (World/Workspace switch in the top bar): `Workspace` (page tabs), `Overview`, `ProjectsPage`, `AgentsPage`, `ProjectDetail` (also used by `app/ProjectDrawer` when a building is clicked in the village), `SessionRow`; pure grouping/filters in `attention.ts` and `filters.ts` (tested). Show only real data: a quiet session is "No recent activity", never "stuck".
 - `client/src/lib/`: `status`, `miniMarkdown` (safe chat Markdown, tables included), `chime` (Web Audio sound cues, no files).
 - Built-in packs: `worlds/kerala`, `characters/{mundu-hero,shades-villain,chaya-sidekick}`. User packs go in `~/.ai-gramam/worlds|characters`.
 
