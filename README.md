@@ -7,7 +7,10 @@
 - **Subagents are companions** that walk in beside their parent while they work and leave when they finish.
 - **Waiting for you is impossible to miss.** Approvals and questions ring a bell in the top bar, glow red in the world and pop a toast. "Your turn" glows amber.
 - **A living world.** Real day and night that follow your clock, monsoon rain with lightning, swaying palms, drifting clouds, bobbing houseboats, a canoe, ducks, fireflies, and a row of nilavilakku lamps lighting up when a task finishes.
-- **Worlds and characters are data packs.** Drop a folder in and it appears within seconds, no restart. Every pack shows its author and license.
+- **Worlds and characters are data packs.** Upload a `.zip` in Settings, or drop a folder in, and it appears within seconds, no restart. Every pack shows its author and license.
+- **Your cast.** Choose the character each project's sessions appear as (drawer → Details → Character).
+- **Art styles.** Besides the Kerala world, draw the village as PS2, Comic Art, Flat Vector, CGI Motion, Toy Brick or Explainer 3D (world menu in the top bar). Compare all ten prototypes in the Style lab at `/styles`.
+- **Sound cues** when a session needs you or it's your turn (mute in the top bar).
 
 Everything runs on your machine: the server listens on `127.0.0.1` only, makes no outside network calls, and never writes your transcripts anywhere.
 
@@ -30,12 +33,13 @@ Install the mod once and every new Claude Code session links itself to the villa
 
 - **send a message**: it runs as your own prompt as soon as the session is free;
 - **stop** what it's doing (like Esc in the terminal);
-- **approve or deny permission requests**: requests that would have asked *you* come to the browser first (with Approve/Deny in the drawer, the top bar and a toast). With no answer in 45 s, the normal prompt appears in the terminal.
+- **approve or deny permission requests**: requests that would have asked *you* come to the browser first (inline in the chat, in the top bar and as a toast). With no answer in 45 s, the normal prompt appears in the terminal;
+- **answer Claude's questions** (multiple choice, several at once, or your own words) right in the chat. "Answer in terminal" or no answer in 45 s, and the normal dialog appears there.
 
-Questions Claude asks you, and plan approvals, are still answered in the terminal. The mod sends only small details (paths, commands) to `127.0.0.1` with your local key.
+Plan approvals are still answered in the terminal, and if another plugin answers permission requests before the mod, those stay in the terminal too. The mod sends only small details (paths, commands) to `127.0.0.1` with your local key.
 
 ```powershell
-claude plugin marketplace add C:path	oaigramam
+claude plugin marketplace add C:\path\to\aigramam
 claude plugin install ai-gramam@aigramam
 ```
 

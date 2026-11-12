@@ -47,5 +47,11 @@
       "frames": 4,
       "loop": true
     }
+  },
+  "palette": {
+    "shirt": "#efe2c4",
+    "lower": "#f6f2e6",
+    "skin": "#a8673d",
+    "hair": "#16110d"
   }
 }

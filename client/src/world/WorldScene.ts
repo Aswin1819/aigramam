@@ -7,7 +7,7 @@
 import Phaser from "phaser";
 import type { SessionView } from "@shared/model";
 import type { DecorDef, LightingDef, SceneKind, WorldInfo } from "@shared/world";
-import type { CharacterInfo } from "@shared/character";
+import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import { hashString, placeProjects, standSpots, type Placement } from "@shared/placement";
 import { isUrgent } from "@/lib/status";
 import { pickCharacter } from "./characters";
@@ -108,7 +108,7 @@ export class WorldScene extends Phaser.Scene {
   private dragFrom: { x: number; y: number; sx: number; sy: number } | null = null;
   private dragged = false;
 
-  constructor(readonly world: WorldInfo, readonly characters: CharacterInfo[]) {
+  constructor(readonly world: WorldInfo, readonly characters: CharacterInfo[], readonly assignments: CharacterAssignments = {}) {
     super({ key: "WorldScene" });
   }
 
@@ -431,9 +431,9 @@ export class WorldScene extends Phaser.Scene {
     return { anim: (sc?.anim ?? "idle") as Anim, fx: (sc?.fx ?? "none") as Fx, offsetX: sc?.offsetX ?? 0, offsetY: sc?.offsetY ?? 0 };
   }
 
-  /** Which character pack a session uses: the world's defaults, spread by session. */
+  /** Which character pack a session uses: the person's choice for its project, else the world's defaults. */
   private packFor(s: SessionView): CharacterInfo | null {
-    return pickCharacter(s.id, this.world, this.characters);
+    return pickCharacter(s, this.world, this.characters, this.assignments);
   }
 
   /** Sessions already running when the page opens start in place; later ones walk in from the edge. */

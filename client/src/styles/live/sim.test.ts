@@ -111,3 +111,15 @@ describe("lighting", () => {
     expect(tintFor("night", 12)).toBeNull();
   });
 });
+
+describe("chosen characters", () => {
+  it("dress villagers in the chosen character's palette, and only those", () => {
+    const pal = { shirt: "#111111", lower: "#222222", skin: "#333333", hair: "#444444" };
+    const sessions = [session("a", "p1"), session("b", "p2")];
+    const f = new LiveSim().frame(0.016, input(sessions, [project("p1", "one"), project("p2", "two")], { paletteOf: (s) => (s.projectId === "p1" ? pal : undefined) }));
+    const a = f.villagers.find((v) => v.id === "a")!;
+    const b = f.villagers.find((v) => v.id === "b")!;
+    expect(a).toMatchObject({ shirt: "#111111", mundu: "#222222", skin: "#333333", hair: "#444444" });
+    expect(b.shirt).not.toBe("#111111");
+  });
+});

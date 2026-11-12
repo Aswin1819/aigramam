@@ -1,3 +1,4 @@
+import type { SessionView } from "@shared/model";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast, Toaster } from "sonner";
@@ -6,7 +7,7 @@ import StyledWorldView from "@/world/StyledWorldView";
 import { ART_STYLES } from "@/styles/live/registry";
 import type { LiveStyle } from "@/styles/live/types";
 import { useWorldChoice } from "@/world/useWorldChoice";
-import { pickCharacter } from "@/world/characters";
+import { assignmentsKey, pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
 import { useLiveSessions } from "@/hooks/useLiveSessions";
 import { isUrgent, statusText } from "@/lib/status";
@@ -49,6 +50,15 @@ export default function Home() {
 
   const { sessions, projects, hooks } = snapshot;
   const cast = characters?.characters ?? [];
+  const assignments = characters?.assignments;
+  // A chosen character also dresses the villagers in the art styles.
+  const paletteOf = useCallback(
+    (s: SessionView) => (assignments?.[s.projectId] ? pickCharacter(s, world, cast, assignments)?.def.palette : undefined),
+    [assignments, world, cast],
+  );
+  const assignCharacter = trpc.worlds.assignCharacter.useMutation({
+    onError: () => toast.error("Couldn't save the character choice"),
+  });
   const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
   // Follow the selected session's conversation while its drawer is open.
   useEffect(() => openChat(selected ? selected.id : null), [selected?.id, openChat]);
@@ -118,7 +128,7 @@ export default function Home() {
     seenUrgent.current = urgentNow;
   }, [sessions, mode, select, decide, prefs.sound]);
 
-  const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}` : "none";
+  const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}|${assignmentsKey(assignments)}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
   const emptyHint = mode === "demo" ? "Loading the demo village…" : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
 
@@ -136,6 +146,7 @@ export default function Home() {
           onSelect={select}
           reducedMotion={prefs.reducedMotion}
           hourOverride={hourOverride}
+          paletteOf={paletteOf}
         />
       ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
         <WorldView
@@ -143,6 +154,7 @@ export default function Home() {
           ref={worldRef}
           world={world}
           characters={cast}
+          assignments={assignments}
           sessions={sessions}
           projects={projects}
           selectedId={selectedId}
@@ -193,6 +205,7 @@ export default function Home() {
         projects={projects}
         world={world}
         characters={cast}
+        assignments={assignments}
         selectedId={selectedId}
         open={prefs.dockOpen}
         onToggle={() => update({ dockOpen: !prefs.dockOpen })}
@@ -208,7 +221,10 @@ export default function Home() {
             key={selected.id}
             session={selected}
             project={projects.find((x) => x.id === selected.projectId)}
-            character={pickCharacter(selected.id, world, cast)}
+            character={pickCharacter(selected, world, cast, assignments)}
+            cast={cast}
+            chosenCharacterId={assignments?.[selected.projectId] ?? null}
+            onChooseCharacter={(characterId) => assignCharacter.mutate({ projectId: selected.projectId, characterId })}
             chat={chat && chat.sessionId === selected.id ? chat.items : null}
             now={now}
             onClose={close}

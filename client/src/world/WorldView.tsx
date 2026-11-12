@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import Phaser from "phaser";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
-import type { CharacterInfo } from "@shared/character";
+import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import { WorldScene } from "./WorldScene";
 import WorldLabels from "./WorldLabels";
 
@@ -15,6 +15,8 @@ export interface WorldHandle {
 interface Props {
   world: WorldInfo;
   characters: CharacterInfo[];
+  /** The person's character choice per project (part of the parent's remount key). */
+  assignments?: CharacterAssignments;
   sessions: SessionView[];
   projects: ProjectView[];
   selectedId: string | null;
@@ -31,7 +33,7 @@ interface Props {
  * hot-reloading a pack remounts it.
  */
 const WorldView = forwardRef<WorldHandle, Props>(function WorldView(props, ref) {
-  const { world, characters, sessions, projects, selectedId, hoveredId, onSelect, now, hourOverride, reducedMotion } = props;
+  const { world, characters, assignments, sessions, projects, selectedId, hoveredId, onSelect, now, hourOverride, reducedMotion } = props;
   const wrapRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<WorldScene | null>(null);
@@ -46,7 +48,7 @@ const WorldView = forwardRef<WorldHandle, Props>(function WorldView(props, ref) 
 
   useEffect(() => {
     if (!hostRef.current) return;
-    const scene = new WorldScene(world, characters);
+    const scene = new WorldScene(world, characters, assignments);
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: hostRef.current,

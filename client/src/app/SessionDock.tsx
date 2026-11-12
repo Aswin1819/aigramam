@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, GitBranch, Users } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
-import type { CharacterInfo } from "@shared/character";
+import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import type { WorldInfo } from "@shared/world";
 import Avatar from "@/components/Avatar";
 import { attentionOrder, elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
@@ -12,6 +12,7 @@ interface Props {
   projects: ProjectView[];
   world: WorldInfo | null;
   characters: CharacterInfo[];
+  assignments?: CharacterAssignments;
   selectedId: string | null;
   open: boolean;
   onToggle: () => void;
@@ -84,7 +85,7 @@ export default function SessionDock(p: Props) {
                       >
                         <span className="absolute inset-y-2 left-0 w-[3px] rounded-full" style={{ background: color, boxShadow: isUrgent(s) ? `0 0 10px ${color}` : undefined }} />
                         <div className="grid h-10 w-8 shrink-0 place-items-end rounded-lg bg-white/5">
-                          <Avatar character={pickCharacter(s.id, p.world, p.characters)} size={36} anim={s.status === "waiting" ? "wait" : s.status === "error" ? "error" : "idle"} />
+                          <Avatar character={pickCharacter(s, p.world, p.characters, p.assignments)} size={36} anim={s.status === "waiting" ? "wait" : s.status === "error" ? "error" : "idle"} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">

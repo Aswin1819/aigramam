@@ -23,7 +23,7 @@ export interface LoadedWorld {
 }
 
 /** Every file a world.json points at. */
-function referencedFiles(def: WorldDef): FileRef[] {
+export function referencedFiles(def: WorldDef): FileRef[] {
   const out: FileRef[] = [];
   def.layers.forEach((l, i) => out.push({ rel: l.image, kind: "image", where: `layers.${i}.image` }));
   def.locations.forEach((l, i) => l.prop && out.push({ rel: l.prop, kind: "image", where: `locations.${i}.prop` }));

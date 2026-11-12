@@ -4,6 +4,7 @@
  * positions that don't overlap. Stateful (positions carry over between
  * frames); styles only draw what it returns.
  */
+import type { CharacterPalette } from "@shared/character";
 import type { ProjectView, SessionView } from "@shared/model";
 import { hashString } from "@shared/placement";
 import { statusText } from "@/lib/status";
@@ -48,6 +49,8 @@ export interface SimInput {
   selectedId: string | null;
   hoveredId: string | null;
   reducedMotion: boolean;
+  /** Colours of the character chosen for a session's project, if any (else colours come from the session id). */
+  paletteOf?: (s: SessionView) => CharacterPalette | undefined;
 }
 
 function liveStatus(s: SessionView): LiveStatus {
@@ -165,6 +168,7 @@ export class LiveSim {
         }
 
         const h = hashString(s.id);
+        const pal = input.paletteOf?.(s);
         villagers.push({
           id: s.id,
           projectId: place.id,
@@ -181,10 +185,10 @@ export class LiveSim {
           jump,
           labelX: w.x,
           labelY: w.labelY,
-          shirt: SHIRTS[h % SHIRTS.length]!,
-          mundu: MUNDUS[(h >>> 4) % MUNDUS.length]!,
-          skin: SKINS[(h >>> 8) % SKINS.length]!,
-          hair: HAIRS[(h >>> 12) % HAIRS.length]!,
+          shirt: pal?.shirt ?? SHIRTS[h % SHIRTS.length]!,
+          mundu: pal?.lower ?? MUNDUS[(h >>> 4) % MUNDUS.length]!,
+          skin: pal?.skin ?? SKINS[(h >>> 8) % SKINS.length]!,
+          hair: pal?.hair ?? HAIRS[(h >>> 12) % HAIRS.length]!,
           carry: status === "working" ? "laptop" : status === "approval" || status === "turn" ? "glass" : undefined,
           linked: !!s.link?.connected,
           helpers: s.subagents.filter((a) => a.status === "working" || a.status === "waiting").length,
