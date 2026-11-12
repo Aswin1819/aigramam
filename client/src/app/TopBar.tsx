@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, Palette, Volume2, VolumeX } from "lucide-react";
+import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, LayoutDashboard, Palette, Volume2, VolumeX } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
 import { elapsed, isUrgent, statusText, waitingOrder } from "@/lib/status";
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import BrandMark from "./BrandMark";
 import { ART_STYLES } from "@/styles/live/registry";
-import type { TimeMode } from "./useDisplayPrefs";
+import type { AppView, TimeMode } from "./useDisplayPrefs";
 
 interface Props {
   sessions: SessionView[];
@@ -28,6 +28,8 @@ interface Props {
   onTime: (t: TimeMode) => void;
   sound: boolean;
   onSound: (on: boolean) => void;
+  view: AppView;
+  onView: (v: AppView) => void;
   onSelect: (id: string) => void;
   onSettings: (tab?: string) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
@@ -59,6 +61,15 @@ export default function TopBar(p: Props) {
             Ai <span className="text-brass">Gramam</span>
           </div>
           <div className="text-[11px] text-cream/60">your agents' village</div>
+        </div>
+        <div className="relative ml-2 flex rounded-xl bg-black/25 p-0.5" role="group" aria-label="View">
+          {([["world", "World", Globe2], ["workspace", "Workspace", LayoutDashboard]] as const).map(([v, label, Icon]) => (
+            <button key={v} onClick={() => p.onView(v)} aria-pressed={p.view === v} className="relative z-10 flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold">
+              {p.view === v && <motion.span layoutId="view-pill" className="absolute inset-0 -z-10 rounded-lg bg-white/15" transition={{ type: "spring", stiffness: 420, damping: 32 }} />}
+              <Icon size={13} className={p.view === v ? "text-brass" : "text-cream/55"} />
+              <span className={p.view === v ? "text-cream" : "text-cream/60"}>{label}</span>
+            </button>
+          ))}
         </div>
       </motion.div>
 
@@ -121,6 +132,8 @@ export default function TopBar(p: Props) {
           <span className="chip bg-white/5 text-cream/60">{idle} idle</span>
         </div>
 
+        {p.view === "world" && (
+          <>
         {/* Place: which world the village is in. With an art style chosen, the place is drawn in that style. */}
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Place" title="Place (world)">
@@ -170,6 +183,9 @@ export default function TopBar(p: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
 
+          </>
+        )}
+
         <button
           onClick={() => p.onSound(!p.sound)}
           className="grid h-8 w-8 place-items-center rounded-xl text-cream hover:bg-white/10"
@@ -180,6 +196,7 @@ export default function TopBar(p: Props) {
           {p.sound ? <Volume2 size={16} /> : <VolumeX size={16} className="text-cream/50" />}
         </button>
 
+        {p.view === "world" && (
         <DropdownMenu>
           <DropdownMenuTrigger className="grid h-8 w-8 place-items-center rounded-xl text-cream hover:bg-white/10" aria-label="Time of day" title="Time of day">
             <TimeIcon size={16} />
@@ -193,6 +210,7 @@ export default function TopBar(p: Props) {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
 
         <div className="relative flex rounded-xl bg-black/25 p-0.5" role="group" aria-label="Mode">
           {(["live", "demo"] as const).map((m) => (

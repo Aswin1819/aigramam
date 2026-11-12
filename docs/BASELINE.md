@@ -47,7 +47,7 @@ rebuilding it. The detailed inspection is in the separate project analysis repor
 
 ## Known issues (not fixed in Phase 0)
 
-1. **Skills & agents editor writes into `~/.claude`** (`server/routers/agents.ts`: `SKILL.md` and agent files under `~/.claude/skills|agents` and projects' `.claude/`), on the person's save. CLAUDE.md says the app never writes inside `~/.claude` except hook entries. Needs a decision: keep (document as an explicit exception), make read-only, or remove.
+1. ~~Skills & agents editor writes into `~/.claude`~~ **Resolved: the Skills & agents manager is read-only.** `server/routers/agents.ts` only lists and reads skills (`SKILL.md`) and agents (`.md`), global and per project (project paths must be absolute and tracked in `~/.claude/projects`); all create/update/delete procedures were removed (tested in `server/agents.test.ts`). The viewer (`client/src/components/SkillsManager.tsx`) says to edit them in Claude Code or an editor.
 2. **Tool output isn't shown** in the chat, only one-line tool labels, although the transcripts hold the real results.
 3. **No project list, filters or search** beyond the Sessions dock; buildings in the world aren't clickable.
 4. **No history** of past sessions in the UI (transcripts exist on disk).
@@ -56,6 +56,8 @@ rebuilding it. The detailed inspection is in the separate project analysis repor
 7. **On machines where another plugin answers `PermissionRequest` first**, permission prompts stay in the terminal (questions still come to the browser).
 8. Pack `sounds`, `lines` and the world `completion.sound` are validated but never played or shown; the `vehicle-pass` and `bell` effects have no visuals of their own; the Phaser world assumes ~1080 px tall worlds (see docs/WORLDS.md).
 9. Leftovers from the starter project: a remote bridge using an old data format (`bridge/`, `server/websocket.ts` bridge section) and unused npm packages / UI-kit components. Not removed: they need a decision, not a cleanup.
+
+10. **Browser live reload is off in development** (`vite.config.ts` has `hmr: false` since the starter; the browser console shows "failed to connect to websocket" for port 5173). Open tabs keep old client code until reloaded. Enabling it means sharing the server's WebSocket upgrade with the app's own `/` WebSocket; needs care, not done yet.
 
 ## Fixed in Phase 0
 

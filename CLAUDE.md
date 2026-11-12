@@ -17,6 +17,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
   - `tailer.ts`, `parser.ts`, `actions.ts`, `store.ts`, `registry.ts`, `projectRoot.ts`, `monitor.ts`, `demo.ts`;
   - `hooks.ts`: the HTTP hook receiver (replies 204 with an empty body) plus install/uninstall.
 - `server/packs/`: shared pack file checks (`files.ts`), the hot-reloading `PackManager` (which also serves assets), and `upload.ts` (`POST /api/packs/upload?kind=world|character&replace=0|1`: a .zip checked in memory, staged in `.incoming-*`, validated by the loader, renamed into the user folder; replaced packs go to `~/.ai-gramam/backups`).
+- `server/routers/agents.ts`: read-only listing of Claude Code skills and agents (global and per tracked project) for the Skills & agents viewer (`client/src/components/SkillsManager.tsx`); it never writes to `~/.claude` or projects' `.claude/`.
 - `server/characters/assignments.ts`: the character chosen per project, saved in `~/.ai-gramam/characters.json` and sent to tabs with the character list.
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
 - `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages, and takes browser commands (`session-message`, `session-stop`, `approval-decide`, answered with `command-result`). Demo mode is per tab and never acts on real sessions.
