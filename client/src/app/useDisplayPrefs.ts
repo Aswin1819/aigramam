@@ -25,10 +25,23 @@ function load(): Prefs {
   }
 }
 
+/** Remove a preview parameter (?art=, ?time=) from the address bar without reloading. */
+function dropUrlPreview(name: string) {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(name)) return;
+    url.searchParams.delete(name);
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  } catch {}
+}
+
 /** Per-browser display settings (motion, time of day, dock open/closed). */
 export function useDisplayPrefs() {
   const [prefs, setPrefs] = useState<Prefs>(load);
   const update = useCallback((patch: Partial<Prefs>) => {
+    // A choice made in the app wins over a preview in the URL: drop that preview so the choice shows.
+    if (patch.artStyle !== undefined) dropUrlPreview("art");
+    if (patch.time !== undefined) dropUrlPreview("time");
     setPrefs((p) => {
       const next = { ...p, ...patch };
       try {
