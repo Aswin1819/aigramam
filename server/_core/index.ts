@@ -12,8 +12,9 @@ import { initializeWebSocket, getBroadcastCallbacks, handleHook, setHooksInstall
 import { LINK_PATH } from "../link/link";
 import { createBridgeRouter } from "../bridge";
 import { createHooksRouter, getOrCreateHookKey, HooksInstaller, HOOK_PATH } from "../monitor/hooks";
-import { characterManager, worldManager } from "../worlds";
+import { characterManager, worldManager, characterAssignments } from "../worlds";
 import { broadcastWorlds, setWorldsSource } from "../websocket";
+import { createPackUploadRouter } from "../packs/upload";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -51,13 +52,16 @@ async function startServer() {
     })
   );
   // World packs (hot reloaded) + their assets
-  setWorldsSource(() => worldManager.state, () => characterManager.state);
+  setWorldsSource(() => worldManager.state, () => ({ ...characterManager.state, assignments: characterAssignments.all() }));
   worldManager.onChange(() => broadcastWorlds());
   characterManager.onChange(() => broadcastWorlds());
+  characterAssignments.onChange = () => broadcastWorlds();
   worldManager.start();
   characterManager.start();
   app.use("/world-assets", worldManager.assetsRouter());
   app.use("/character-assets", characterManager.assetsRouter());
+  // Install a pack from a .zip (loopback + same-origin; the managers hot-reload it)
+  app.use("/api/packs", createPackUploadRouter());
 
   // Live session monitor + WebSocket
   initializeWebSocket(server);

@@ -15,7 +15,8 @@ A local browser app that shows live Claude Code sessions as villagers in an anim
 - `server/monitor/` (read-only on `~/.claude`):
   - `tailer.ts`, `parser.ts`, `actions.ts`, `store.ts`, `registry.ts`, `projectRoot.ts`, `monitor.ts`, `demo.ts`;
   - `hooks.ts`: the HTTP hook receiver (replies 204 with an empty body) plus install/uninstall.
-- `server/packs/`: shared pack file checks (`files.ts`) and the hot-reloading `PackManager` (which also serves assets).
+- `server/packs/`: shared pack file checks (`files.ts`), the hot-reloading `PackManager` (which also serves assets), and `upload.ts` (`POST /api/packs/upload?kind=world|character&replace=0|1`: a .zip checked in memory, staged in `.incoming-*`, validated by the loader, renamed into the user folder; replaced packs go to `~/.ai-gramam/backups`).
+- `server/characters/assignments.ts`: the character chosen per project, saved in `~/.ai-gramam/characters.json` and sent to tabs with the character list.
 - `server/worlds/loader.ts`, `server/characters/loader.ts`, `server/worlds/manager.ts` (`WorldManager` and `CharacterManager`).
 - `server/websocket.ts` sends `snapshot`, `worlds` and `characters` messages, and takes browser commands (`session-message`, `session-stop`, `approval-decide`, answered with `command-result`). Demo mode is per tab and never acts on real sessions.
 - `server/link/link.ts`: the live link to the mod (`/api/link`, loopback + `x-ai-gramam-key`): events in, a per-session inbox (messages, stop), and requests the mod long-polls: approvals (allow/deny) and Claude's questions (answers, or "deny" = answer in the terminal).
@@ -29,14 +30,14 @@ A local browser app that shows live Claude Code sessions as villagers in an anim
   - `WorldView.tsx`, and `WorldLabels.tsx` (HTML labels with collision layout);
   - `StyledWorldView.tsx`: the village drawn by an art style (Canvas 2D): camera, click-to-select, time-of-day tint.
 - `client/src/styles/`: art styles. `protos/` are the Style lab prototypes (`/styles`, fixed demo scene); `live/` are the selectable styles for the real village (`sim.ts` turns sessions into places and villagers, `registry.ts` lists them, `lighting.ts`, porting guide in `live/README.md`).
-- `client/src/app/`: `TopBar` (world/style menu, sound, time), `SessionDock`, `DetailDrawer`, `ChatPanel`, `RequestCard` (approvals and questions inline in the chat), `SessionControls`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Pages: `client/src/pages/Home.tsx`, `StyleLab.tsx`.
+- `client/src/app/`: `TopBar` (world/style menu, sound, time), `SessionDock`, `DetailDrawer`, `ChatPanel`, `RequestCard` (approvals and questions inline in the chat), `CharacterPicker` (a project's character), `PackUpload` (zip install), `SessionControls`, `SettingsSheet`, `BrandMark`, `useDisplayPrefs`. Pages: `client/src/pages/Home.tsx`, `StyleLab.tsx`.
 - `client/src/lib/`: `status`, `miniMarkdown` (safe chat Markdown, tables included), `chime` (Web Audio sound cues, no files).
 - Built-in packs: `worlds/kerala`, `characters/{mundu-hero,shades-villain,chaya-sidekick}`. User packs go in `~/.ai-gramam/worlds|characters`.
 
 ## Rules
 - **Local only.** The server binds to `127.0.0.1`. No telemetry, CDNs, web fonts or external calls. Transcript content never leaves the machine and is never written to disk by this app.
 - **Never write inside `~/.claude`**, except our own hook entries when the user clicks Install. App data lives in `~/.ai-gramam`.
-- **Ask before adding any dependency.** Approved so far: `motion`.
+- **Ask before adding any dependency.** Approved so far: `motion`, `fflate` (pack .zip upload).
 - **Windows first.** Use `path`; get the project from the record's `cwd`. Animation uses real elapsed time (`performance.now()`), never frame counts or Phaser's smoothed delta.
 - **Packs are data only** and are validated. A broken pack falls back and must never crash the app.
 - **Only original art ships**, and every pack shows its author and license.

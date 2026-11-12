@@ -10,6 +10,7 @@ export const PACK_SCHEMA_VERSION = 1;
 const id = z.string().regex(/^[a-z0-9-]{1,40}$/, "use lowercase letters, digits and - (max 40)");
 const text = (max: number) => z.string().trim().min(1).max(max);
 const file = z.string().min(1).max(200);
+const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, "use a #rrggbb colour");
 
 export const animSchema = z
   .object({
@@ -38,10 +39,16 @@ export const packSchema = z
       .refine((a) => !!a.idle && !!a.walk, { message: "idle and walk animations are required" }),
     sounds: z.partialRecord(z.enum(ANIM_NAMES), file).default({}),
     lines: file.optional(),
+    /** The character's main colours, so art styles that draw their own villagers can dress them the same. */
+    palette: z.object({ shirt: colour, lower: colour, skin: colour, hair: colour }).strict().optional(),
   })
   .strict();
 
 export type PackDef = z.infer<typeof packSchema>;
+export type CharacterPalette = NonNullable<PackDef["palette"]>;
+
+/** Which character each project's sessions appear as (project id → character id), chosen by the person. */
+export type CharacterAssignments = Record<string, string>;
 
 export interface CharacterInfo {
   id: string;
@@ -58,4 +65,6 @@ export interface CharacterInfo {
 export interface CharactersState {
   characters: CharacterInfo[];
   errors: Array<{ folder: string; source: "builtin" | "user"; messages: string[] }>;
+  /** The person's character choice per project (sent to the browser with the list). */
+  assignments?: CharacterAssignments;
 }

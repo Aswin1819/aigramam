@@ -6,6 +6,7 @@ import type { CharactersState } from "@shared/character";
 import { trpc } from "@/lib/trpc";
 import Avatar from "@/components/Avatar";
 import type { TimeMode } from "./useDisplayPrefs";
+import PackUpload from "./PackUpload";
 
 export type SettingsTab = "link" | "alerts" | "worlds" | "characters" | "bridge" | "display" | "skills";
 
@@ -231,7 +232,8 @@ export default function SettingsSheet(p: Props) {
                   <a href="/styles" className="block rounded-2xl border border-dashed border-brass/40 p-3 text-sm hover:bg-brass/10">
                     <span className="font-semibold text-brass">Style lab →</span> <span className="text-cream/70">compare 10 art and animation style prototypes, pick your favourites</span>
                   </a>
-                  <p className="text-xs text-cream/60">Add a world: put a folder with <code>world.json</code> and its images in <code className="text-work">{folders.data?.user ?? "~/.ai-gramam/worlds"}</code>. It appears within seconds, no restart.</p>
+                  <PackUpload kind="world" />
+                  <p className="text-xs text-cream/60">Or put a folder with <code>world.json</code> and its images in <code className="text-work">{folders.data?.user ?? "~/.ai-gramam/worlds"}</code>. It appears within seconds, no restart.</p>
                 </>
               )}
 
@@ -251,7 +253,8 @@ export default function SettingsSheet(p: Props) {
                     ))}
                   </div>
                   <Errors errors={p.characters?.errors ?? []} />
-                  <p className="text-xs text-cream/60">Add characters: put a folder with <code>pack.json</code> and <code>sprites.png</code> in <code className="text-work">{folders.data?.userCharacters ?? "~/.ai-gramam/characters"}</code>.</p>
+                  <PackUpload kind="character" />
+                  <p className="text-xs text-cream/60">Or put a folder with <code>pack.json</code> and <code>sprites.png</code> in <code className="text-work">{folders.data?.userCharacters ?? "~/.ai-gramam/characters"}</code>.</p>
                 </>
               )}
 

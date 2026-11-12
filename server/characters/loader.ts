@@ -16,7 +16,7 @@ export interface LoadedCharacter {
   files: Map<string, string>;
 }
 
-function referencedFiles(def: PackDef): FileRef[] {
+export function referencedFiles(def: PackDef): FileRef[] {
   const out: FileRef[] = [{ rel: def.sheet, kind: "image", where: "sheet", maxBytes: SHEET_LIMITS.bytes, maxSide: SHEET_LIMITS.side }];
   for (const [anim, rel] of Object.entries(def.sounds)) if (rel) out.push({ rel, kind: "sound", where: `sounds.${anim}` });
   if (def.lines) out.push({ rel: def.lines, kind: "json", where: "lines" });

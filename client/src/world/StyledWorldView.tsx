@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import type { CharacterPalette } from "@shared/character";
 import type { ProjectView, SessionView } from "@shared/model";
 import { LiveSim } from "@/styles/live/sim";
 import { tintFor } from "@/styles/live/lighting";
@@ -15,6 +16,8 @@ interface Props {
   reducedMotion: boolean;
   /** Chosen hour of day (0–24), or null to follow the clock. */
   hourOverride: number | null;
+  /** Colours of the character chosen for a session's project. */
+  paletteOf?: (s: SessionView) => CharacterPalette | undefined;
 }
 
 interface Cam {

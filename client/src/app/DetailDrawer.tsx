@@ -9,11 +9,16 @@ import type { CommandOutcome } from "@/hooks/useLiveSessions";
 import SessionControls from "./SessionControls";
 import ChatPanel from "./ChatPanel";
 import RequestCard from "./RequestCard";
+import CharacterPicker from "./CharacterPicker";
 
 interface Props {
   session: SessionView;
   project?: ProjectView;
   character: CharacterInfo | null;
+  /** Every installed character, and the one chosen for this session's project (null = automatic). */
+  cast: CharacterInfo[];
+  chosenCharacterId: string | null;
+  onChooseCharacter: (characterId: string | null) => void;
   chat: ChatItem[] | null;
   now: number;
   onClose: () => void;
@@ -35,7 +40,7 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 }
 
 /** Slide-in panel for one session: its conversation (Chat) and everything else (Details). */
-export default function DetailDrawer({ session: s, project, character, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command }: Props) {
+export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command }: Props) {
   const [tab, setTab] = useState<"chat" | "details">("chat");
   const color = statusColor(s);
   const urgent = isUrgent(s);
@@ -124,6 +129,11 @@ export default function DetailDrawer({ session: s, project, character, chat, now
                 </Meta>
               )}
             </div>
+            {!demo && (
+              <div className="border-b border-white/8 p-4">
+                <CharacterPicker projectName={project?.name ?? "this project"} cast={cast} chosenId={chosenCharacterId} onChoose={onChooseCharacter} />
+              </div>
+            )}
             {s.subagents.length > 0 && (
               <div className="border-b border-white/8 p-4">
                 <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-300">Subagents</h3>

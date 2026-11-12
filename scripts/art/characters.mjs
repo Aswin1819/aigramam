@@ -13,6 +13,7 @@ const ROWS = [
 ];
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), 255];
+const toHex = (c) => "#" + c.slice(0, 3).map((v) => v.toString(16).padStart(2, "0")).join("");
 const OUTLINE = hex("#1c1410");
 
 class Sheet {
@@ -337,6 +338,7 @@ export function buildCharacters(outRoot) {
       scale: 2,
       sheet: "sprites.png",
       animations: Object.fromEntries(ROWS.map(([anim, frames], row) => [anim, { row, frames, ...(anim === "celebrate" || anim === "error" ? { loop: true } : {}) }])),
+      palette: { shirt: toHex(d.shirt), lower: toHex(d.lowerC), skin: toHex(SKIN.base), hair: toHex(d.hair) },
     };
     fs.writeFileSync(path.join(dir, "pack.json"), JSON.stringify(pack, null, 2) + "\n");
     console.log(`  characters/${id}  ${sheet.w}×${sheet.h}`);
