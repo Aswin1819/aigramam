@@ -97,6 +97,11 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Keyboard focus is always visible (mouse clicks don't show it). */
+  :focus-visible {
+    outline: 2px solid #e3b04b;
+    outline-offset: 2px;
+  }
   html,
   body,
   #root {

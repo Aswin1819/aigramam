@@ -15,6 +15,8 @@ interface Prefs {
   view: AppView;
   /** The Workspace page last opened. */
   workspacePage: WorkspacePage;
+  /** Desktop notifications (approvals, questions, errors, your turn) while the tab is in the background. Off by default. */
+  desktopNotify: boolean;
 }
 
 export type AppView = "world" | "workspace";
@@ -24,7 +26,7 @@ const KEY = "ai-gramam.display";
 
 function load(): Prefs {
   const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true, view: "world", workspacePage: "overview" };
+  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic", sound: true, view: "world", workspacePage: "overview", desktopNotify: false };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
@@ -49,6 +51,7 @@ export function useDisplayPrefs() {
     // A choice made in the app wins over a preview in the URL: drop that preview so the choice shows.
     if (patch.artStyle !== undefined) dropUrlPreview("art");
     if (patch.time !== undefined) dropUrlPreview("time");
+    if (patch.view !== undefined) dropUrlPreview("view");
     setPrefs((p) => {
       const next = { ...p, ...patch };
       try {
@@ -63,6 +66,12 @@ export function useDisplayPrefs() {
   const hourOverride = time === "auto" ? null : TIME_HOURS[time as Exclude<TimeMode, "auto">];
   // "?art=<style id>" (or "classic") previews an art style for this load without saving it.
   const urlArt = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("art") : null;
-  const shown = urlArt ? { ...prefs, artStyle: urlArt } : prefs;
+  // "?view=workspace" (or "world") opens that view for this visit without saving it.
+  const urlView = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null;
+  const shown = {
+    ...prefs,
+    ...(urlArt ? { artStyle: urlArt } : {}),
+    ...(urlView === "world" || urlView === "workspace" ? { view: urlView as AppView } : {}),
+  };
   return { prefs: shown, update, hourOverride };
 }
