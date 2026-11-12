@@ -8,6 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import BrandMark from "./BrandMark";
+import { ART_STYLES } from "@/styles/live/registry";
 import type { TimeMode } from "./useDisplayPrefs";
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   world: WorldInfo | null;
   brokenPacks: number;
   onWorld: (id: string) => void;
+  artStyle: string;
+  onArtStyle: (id: string) => void;
   mode: AppMode;
   connected: boolean;
   onLive: () => void;
@@ -119,18 +122,29 @@ export default function TopBar(p: Props) {
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="World">
             <Globe2 size={15} className="text-brass" />
-            <span className="max-w-[9rem] truncate">{p.world?.name ?? "World"}</span>
+            <span className="max-w-[9rem] truncate">{ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? p.world?.name ?? "World"}</span>
             {p.brokenPacks > 0 && <span className="chip bg-urgent/20 text-urgent">{p.brokenPacks}!</span>}
             <ChevronDown size={14} className="opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
             <DropdownMenuLabel className="text-xs text-cream/60">Worlds</DropdownMenuLabel>
             {p.worlds.map((w) => (
-              <DropdownMenuItem key={w.id} onClick={() => p.onWorld(w.id)} className="flex flex-col items-start gap-0 rounded-lg">
-                <span className={`text-sm font-semibold ${w.id === p.world?.id ? "text-brass" : ""}`}>{w.name}</span>
+              <DropdownMenuItem key={w.id} onClick={() => { p.onWorld(w.id); p.onArtStyle("classic"); }} className="flex flex-col items-start gap-0 rounded-lg">
+                <span className={`text-sm font-semibold ${p.artStyle === "classic" && w.id === p.world?.id ? "text-brass" : ""}`}>{w.name}</span>
                 <span className="text-[11px] text-cream/55">by {w.author} · {w.license}</span>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-cream/60">Art styles</DropdownMenuLabel>
+            {ART_STYLES.map((a) => (
+              <DropdownMenuItem key={a.id} onClick={() => p.onArtStyle(a.id)} className="flex flex-col items-start gap-0 rounded-lg">
+                <span className={`text-sm font-semibold ${a.id === p.artStyle ? "text-brass" : ""}`}>{a.name}</span>
+                <span className="text-[11px] text-cream/55">{a.blurb}</span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuItem onClick={() => { window.location.href = "/styles"; }} className="rounded-lg text-xs text-cream/70">
+              Compare styles in the Style lab…
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => p.onSettings("worlds")} className="rounded-lg text-xs">
               Manage worlds{p.brokenPacks ? ` (${p.brokenPacks} couldn't load)` : ""}…
