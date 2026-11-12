@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast, Toaster } from "sonner";
 import WorldView, { type WorldHandle } from "@/world/WorldView";
+import StyledWorldView from "@/world/StyledWorldView";
+import { ART_STYLES } from "@/styles/live/registry";
+import type { LiveStyle } from "@/styles/live/types";
 import { useWorldChoice } from "@/world/useWorldChoice";
 import { pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
@@ -24,6 +27,23 @@ export default function Home() {
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
   const worldRef = useRef<WorldHandle>(null);
+  // The chosen art style's renderer, loaded on demand ("classic" = the Phaser world).
+  const [liveStyle, setLiveStyle] = useState<LiveStyle | null>(null);
+  useEffect(() => {
+    const entry = ART_STYLES.find((a) => a.id === prefs.artStyle);
+    if (!entry) return setLiveStyle(null);
+    let alive = true;
+    entry.load().then(
+      (s) => alive && setLiveStyle(s),
+      () => {
+        if (!alive) return;
+        toast.error(`Couldn't load the ${entry.name} style`);
+        update({ artStyle: "classic" });
+      },
+    );
+    return () => { alive = false; };
+  }, [prefs.artStyle, update]);
+  const styled = prefs.artStyle !== "classic" && liveStyle?.id === prefs.artStyle ? liveStyle : null;
   const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { enabled: skillsOpen });
 
   const { sessions, projects, hooks } = snapshot;
@@ -94,7 +114,18 @@ export default function Home() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
       {/* The world */}
-      {world && characters ? (
+      {styled ? (
+        <StyledWorldView
+          ref={worldRef}
+          style={styled}
+          sessions={sessions}
+          projects={projects}
+          selectedId={selectedId}
+          hoveredId={hoveredId}
+          onSelect={select}
+          reducedMotion={prefs.reducedMotion}
+        />
+      ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
         <WorldView
           key={worldKey}
           ref={worldRef}
@@ -129,6 +160,8 @@ export default function Home() {
         world={world}
         brokenPacks={brokenPacks}
         onWorld={chooseWorld}
+        artStyle={prefs.artStyle}
+        onArtStyle={(artStyle) => update({ artStyle })}
         mode={mode}
         connected={connected}
         onLive={startLive}

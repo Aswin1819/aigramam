@@ -228,6 +228,9 @@ export default function SettingsSheet(p: Props) {
                     ))}
                   </div>
                   <Errors errors={p.worlds?.errors ?? []} />
+                  <a href="/styles" className="block rounded-2xl border border-dashed border-brass/40 p-3 text-sm hover:bg-brass/10">
+                    <span className="font-semibold text-brass">Style lab →</span> <span className="text-cream/70">compare 10 art and animation style prototypes, pick your favourites</span>
+                  </a>
                   <p className="text-xs text-cream/60">Add a world: put a folder with <code>world.json</code> and its images in <code className="text-work">{folders.data?.user ?? "~/.ai-gramam/worlds"}</code>. It appears within seconds, no restart.</p>
                 </>
               )}

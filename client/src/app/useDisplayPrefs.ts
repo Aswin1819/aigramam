@@ -7,13 +7,15 @@ interface Prefs {
   reducedMotion: boolean;
   time: TimeMode;
   dockOpen: boolean;
+  /** "classic" (the world pack, drawn by Phaser) or one of the art styles in styles/live/registry. */
+  artStyle: string;
 }
 
 const KEY = "ai-gramam.display";
 
 function load(): Prefs {
   const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true };
+  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, artStyle: "classic" };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {
@@ -37,5 +39,8 @@ export function useDisplayPrefs() {
   const urlTime = typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("time") as TimeMode | null) : null;
   const time = urlTime && urlTime in TIME_HOURS ? urlTime : prefs.time;
   const hourOverride = time === "auto" ? null : TIME_HOURS[time as Exclude<TimeMode, "auto">];
-  return { prefs, update, hourOverride };
+  // "?art=<style id>" (or "classic") previews an art style for this load without saving it.
+  const urlArt = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("art") : null;
+  const shown = urlArt ? { ...prefs, artStyle: urlArt } : prefs;
+  return { prefs: shown, update, hourOverride };
 }
