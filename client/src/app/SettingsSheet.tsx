@@ -152,7 +152,8 @@ function LinkTab({ linked, total }: { linked: number; total: number }) {
       <ul className="space-y-1 text-[12px] text-cream/70">
         <li>• Messages are sent as your own words and run when the session is free. Stop works like Esc.</li>
         <li>• Permission requests come here first only when they would have asked <i>you</i>; with no answer in 45 s the normal prompt appears in the terminal.</li>
-        <li>• Questions Claude asks you (and plan approvals) are still answered in the terminal.</li>
+        <li>• Questions Claude asks you are answered in the session's chat (choices or your own words); "Answer in terminal", or no answer in 45 s, and the question appears there instead.</li>
+        <li>• Plan approvals stay in the terminal. If another plugin answers permission requests first, those stay in the terminal too.</li>
         <li>• Only small details (file paths, commands) are sent, only to 127.0.0.1, with your local key. Uninstall: <code>claude plugin uninstall ai-gramam</code>.</li>
       </ul>
     </div>
