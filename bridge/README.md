@@ -1,7 +1,7 @@
-# Claude Dungeon Bridge Script
+# Ai Gramam Bridge Script
 
 This script runs on **your local machine** and monitors your Claude Code activity,
-then pushes it to the cloud-hosted Claude Dungeon web app in real-time.
+then pushes it to the cloud-hosted Ai Gramam web app in real-time.
 
 ## Requirements
 
@@ -12,21 +12,21 @@ then pushes it to the cloud-hosted Claude Dungeon web app in real-time.
 
 ### 1. Get your API key
 
-Open the Claude Dungeon web app → click **⚙️ Config** → copy the **Bridge API Key**.
+Open the Ai Gramam web app → click **⚙️ Config** → copy the **Bridge API Key**.
 
 ### 2. Run the bridge
 
 ```bash
 # Option A: Environment variable
-CLAUDE_DUNGEON_API_KEY=cpab_xxxxx node claude-dungeon-bridge.mjs
+AI_GRAMAM_API_KEY=gramam_xxxxx node ai-gramam-bridge.mjs
 
 # Option B: Command-line argument
-node claude-dungeon-bridge.mjs --key cpab_xxxxx
+node ai-gramam-bridge.mjs --key gramam_xxxxx
 
 # Option C: Custom server URL (if self-hosted)
-node claude-dungeon-bridge.mjs \
+node ai-gramam-bridge.mjs \
   --server https://your-server.com \
-  --key cpab_xxxxx
+  --key gramam_xxxxx
 ```
 
 ### 3. Start Claude Code
@@ -37,8 +37,8 @@ In another terminal, run Claude Code normally. Heroes will appear in the web app
 
 | Option | Env Variable | Default | Description |
 |--------|-------------|---------|-------------|
-| `--server URL` | `CLAUDE_DUNGEON_SERVER` | `http://localhost:4317` | Claude Dungeon server URL |
-| `--key KEY` | `CLAUDE_DUNGEON_API_KEY` | *(required)* | Bridge API key |
+| `--server URL` | `AI_GRAMAM_SERVER` | `http://localhost:4317` | Ai Gramam server URL |
+| `--key KEY` | `AI_GRAMAM_API_KEY` | *(required)* | Bridge API key |
 | `--claude-dir PATH` | `CLAUDE_DIR` | `~/.claude` | Claude config directory |
 | `--poll-interval MS` | - | `1000` | File poll interval (ms) |
 | `--push-interval MS` | - | `2000` | Server push interval (ms) |
@@ -49,7 +49,7 @@ In another terminal, run Claude Code normally. Heroes will appear in the web app
 ```
 Your Machine                          Cloud Server
 ─────────────────────────────────     ─────────────────────────────
-~/.claude/projects/                   Claude Dungeon Web App
+~/.claude/projects/                   Ai Gramam Web App
   └── -home-user-myproject/           ┌─────────────────────────┐
       └── session-abc.jsonl  ──────►  │  /api/bridge/heroes     │
                                       │  (POST with hero data)  │
@@ -74,7 +74,7 @@ Bridge Script                         │                         │
 ## Troubleshooting
 
 **"No API key set" warning**
-→ Get the key from the web app Config page and set `CLAUDE_DUNGEON_API_KEY`
+→ Get the key from the web app Config page and set `AI_GRAMAM_API_KEY`
 
 **"Push failed (401)"**
 → API key is wrong. Get a fresh key from the Config page.

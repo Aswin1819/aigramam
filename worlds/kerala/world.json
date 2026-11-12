@@ -2,236 +2,123 @@
   "schemaVersion": 1,
   "id": "kerala",
   "name": "Kerala Backwaters",
-  "description": "Houseboats, a chaya kada, the temple and Chinese fishing nets on the backwaters. Placeholder art.",
+  "description": "Houseboats, a chaya kada, the temple and Chinese fishing nets on the backwaters, with a real day and night and monsoon rain. Placeholder art.",
   "author": "Aswin1819",
   "license": "CC0-1.0",
-  "size": {
-    "width": 1920,
-    "height": 1080
-  },
+  "size": { "width": 1920, "height": 1080 },
   "palette": {
     "background": "#0f3d47",
-    "accent": "#d4a531",
+    "accent": "#d9a83a",
     "label": "#fff8e7",
-    "labelBg": "#1d2b22dd",
+    "labelBg": "#14261ee6",
     "waiting": "#f59e0b",
     "urgent": "#ef4444"
   },
+  "lighting": {
+    "mode": "clock",
+    "sky": [
+      { "hour": 0, "top": "#070b1f", "bottom": "#18234a" },
+      { "hour": 5, "top": "#141c46", "bottom": "#a8677a" },
+      { "hour": 6.5, "top": "#3b6aa5", "bottom": "#f5b487" },
+      { "hour": 9, "top": "#3d8ed2", "bottom": "#bfe4f3" },
+      { "hour": 13, "top": "#2c84d6", "bottom": "#d2effa" },
+      { "hour": 16.5, "top": "#3979be", "bottom": "#f3d4a2" },
+      { "hour": 18.4, "top": "#38387a", "bottom": "#f2865a" },
+      { "hour": 19.6, "top": "#161b46", "bottom": "#6a4778" },
+      { "hour": 21, "top": "#070b1f", "bottom": "#18234a" },
+      { "hour": 24, "top": "#070b1f", "bottom": "#18234a" }
+    ],
+    "tint": [
+      { "hour": 0, "color": "#0a1440", "alpha": 0.55 },
+      { "hour": 5, "color": "#1d2058", "alpha": 0.38 },
+      { "hour": 6.5, "color": "#ff9a5a", "alpha": 0.12 },
+      { "hour": 9, "color": "#ffffff", "alpha": 0 },
+      { "hour": 16.5, "color": "#ffb070", "alpha": 0.08 },
+      { "hour": 18.4, "color": "#ff6a3a", "alpha": 0.2 },
+      { "hour": 19.6, "color": "#1d1f5c", "alpha": 0.4 },
+      { "hour": 21, "color": "#0a1440", "alpha": 0.55 },
+      { "hour": 24, "color": "#0a1440", "alpha": 0.55 }
+    ],
+    "sun": true,
+    "stars": true,
+    "nightFrom": 19,
+    "nightTo": 6
+  },
   "layers": [
-    {
-      "id": "sky",
-      "image": "assets/sky.png"
-    },
-    {
-      "id": "hills",
-      "image": "assets/hills.png"
-    },
-    {
-      "id": "water",
-      "image": "assets/water.png",
-      "scrollX": 10
-    },
-    {
-      "id": "ground",
-      "image": "assets/ground.png"
-    }
+    { "id": "far-hills", "image": "assets/far_hills.png" },
+    { "id": "treeline", "image": "assets/treeline.png" },
+    { "id": "water", "image": "assets/water.png" },
+    { "id": "shimmer", "image": "assets/water_shimmer.png", "y": 548, "scrollX": 14, "alpha": 0.8 },
+    { "id": "ground", "image": "assets/ground.png" }
   ],
   "locations": [
-    {
-      "id": "houseboat-west",
-      "kind": "houseboat",
-      "label": "Kettuvallam",
-      "x": 380,
-      "y": 700,
-      "prop": "assets/houseboat.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -132
-      },
-      "slots": 4,
-      "spacing": 70
-    },
-    {
-      "id": "houseboat-east",
-      "kind": "houseboat",
-      "label": "Kettuvallam",
-      "x": 1480,
-      "y": 715,
-      "prop": "assets/houseboat.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -132
-      },
-      "slots": 4,
-      "spacing": 70
-    },
-    {
-      "id": "chaya-kada",
-      "kind": "tea-shop",
-      "label": "Chaya Kada",
-      "x": 640,
-      "y": 905,
-      "prop": "assets/tea_shop.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -192
-      },
-      "slots": 4,
-      "spacing": 64
-    },
-    {
-      "id": "ambalam",
-      "kind": "temple",
-      "label": "Ambalam",
-      "x": 1240,
-      "y": 890,
-      "prop": "assets/temple.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -252
-      },
-      "slots": 5,
-      "spacing": 64
-    },
-    {
-      "id": "cheena-vala",
-      "kind": "fishing-nets",
-      "label": "Cheena Vala",
-      "x": 1780,
-      "y": 860,
-      "prop": "assets/fishing_nets.png",
-      "signboard": {
-        "dx": -30,
-        "dy": -232
-      },
-      "slots": 3,
-      "spacing": 60
-    },
-    {
-      "id": "kadavu",
-      "kind": "canoe-ghat",
-      "label": "Kadavu",
-      "x": 960,
-      "y": 770,
-      "prop": "assets/canoe.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -52
-      },
-      "slots": 3,
-      "spacing": 64
-    },
-    {
-      "id": "kallu-shap",
-      "kind": "toddy-shop",
-      "label": "Kallu Shap",
-      "x": 200,
-      "y": 950,
-      "prop": "assets/toddy_shop.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -172
-      },
-      "slots": 3,
-      "spacing": 62
-    },
-    {
-      "id": "thengin-thoppu",
-      "kind": "grove-hut",
-      "label": "Thengin Thoppu",
-      "x": 1560,
-      "y": 1000,
-      "prop": "assets/hut.png",
-      "signboard": {
-        "dx": 0,
-        "dy": -132
-      },
-      "slots": 3,
-      "spacing": 62
-    }
+    { "id": "houseboat-west", "kind": "houseboat", "label": "Kettuvallam", "x": 400, "y": 690, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.22, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
+    { "id": "houseboat-east", "kind": "houseboat", "label": "Kettuvallam", "x": 1490, "y": 676, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.19, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
+    { "id": "chaya-kada", "kind": "tea-shop", "label": "Chaya Kada", "x": 640, "y": 930, "prop": "assets/tea_shop.png", "propDy": 6, "signboard": { "dx": 0, "dy": -248 }, "slots": 4, "spacing": 60 },
+    { "id": "ambalam", "kind": "temple", "label": "Ambalam", "x": 1260, "y": 928, "prop": "assets/temple.png", "propDy": 4, "signboard": { "dx": 0, "dy": -330 }, "slots": 5, "spacing": 60 },
+    { "id": "cheena-vala", "kind": "fishing-nets", "label": "Cheena Vala", "x": 1790, "y": 842, "prop": "assets/nets_platform.png", "propDy": 50, "signboard": { "dx": -40, "dy": -210 }, "slots": 3, "spacing": 56 },
+    { "id": "kadavu", "kind": "ghat", "label": "Kadavu", "x": 960, "y": 806, "prop": "assets/ghat.png", "propDy": 30, "signboard": { "dx": 0, "dy": -96 }, "slots": 3, "spacing": 60 },
+    { "id": "kallu-shap", "kind": "toddy-shop", "label": "Kallu Shap", "x": 200, "y": 985, "prop": "assets/toddy_shop.png", "propDy": 4, "signboard": { "dx": 0, "dy": -230 }, "slots": 3, "spacing": 58 },
+    { "id": "thengin-thoppu", "kind": "grove-hut", "label": "Thengin Thoppu", "x": 1610, "y": 1012, "prop": "assets/hut.png", "propDy": 4, "signboard": { "dx": 0, "dy": -180 }, "slots": 3, "spacing": 58 }
   ],
   "overflow": {
-    "area": {
-      "x": 720,
-      "y": 975,
-      "w": 560,
-      "h": 80
-    },
+    "area": { "x": 700, "y": 1000, "w": 520, "h": 60 },
     "prop": "assets/hut.png",
-    "propScale": 0.7,
+    "propScale": 0.6,
     "label": "Puthiya Veedu"
   },
+  "decor": [
+    { "id": "cloud-1", "image": "assets/cloud_a.png", "x": 300, "y": 190, "layer": "sky", "anim": "drift", "speed": 7, "alpha": 0.95 },
+    { "id": "cloud-2", "image": "assets/cloud_b.png", "x": 1100, "y": 130, "layer": "sky", "anim": "drift", "speed": 4.5, "alpha": 0.9 },
+    { "id": "cloud-3", "image": "assets/cloud_c.png", "x": 1650, "y": 250, "layer": "sky", "anim": "drift", "speed": 5.5, "alpha": 0.95 },
+    { "id": "cloud-4", "image": "assets/cloud_a.png", "x": 760, "y": 300, "scale": 0.7, "layer": "sky", "anim": "drift", "speed": 3, "alpha": 0.8, "flipX": true },
+
+    { "id": "palm-1", "image": "assets/palm_a.png", "x": 70, "y": 905, "anim": "sway", "amp": 2.2, "speed": 0.33 },
+    { "id": "palm-2", "image": "assets/palm_b.png", "x": 520, "y": 830, "anim": "sway", "amp": 2.6, "speed": 0.29, "phase": 1.3 },
+    { "id": "palm-3", "image": "assets/palm_c.png", "x": 1080, "y": 838, "anim": "sway", "amp": 2, "speed": 0.36, "phase": 2.1 },
+    { "id": "palm-4", "image": "assets/palm_a.png", "x": 1395, "y": 822, "scale": 0.9, "flipX": true, "anim": "sway", "amp": 2.2, "speed": 0.31, "phase": 0.6 },
+    { "id": "palm-5", "image": "assets/palm_b.png", "x": 1880, "y": 990, "anim": "sway", "amp": 2.4, "speed": 0.3, "phase": 2.7 },
+    { "id": "palm-6", "image": "assets/palm_c.png", "x": 300, "y": 822, "scale": 0.82, "flipX": true, "anim": "sway", "amp": 2, "speed": 0.34, "phase": 1.9 },
+    { "id": "banana-1", "image": "assets/banana.png", "x": 790, "y": 995, "anim": "sway", "amp": 3, "speed": 0.5 },
+    { "id": "banana-2", "image": "assets/banana.png", "x": 1460, "y": 1060, "flipX": true, "anim": "sway", "amp": 3, "speed": 0.45, "phase": 1 },
+    { "id": "lamp-tower", "image": "assets/deepastambham.png", "x": 1468, "y": 932 },
+
+    { "id": "net", "image": "assets/fishing_net.png", "x": 1690, "y": 868, "originX": 0.07, "originY": 0.97, "anim": "dip", "amp": 7, "speed": 0.06 },
+    { "id": "canoe", "image": "assets/canoe_rower.png", "x": 200, "y": 752, "anim": "drift", "speed": 22 },
+    { "id": "duck-1", "image": "assets/duck.png", "x": 1240, "y": 770, "anim": "drift", "speed": -9 },
+    { "id": "duck-2", "image": "assets/duck.png", "x": 1272, "y": 776, "anim": "drift", "speed": -9 },
+    { "id": "duck-3", "image": "assets/duck.png", "x": 1300, "y": 768, "anim": "drift", "speed": -9 },
+    { "id": "duck-4", "image": "assets/duck.png", "x": 1330, "y": 778, "anim": "drift", "speed": -9 },
+    { "id": "duck-5", "image": "assets/duck.png", "x": 1362, "y": 771, "anim": "drift", "speed": -9 },
+
+    { "id": "glow-temple", "image": "assets/glow_warm.png", "x": 1260, "y": 862, "scale": 2.2, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.25, "speed": 2.5, "alpha": 0.8 },
+    { "id": "glow-tower", "image": "assets/glow_small.png", "x": 1468, "y": 820, "scale": 2.2, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.3, "speed": 3.2 },
+    { "id": "glow-boat-w", "image": "assets/glow_warm.png", "x": 400, "y": 670, "scale": 1.9, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.12, "speed": 1.2, "alpha": 0.7 },
+    { "id": "glow-boat-e", "image": "assets/glow_warm.png", "x": 1490, "y": 656, "scale": 1.9, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.12, "speed": 1.4, "alpha": 0.7 },
+    { "id": "glow-chaya", "image": "assets/glow_warm.png", "x": 640, "y": 860, "scale": 1.6, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.15, "speed": 2, "alpha": 0.75 },
+    { "id": "glow-kallu", "image": "assets/glow_warm.png", "x": 200, "y": 905, "scale": 1.4, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.2, "speed": 2.4, "alpha": 0.65 }
+  ],
   "scenes": {
-    "read": {
-      "anim": "read"
-    },
-    "search": {
-      "anim": "read",
-      "fx": "signal"
-    },
-    "write": {
-      "anim": "write"
-    },
-    "bash": {
-      "anim": "bash",
-      "fx": "sparks"
-    },
-    "tool": {
-      "anim": "bash"
-    },
-    "web": {
-      "anim": "read",
-      "fx": "signal"
-    },
-    "delegate": {
-      "anim": "idle"
-    },
-    "think": {
-      "anim": "idle",
-      "fx": "steam"
-    },
-    "question": {
-      "anim": "wait",
-      "fx": "bell"
-    },
-    "waiting": {
-      "anim": "wait",
-      "fx": "bell"
-    },
-    "idle": {
-      "anim": "idle"
-    },
-    "done": {
-      "anim": "celebrate",
-      "fx": "glow"
-    },
-    "error": {
-      "anim": "error",
-      "fx": "smoke"
-    }
+    "read": { "anim": "read" },
+    "search": { "anim": "read", "fx": "signal" },
+    "write": { "anim": "write" },
+    "bash": { "anim": "bash", "fx": "sparks" },
+    "tool": { "anim": "bash" },
+    "web": { "anim": "read", "fx": "signal" },
+    "delegate": { "anim": "idle" },
+    "think": { "anim": "idle", "fx": "steam" },
+    "question": { "anim": "wait", "fx": "bell" },
+    "waiting": { "anim": "wait", "fx": "bell" },
+    "idle": { "anim": "idle" },
+    "done": { "anim": "celebrate", "fx": "glow" },
+    "error": { "anim": "error", "fx": "smoke" }
   },
   "ambient": [
-    {
-      "type": "rain",
-      "chancePerMinute": 0.12,
-      "durationSec": [
-        40,
-        120
-      ],
-      "count": 140,
-      "color": "#cfe8ffcc"
-    },
-    {
-      "type": "birds",
-      "count": 4,
-      "color": "#1b2a2a"
-    }
+    { "type": "rain", "chancePerMinute": 0.12, "durationSec": [45, 140], "count": 220, "color": "#d8ecffcc" },
+    { "type": "lightning", "chancePerMinute": 0.5 },
+    { "type": "birds", "count": 5, "color": "#1b2a2a" },
+    { "type": "fireflies", "count": 40, "color": "#fff3a0" }
   ],
-  "completion": {
-    "effect": "lamp-row",
-    "params": {
-      "count": 7
-    }
-  },
-  "defaultCharacters": []
+  "completion": { "effect": "lamp-row", "params": { "count": 7 } },
+  "defaultCharacters": ["mundu-hero", "chaya-sidekick", "shades-villain"]
 }

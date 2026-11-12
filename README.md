@@ -1,145 +1,61 @@
-# 🏰 Claude Dungeon
+# Ai Gramam
 
-<img width="1200" height="675" alt="image" src="https://github.com/user-attachments/assets/8012ae32-a35f-4e1e-8236-bbba2e135f37" />
+**Your Claude Code agents, living in a village.** Ai Gramam is a local browser app that turns every running Claude Code session into a villager in an animated Indian world, so you can tell at a glance which project, session and subagent is doing what, and when one of them needs you.
 
-**Watch your Claude Code agents come alive as pixel-art heroes in a real-time dungeon.**
+- **Projects are places.** Each project gets a location (a houseboat, the chaya kada, the temple…) with its name on a brass signboard.
+- **Sessions are villagers.** Each session stands at its project with a name tag and a speech bubble showing the live action: `✏️ Editing auth.ts`, `💻 Running npm test`, `🔍 Searching "login"`.
+- **Subagents are companions** that walk in beside their parent while they work and leave when they finish.
+- **Waiting for you is impossible to miss.** Approvals and questions ring a bell in the top bar, glow red in the world and pop a toast. "Your turn" glows amber.
+- **A living world.** Real day and night that follow your clock, monsoon rain with lightning, swaying palms, drifting clouds, bobbing houseboats, a canoe, ducks, fireflies, and a row of nilavilakku lamps lighting up when a task finishes.
+- **Worlds and characters are data packs.** Drop a folder in and it appears within seconds, no restart. Every pack shows its author and license.
 
-Claude Dungeon connects to your local Claude Code sessions and visualizes every agent as an animated knight exploring a dungeon — fighting bosses when using tools, resting at the tavern, planning at the merchant shop.
+Everything runs on your machine: the server listens on `127.0.0.1` only, makes no outside network calls, and never writes your transcripts anywhere.
 
-![Claude Dungeon — Heroes in action](https://d2xsxph8kpxj0f.cloudfront.net/310519663321243150/kUk4sJXkGLHTnK5J3QqqXR/dungeon_heroes_final_42691e6e.png)
+## Quick start (Windows)
 
-## Features
+Requirements: Node.js 18+.
 
-- **Real-time visualization** — heroes appear as Claude Code sessions start and disappear when they end
-- **5 connected rooms** — Holy Sanctuary, Dungeon Main, Boss Arena, Merchant Shop, Tavern Rest, linked by corridors with doors
-- **BFS pathfinding** — heroes navigate through corridors using proper tile-based pathfinding, never walking through walls
-- **Animated sprites** — knights with idle/run/attack/rest animations from a full Metroidvania asset pack
-- **Lord Wizard Boss** — permanently resides in Boss Arena with HP bar; attacks when heroes enter fighting state
-- **Guardian enemy** — reacts to heroes in Dungeon Main with attack animation
-- **Witch Merchant NPC** — animated in Merchant Shop; shows item orb when heroes are shopping
-- **NPC facing** — heroes always face toward the NPC/Boss they are interacting with
-- **Skills system** — manage global and per-project Claude skills (`~/.claude/skills/`)
-- **Demo mode** — try it without Claude Code running
-- **Multi-agent support** — each concurrent Claude Code session gets its own hero
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm (`npm install -g pnpm`)
-
-### Installation
-
-```bash
-git clone https://github.com/your-username/claude-dungeon
-cd claude-dungeon
-pnpm install
-pnpm dev
+```powershell
+npx -y pnpm@10.4.1 install
+npx pnpm@10.4.1 dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open **http://localhost:4317** (the port comes from `.env`; copy `.env.example` to change it). Start Claude Code in any folder and a villager walks in within a few seconds. No sessions yet? Click **Demo** in the top bar, or open http://localhost:4317/?demo.
 
-### Connect to Claude Code
+Tips: drag to pan, scroll to zoom, click a villager (or a row in the dock) to open its details, <kbd>Esc</kbd> to step back. Try `?time=night` to preview the night.
 
-Claude Dungeon watches `~/.claude/projects/` for active sessions automatically. Just start Claude Code in any project and your hero will appear within seconds.
+## Exact approval alerts (optional)
 
-The app detects active sessions by monitoring file modification times. Heroes disappear ~2 minutes after a session ends (or within 15 seconds if the `claude` process exits).
+From transcripts alone Ai Gramam can see questions and "your turn" exactly, but a **permission prompt** can only be guessed. **Settings → Alerts → Install hooks** adds Claude Code HTTP hooks to your user settings. It shows you the exact before/after first, saves a backup to `~/.ai-gramam/backups`, keeps your existing hooks, and can be undone. The hooks apply to every project, send events only to `127.0.0.1`, and never change what Claude does.
 
-## Project Structure
+## Worlds and characters
+
+| | Built in | Your own (hot reloaded) |
+|---|---|---|
+| Worlds | `worlds/<id>/world.json` + images | `~/.ai-gramam/worlds/<id>/` |
+| Characters | `characters/<id>/pack.json` + `sprites.png` | `~/.ai-gramam/characters/<id>/` |
+
+Shipped: **Kerala Backwaters**, plus three original characters: **Unni** (mundu hero), **Shades** (stylish villain) and **Chaya Kutty** (comic sidekick). All built-in art is original and CC0, generated in code by `node scripts/gen-art.mjs`; replace it with real pixel art any time. Packs are validated (paths, image sizes, sprite-sheet rows and frames), and a broken pack is shown with its errors and never breaks the app. See `docs/WORLDS.md` and `docs/PACKS.md` for the formats.
+
+## How it works
 
 ```
-client/          React 19 + Tailwind 4 frontend
-  src/
-    components/  DungeonMap (Canvas), HeroPanel, SkillsPanel
-    hooks/       useHeroSocket, useAuth
-    lib/         dungeonConfig, transcriptParser
-server/          Express + tRPC backend
-  routers/       agents, skills
-  websocket.ts   Real-time hero state management
-  bridge.ts      REST API for external data push
-drizzle/         Database schema & migrations
-public/sprites/  Pixel art assets (Metroidvania Asset Pack)
-bridge/          Local bridge script (optional, for remote servers)
+~/.claude/projects/**/*.jsonl  ┐
+~/.claude/sessions/<pid>.json  ├─► monitor (server/monitor) ─► Project → Session → Subagent ─► WebSocket ─► world (Phaser) + UI (React)
+Claude Code HTTP hooks (opt.)  ┘
 ```
 
-## How It Works
+- `server/monitor/`: reads the transcripts from the end, follows subagent files and the session registry, and accepts optional hook events.
+- `server/worlds`, `server/characters`, `server/packs`: pack loading, validation and hot reload.
+- `client/src/world/`: the Phaser scene (sky, lighting, weather, decor, characters, camera) and HTML labels.
+- `client/src/app/`: the top bar, session dock, detail drawer and settings (React, Tailwind, Motion).
 
-1. The server watches `~/.claude/projects/**/*.jsonl` for Claude Code transcript files
-2. Each active `.jsonl` file (modified within 5 minutes) creates a hero
-3. The transcript is parsed to determine the agent's current state (idle / fighting / resting / planning)
-4. State is broadcast via WebSocket to all connected browsers
-5. The Canvas renderer draws heroes in the appropriate dungeon room with matching animations
-6. Heroes navigate between rooms using BFS pathfinding on a tile grid — corridors are the only valid paths
+Tests: `npx pnpm@10.4.1 test` · Types: `npx pnpm@10.4.1 check` · Production: `pnpm build` then `pnpm start`.
 
-### State → Room Mapping
+## Remote bridge (optional)
 
-| Claude Code State | Dungeon Room | Animation |
-|-------------------|--------------|-----------|
-| Idle / waiting | Dungeon Main | Idle + talk bubble near Guardian |
-| Using tools (Bash, Write) | Boss Arena | Attack (facing Boss) |
-| Using web/search | Boss Arena | Cast (facing Boss) |
-| Reading files | Holy Sanctuary | Idle |
-| Planning / thinking | Merchant Shop | Idle (facing Witch, item orb shown) |
-| Resting / done | Tavern Rest | Idle + Zzz |
+To show sessions from another computer, run `bridge/ai-gramam-bridge.mjs` there. **Settings → Remote bridge** gives you the exact commands with your key.
 
-### NPC Interactions
+## Credits and license
 
-| Room | NPC | Hero Behavior |
-|------|-----|---------------|
-| Boss Arena | Lord Wizard | Hero stops 5 tiles left of Boss, faces right (toward Boss), attacks |
-| Merchant Shop | Witch | Hero stops 3 tiles left of Witch, faces right (toward Witch), Witch shows item orb |
-| Dungeon Main | Guardian | Hero stops 2 tiles left of Guardian, faces right (toward Guardian), Guardian uses attack animation |
-
-## Skills Management
-
-Claude Dungeon includes a built-in UI for managing Claude Code skills:
-
-- View and edit global skills in `~/.claude/skills/`
-- View and edit per-project skills in `.claude/skills/`
-- Create new skills with a SKILL.md editor
-- Delete skills
-
-## Remote Bridge (Optional)
-
-If you're running Claude Code on a remote server, use the included bridge script to push hero state to a hosted Claude Dungeon instance:
-
-```bash
-# Download
-curl -O https://your-instance.example.com/bridge/claude-dungeon-bridge.mjs
-
-# Run
-CLAUDE_DUNGEON_SERVER=https://your-instance.example.com \
-node claude-dungeon-bridge.mjs
-```
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, Tailwind CSS 4, Canvas API |
-| Backend | Express 4, tRPC 11, Node.js |
-| Real-time | WebSocket (ws) |
-| Sprites | Another Metroidvania Asset Pack Vol. 1 |
-| Pathfinding | BFS on tile grid (wall-aware) |
-
-## Contributing
-
-Contributions are welcome!
-
-Ideas for contributions:
-
-- Sound effects (Web Audio API)
-- Mobile-responsive layout
-- Support for other AI coding agents (Cursor, Copilot)
-- More enemy types and boss variants
-- Hero level-up animations
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
-## Credits
-
-- Pixel art sprites: [Another Metroidvania Asset Pack Vol. 1](https://itch.io) by the original artist
-- Built with [Claude](https://claude.ai) by Anthropic
+Ai Gramam started as a fork of [thousandsky2024/claude-pixel-agent-web](https://github.com/thousandsky2024/claude-pixel-agent-web) (MIT) and has since been rebuilt. Thank you to its authors. Released under the MIT license; see `LICENSE`.

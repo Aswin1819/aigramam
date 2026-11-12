@@ -1,153 +1,202 @@
-import { useCallback, useMemo, useState } from "react";
-import WorldView from "@/world/WorldView";
-import WorldsPanel from "@/world/WorldsPanel";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { toast, Toaster } from "sonner";
+import WorldView, { type WorldHandle } from "@/world/WorldView";
 import { useWorldChoice } from "@/world/useWorldChoice";
-import SessionSidebar from "@/components/SessionSidebar";
-import SessionDetail from "@/components/SessionDetail";
-import WaitingBanner from "@/components/WaitingBanner";
-import HooksPanel from "@/components/HooksPanel";
+import { pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
-import ConfigPanel from "@/components/ConfigPanel";
 import { useLiveSessions } from "@/hooks/useLiveSessions";
-import { STATUS_META } from "@/lib/status";
+import { isUrgent, statusText } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
-import type { SessionStatus } from "@shared/model";
-
-const COUNTED: SessionStatus[] = ["working", "waiting", "idle"];
+import TopBar from "@/app/TopBar";
+import SessionDock from "@/app/SessionDock";
+import DetailDrawer from "@/app/DetailDrawer";
+import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
+import BrandMark from "@/app/BrandMark";
+import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
-  const { snapshot, worlds, mode, connected, now, startDemo, startLive } = useLiveSessions();
+  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive } = useLiveSessions();
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
+  const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [panel, setPanel] = useState<"hooks" | "skills" | "config" | "worlds" | null>(null);
-  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { enabled: panel === "skills" });
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<SettingsTab | null>(null);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const worldRef = useRef<WorldHandle>(null);
+  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { enabled: skillsOpen });
 
   const { sessions, projects, hooks } = snapshot;
+  const cast = characters?.characters ?? [];
   const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
-  const counts = useMemo(() => {
-    const c: Record<SessionStatus, number> = { working: 0, waiting: 0, idle: 0, finished: 0, error: 0 };
-    for (const s of sessions) c[s.status]++;
-    return c;
-  }, [sessions]);
-  const select = useCallback((id: string) => setSelectedId((cur) => (cur === id ? null : id)), []);
 
-  const emptyHint = mode === "demo" ? "Loading demo sessions…" : "No Claude Code sessions running.\nStart Claude Code in any folder and it appears here within a few seconds.";
+  const select = useCallback((id: string) => {
+    setSelectedId((cur) => (cur === id ? null : id));
+    worldRef.current?.focus(id);
+  }, []);
+  const close = useCallback(() => {
+    setSelectedId(null);
+    worldRef.current?.resetView();
+  }, []);
+
+  // Esc closes the drawer / resets the camera.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !settings && !skillsOpen) close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close, settings, skillsOpen]);
+
+  // A toast the moment a session newly needs approval or asks a question.
+  const seenUrgent = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
+    if (seenUrgent.current && mode === "live") {
+      for (const s of sessions.filter(isUrgent)) {
+        if (seenUrgent.current.has(`${s.id}:${s.statusSince}`)) continue;
+        toast(`${s.title}`, {
+          description: `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`,
+          action: { label: "Show me", onClick: () => select(s.id) },
+          duration: 8000,
+        });
+      }
+    }
+    seenUrgent.current = urgentNow;
+  }, [sessions, mode, select]);
+
+  const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}` : "none";
+  const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
+  const emptyHint = mode === "demo" ? "Loading the demo village…" : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#06060f] font-mono text-white">
-      {/* ── Header ── */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-2 border-[#4B0082] bg-[#0d0a1a] px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-lg" aria-hidden>🏰</span>
-          <div>
-            <h1 className="text-sm font-bold uppercase leading-none tracking-widest text-[#FFD700]">Claude Dungeon</h1>
-            <p className="mt-0.5 text-[11px] leading-none text-[#AA88FF]">Live Claude Code sessions</p>
-          </div>
+    <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
+      {/* The world */}
+      {world && characters ? (
+        <WorldView
+          key={worldKey}
+          ref={worldRef}
+          world={world}
+          characters={cast}
+          sessions={sessions}
+          projects={projects}
+          selectedId={selectedId}
+          hoveredId={hoveredId}
+          onSelect={select}
+          now={now}
+          hourOverride={hourOverride}
+          reducedMotion={prefs.reducedMotion}
+        />
+      ) : (
+        <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,#173129,#0c1714)]">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
+            <BrandMark size={72} />
+            <div className="font-display text-2xl font-bold">Ai <span className="text-brass">Gramam</span></div>
+            <div className="text-sm text-cream/60">{worlds && worlds.worlds.length === 0 ? "No valid world is installed. Open settings to see why." : "Waking up the village…"}</div>
+          </motion.div>
         </div>
+      )}
 
-        <div className="flex items-center gap-1" aria-label="Session counts">
-          <span className="rounded border border-[#4B0082] px-2 py-1 text-xs text-gray-300">
-            {projects.length} project{projects.length === 1 ? "" : "s"} · {sessions.length} session{sessions.length === 1 ? "" : "s"}
-          </span>
-          {COUNTED.map((st) => (
-            <span key={st} className="rounded px-2 py-1 text-xs font-bold" style={{ color: STATUS_META[st].color, backgroundColor: STATUS_META[st].bg }}>
-              <span aria-hidden>{STATUS_META[st].emoji}</span> {counts[st]} {STATUS_META[st].label}
-            </span>
-          ))}
-        </div>
+      {/* Soft vignette so the glass UI reads over any scene */}
+      <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.35))]" />
 
-        <div className="flex items-center gap-1.5">
-          <label className="flex items-center gap-1 rounded border border-[#4B0082] px-1.5 py-0.5 text-xs text-gray-300">
-            <span aria-hidden>🌍</span>
-            <span className="sr-only">World</span>
-            <select
-              value={world?.id ?? ""}
-              onChange={(e) => chooseWorld(e.target.value)}
-              className="bg-transparent text-xs font-bold text-white outline-none"
-              aria-label="World"
-            >
-              {(worlds?.worlds ?? []).map((w) => (
-                <option key={w.id} value={w.id} className="bg-[#0d0a1a]">{w.name}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            onClick={() => setPanel("worlds")}
-            className={`rounded border px-2 py-1 text-xs font-bold ${worlds?.errors.length ? "border-red-500 text-red-300" : "border-[#4B0082] text-gray-300 hover:text-white"}`}
-            title="Installed worlds"
-          >
-            {worlds?.errors.length ? `⚠️ ${worlds.errors.length} broken` : "Worlds"}
-          </button>
-          <span className={`flex items-center gap-1 rounded border border-gray-700 px-2 py-1 text-xs font-bold ${connected ? "text-green-400" : "text-red-400"}`}>
-            <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-red-500"}`} />
-            {connected ? "Online" : "Offline"}
-          </span>
-          <div className="flex overflow-hidden rounded border border-[#4B0082]" role="group" aria-label="Mode">
-            <button onClick={startLive} aria-pressed={mode === "live"} className={`px-2.5 py-1 text-xs font-bold ${mode === "live" ? "bg-[#8B0000] text-white" : "text-gray-400 hover:text-white"}`}>📡 Live</button>
-            <button onClick={startDemo} aria-pressed={mode === "demo"} className={`px-2.5 py-1 text-xs font-bold ${mode === "demo" ? "bg-[#4B0082] text-white" : "text-gray-400 hover:text-white"}`}>🎮 Demo</button>
-          </div>
-          <button onClick={() => setPanel("hooks")} className="rounded border border-[#fbbf24] px-2.5 py-1 text-xs font-bold text-[#fbbf24] hover:bg-[#fbbf24] hover:text-black">
-            🔔 Alerts {hooks.installed ? "on" : "setup"}
-          </button>
-          <button onClick={() => setPanel("config")} className="rounded border border-[#00AAFF] px-2.5 py-1 text-xs font-bold text-[#00AAFF] hover:bg-[#00AAFF] hover:text-black">⚙️ Config</button>
-          <button onClick={() => setPanel("skills")} className="rounded border border-[#FFAA00] px-2.5 py-1 text-xs font-bold text-[#FFAA00] hover:bg-[#FFAA00] hover:text-black">✨ Skills</button>
-        </div>
-      </header>
+      <TopBar
+        sessions={sessions}
+        projects={projects}
+        worlds={worlds?.worlds ?? []}
+        world={world}
+        brokenPacks={brokenPacks}
+        onWorld={chooseWorld}
+        mode={mode}
+        connected={connected}
+        onLive={startLive}
+        onDemo={startDemo}
+        time={prefs.time}
+        onTime={(time) => update({ time })}
+        onSelect={select}
+        onSettings={(tab) => setSettings((tab as SettingsTab) ?? "alerts")}
+        now={now}
+      />
 
-      <WaitingBanner sessions={sessions} projects={projects} now={now} onSelect={setSelectedId} />
+      <SessionDock
+        sessions={sessions}
+        projects={projects}
+        world={world}
+        characters={cast}
+        selectedId={selectedId}
+        open={prefs.dockOpen}
+        onToggle={() => update({ dockOpen: !prefs.dockOpen })}
+        onSelect={select}
+        onHover={setHoveredId}
+        now={now}
+        emptyHint={emptyHint}
+      />
 
-      {/* ── Main ── */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <nav className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-[#4B0082] bg-[#0a0a18]" aria-label="Live sessions">
-          <div className="border-b border-[#4B0082] bg-[#0d0a1a] px-3 py-2 text-xs font-bold uppercase tracking-widest text-[#AA88FF]">
-            Sessions by project
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <SessionSidebar projects={projects} sessions={sessions} selectedId={selectedId} onSelect={select} now={now} emptyHint={emptyHint} />
-          </div>
-          <div className="border-t border-[#4B0082] bg-[#0d0a1a] p-2 text-[11px] text-gray-500">
-            {mode === "demo" ? (
-              <span className="font-bold text-[#a78bfa]">🎮 Demo mode: simulated sessions</span>
-            ) : hooks.installed ? (
-              <span className="text-green-400">📡 Live · transcripts + hooks</span>
-            ) : (
-              <span>📡 Live · transcripts only. <button className="text-amber-300 underline" onClick={() => setPanel("hooks")}>Set up exact approval alerts</button></span>
-            )}
-          </div>
-        </nav>
-
-        <main className="relative min-w-0 flex-1">
-          {world ? (
-            <WorldView key={`${world.id}@${world.version}`} world={world} sessions={sessions} projects={projects} selectedId={selectedId} onSelect={select} now={now} />
-          ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-gray-400">
-              {worlds ? "No valid world is installed. Open Worlds to see what went wrong." : "Loading worlds…"}
-            </div>
-          )}
-          {fellBack && world && (
-            <div className="absolute left-3 top-3 rounded border border-amber-500/60 bg-amber-950/80 px-2 py-1 text-xs text-amber-200">
-              Your chosen world isn't available right now, showing {world.name}.
-            </div>
-          )}
-          {sessions.length === 0 && (
-            <div className="pointer-events-none absolute bottom-4 right-4 max-w-xs rounded-lg border border-[#4B0082] bg-[#06060fe6] px-4 py-3 text-center">
-              <div className="text-sm font-bold uppercase tracking-widest text-[#a78bfa]">Waiting for sessions</div>
-              <div className="mt-1 whitespace-pre-line text-xs text-gray-400">{emptyHint}</div>
-            </div>
-          )}
-        </main>
-
+      <AnimatePresence>
         {selected && (
-          <div className="w-80 shrink-0 overflow-hidden">
-            <SessionDetail session={selected} project={projects.find((p) => p.id === selected.projectId)} now={now} onClose={() => setSelectedId(null)} />
-          </div>
+          <DetailDrawer
+            key={selected.id}
+            session={selected}
+            project={projects.find((x) => x.id === selected.projectId)}
+            character={pickCharacter(selected.id, world, cast)}
+            now={now}
+            onClose={close}
+            onFocus={() => worldRef.current?.focus(selected.id)}
+            onSetupAlerts={() => setSettings("alerts")}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Empty state */}
+      <AnimatePresence>
+        {sessions.length === 0 && mode === "live" && world && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="glass pointer-events-auto absolute bottom-6 left-1/2 z-20 w-[min(440px,90vw)] -translate-x-1/2 rounded-2xl p-4 text-center"
+          >
+            <div className="font-display text-base font-semibold">The village is quiet</div>
+            <p className="mt-1 text-sm text-cream/65">Start Claude Code in any folder and a villager walks in within a few seconds.</p>
+            <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Footer status */}
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 flex items-center gap-2 text-[11px] text-cream/55">
+        {fellBack && world && <span className="glass pointer-events-auto rounded-xl px-2 py-1 text-wait">Your chosen world isn't available, showing {world.name}</span>}
+        {mode === "demo" ? (
+          <span className="glass rounded-xl px-2 py-1 text-brass">Demo village · simulated sessions</span>
+        ) : hooks.installed ? (
+          <span className="glass rounded-xl px-2 py-1">Live · transcripts + hooks</span>
+        ) : (
+          <button onClick={() => setSettings("alerts")} className="glass pointer-events-auto rounded-xl px-2 py-1 hover:text-cream">Live · transcripts only · <span className="text-wait underline underline-offset-2">exact approval alerts</span></button>
         )}
       </div>
 
-      {panel === "worlds" && <WorldsPanel state={worlds} activeId={world?.id} onChoose={(id) => { chooseWorld(id); setPanel(null); }} onClose={() => setPanel(null)} />}
-      {panel === "hooks" && <HooksPanel onClose={() => setPanel(null)} lastEventAt={hooks.lastEventAt} />}
-      {panel === "skills" && <SkillsManager onClose={() => setPanel(null)} projects={trackedProjects ?? []} />}
-      {panel === "config" && <ConfigPanel onClose={() => setPanel(null)} />}
+      <AnimatePresence>
+        {settings && (
+          <SettingsSheet
+            tab={settings}
+            onTab={setSettings}
+            onClose={() => setSettings(null)}
+            worlds={worlds}
+            activeWorldId={world?.id}
+            onWorld={chooseWorld}
+            characters={characters}
+            lastHookAt={hooks.lastEventAt}
+            reducedMotion={prefs.reducedMotion}
+            onReducedMotion={(reducedMotion) => update({ reducedMotion })}
+            time={prefs.time}
+            onTime={(time) => update({ time })}
+            onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
+          />
+        )}
+      </AnimatePresence>
+      {skillsOpen && <SkillsManager onClose={() => setSkillsOpen(false)} projects={trackedProjects ?? []} />}
+
+      <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-[#13221e]/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
     </div>
   );
 }

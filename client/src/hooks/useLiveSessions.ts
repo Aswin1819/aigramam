@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@shared/model";
 import type { WorldsState } from "@shared/world";
+import type { CharactersState } from "@shared/character";
 
 export type AppMode = "live" | "demo";
 
@@ -11,13 +12,17 @@ const EMPTY: Snapshot = { projects: [], sessions: [], hooks: { installed: false 
  * Also returns `now`, the current time on the server's clock (ticks every
  * second), so elapsed times stay right even if the two clocks differ.
  */
+/** "?demo" in the address opens straight into the demo village (handy for sharing a screenshot). */
+const startInDemo = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo");
+
 export function useLiveSessions() {
-  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
-  const [mode, setMode] = useState<AppMode>("live");
+  const [snapshot, setSnapshot] = useState<Snapshot>(startInDemo ? { ...EMPTY, demo: true } : EMPTY);
+  const [mode, setMode] = useState<AppMode>(startInDemo ? "demo" : "live");
   const [connected, setConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [worlds, setWorlds] = useState<WorldsState | null>(null);
-  const modeRef = useRef<AppMode>("live");
+  const [characters, setCharacters] = useState<CharactersState | null>(null);
+  const modeRef = useRef<AppMode>(startInDemo ? "demo" : "live");
   const wsRef = useRef<WebSocket | null>(null);
   const skewRef = useRef(0);
 
@@ -43,6 +48,10 @@ export function useLiveSessions() {
           const msg = JSON.parse(e.data);
           if (msg?.type === "worlds") {
             setWorlds(msg.payload as WorldsState);
+            return;
+          }
+          if (msg?.type === "characters") {
+            setCharacters(msg.payload as CharactersState);
             return;
           }
           if (msg?.type !== "snapshot") return;
@@ -83,5 +92,5 @@ export function useLiveSessions() {
     send("demo-stop");
   }, [send]);
 
-  return { snapshot, worlds, mode, connected, now, startDemo, startLive };
+  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive };
 }

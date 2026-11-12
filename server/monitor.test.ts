@@ -16,7 +16,7 @@ import { demoSnapshot } from "./monitor/demo";
 
 let tmp: string;
 beforeEach(() => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dungeon-test-"));
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gramam-test-"));
   clearProjectCache();
 });
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));

@@ -44,7 +44,7 @@ const HOME_DIR = os.homedir();
 const CLAUDE_DIR = path.join(HOME_DIR, ".claude");
 const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 const GLOBAL_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
-const DATA_DIR = path.join(HOME_DIR, ".claude-dungeon");
+import { DATA_DIR } from "../_core/paths";
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 
 // ─── Config ───────────────────────────────────────────────────────────────────

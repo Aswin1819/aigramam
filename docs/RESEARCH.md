@@ -1,6 +1,6 @@
-# Phase 0 Research: Indian "Worlds" Edition
+# Phase 0 Research: Ai Gramam
 
-Date: 2026-11-12. Claude Code versions observed on this machine: 2.1.266 to 2.1.322.
+Date: 2026-11-12. (The app was later renamed **Ai Gramam**; this document keeps its original analysis.) Claude Code versions observed on this machine: 2.1.266 to 2.1.322.
 
 Evidence comes from three sources:
 - reading this codebase;
@@ -18,7 +18,7 @@ Anything marked **(unverified)** still needs a quick spike before we rely on it.
         │  fs.watch + 1 s poll (server/websocket.ts)
         ▼
 processLine() ── turns JSONL records into a "Hero" (state, room, activeTools, level/exp/hp)
-        │  in-memory Map<number, Hero>  (+ written to ~/.claude-dungeon/heroes.json on every event)
+        │  in-memory Map<number, Hero>  (+ written to ~/.ai-gramam/heroes.json on every event)
         ▼
 WebSocket /api/ws/agents ── messages: heroes-batch | hero-new | hero-update | hero-levelup
         │
@@ -26,7 +26,7 @@ WebSocket /api/ws/agents ── messages: heroes-batch | hero-new | hero-update 
 client/src/hooks/useHeroSocket.ts ── React state (heroes[], mode live/demo, log)
         │
         ├── pages/Home.tsx ── header, hero sidebar, log, Config / Skills modals (React + Tailwind)
-        └── components/DungeonMapPhaser.tsx ── a Phaser 3.90 scene: fixed 70×40 tile map,
+        └── the original Phaser 3.90 map ── a scene: fixed 70×40 tile map,
              5 hard-coded rooms, BFS pathfinding, sprite animations, name tags
 ```
 
@@ -36,9 +36,9 @@ client/src/hooks/useHeroSocket.ts ── React state (heroes[], mode live/demo, 
 | Liveness | `refreshExpiryTimer` (2 min without writes) and `checkClaudeProcesses` (every 15 s) | The process check only answers "is any `claude.exe` running on this machine", not whether a given session is alive. |
 | Parsing | `processLine` | Handles `assistant` `tool_use` and `user` `tool_result` records. Its `result`, `turn_end`, `system:init` and `parent_tool_use_id` branches are written for the **Agent SDK stream format** and never match a transcript. |
 | State to browser | `ws` WebSocket plus tRPC (`server/routers/agents.ts`) | tRPC handles skills, agents, config and connection status. Hero state goes over the WebSocket. |
-| Remote push | `server/bridge.ts` plus `bridge/claude-dungeon-bridge.mjs` | Optional. Uses a second copy of the parser. |
-| Rendering | `DungeonMapPhaser.tsx` (live) | Phaser with `pixelArt`, on a 3360×1920 canvas scaled to 50% with CSS (no resize handling). Room geometry, NPCs and sprite keys are hard-coded. |
-| Dead code | `DungeonMap.tsx` (old canvas renderer), `PixelOffice`, `pixelEngine`, `AgentPanel`, `TranscriptInput`, `transcriptParser`, `mockData`, `Map`, `ComponentShowcase`, `AIChatBox`, `DashboardLayout`, `ManusDialog` | Nothing imports them, except chains that themselves start from dead files. |
+| Remote push | `server/bridge.ts` plus `bridge/ai-gramam-bridge.mjs` | Optional. Uses a second copy of the parser. |
+| Rendering | The original Phaser map (live) | Phaser with `pixelArt`, on a 3360×1920 canvas scaled to 50% with CSS (no resize handling). Room geometry, NPCs and sprite keys are hard-coded. |
+| Dead code | the old canvas renderer, `PixelOffice`, `pixelEngine`, `AgentPanel`, `TranscriptInput`, `transcriptParser`, `mockData`, `Map`, `ComponentShowcase`, `AIChatBox`, `DashboardLayout`, `ManusDialog` | Nothing imports them, except chains that themselves start from dead files. |
 | Types | `Hero` is defined twice: in `server/routers/agents.ts` and in `client/src/hooks/useHeroSocket.ts` | They can drift apart; `shared/` exists but isn't used for this. |
 
 ### Problems in the current pipeline (they matter for Phase 1)
@@ -165,7 +165,7 @@ Labels are built only from `input` fields (`file_path`, `command`, `pattern`, `q
 | Many sprites (10+ projects × sessions × subagents) | Fine at this scale (dozens of sprites) | Faster at thousands, which we won't reach | Fine |
 
 **How Phaser would be used:**
-- **World rendering in Phaser.** One `WorldScene` built from `world.json`, replacing the hard-coded `DungeonScene`, and responsive with `Scale.FIT` instead of the fixed 3360 px canvas. The existing dungeon becomes the first world pack (`worlds/dungeon`), so current visuals keep working.
+- **World rendering in Phaser.** One `WorldScene` built from `world.json`, replacing the hard-coded original scene, and responsive with `Scale.FIT` instead of the fixed 3360 px canvas. The original map stays only until the first world pack exists.
 - **Text in React, on top of the canvas.** Name tags, speech bubbles, the waiting banner, the sidebar and the detail panel are DOM elements positioned over the canvas. Phaser's scene-to-screen coordinates are projected each frame for the in-world tags. DOM text stays crisp at any zoom, is readable by screen readers, supports Malayalam and Kannada script with system fonts, and keeps "labels are always text" true.
 
 ---
@@ -260,30 +260,30 @@ Packs are **data only**: no code or scripts. Effects are a fixed set of built-in
 2. **Undocumented registry** (`~/.claude/sessions`). Use it only to add detail, and add a test fixture for it.
 3. **Hook latency.** A hung local server could slow Claude Code by up to `timeout` per event. Mitigation: `timeout: 2`, the endpoint replies before doing any work.
 4. **Privacy.** Action labels contain command lines, file names and search queries. They're kept in memory only (no more `heroes.json` on disk), shown only on `127.0.0.1`, and truncated.
-5. **Art and IP.** Only original placeholder art ships. The existing dungeon sprites come from a third-party asset pack whose license we haven't checked; keep the repo private until it's confirmed.
+5. **Art and IP.** Only original placeholder art ships. The original pixel-art sprites came from a third-party asset pack whose license we haven't checked; keep the repo private until it's confirmed.
 6. **Busy screens.** 10+ projects with several sessions each needs the overflow layout and a zoom/pan camera; the sidebar stays the main way to find things.
 
 **Questions for you**
 1. **Hooks:** may I add the HTTP hooks to your **user** `~/.claude/settings.json` (covers every project) behind an "Install hooks" button that shows the change first? Or would you rather paste the JSON yourself? (Recommended: the button, with a preview and an undo.)
 2. **Zip upload** needs a zip-reading library. OK to add **`fflate`** (small, no dependencies, MIT)? Or should drag-a-folder be the only way in v1?
 3. **Template cleanup:** OK to remove the Manus leftovers (OAuth, MySQL/Drizzle, LLM/S3/maps/voice helpers, Google Fonts, Umami, the Manus Vite plugins) and the dead components? That *removes* dependencies and network calls; nothing you use depends on them.
-4. **Where user content lives:** shipped packs in the repo (`worlds/`, `characters/`), and your own packs and uploads in `~/.claude-dungeon/worlds|characters` so they survive `git pull`? (Recommended.)
+4. **Where user content lives:** shipped packs in the repo (`worlds/`, `characters/`), and your own packs and uploads in `~/.ai-gramam/worlds|characters` so they survive `git pull`? (Recommended.)
 5. **Character assignment:** remembered per **project** (stable) or per **session** (sessions come and go)? Recommended: per project, with an optional per-session override.
 6. **Finished sessions:** how long should a finished character stay on screen before walking off? (Proposed: 2 minutes, with the completion effect played once.)
 7. **What counts as one project:** a session's latest `cwd`, or its git repo root (so `repo/` and `repo/client/` are the same place)? Recommended: the git root when there is one, otherwise `cwd`.
-8. **The existing dungeon:** keep it as a selectable "Dungeon" world (third-party sprites, private repo only), or drop it once Kerala exists?
+8. **The original map:** keep it as a selectable world (third-party sprites, private repo only), or drop it once Kerala exists?
 
 **Decisions (2026-11-12):** all recommendations above were approved.
 1. Hooks go in through an Install button with a preview, a backup and an undo, and never install automatically. The user knows they apply to every project.
 2. `fflate` is approved for zip upload.
 3. Template cleanup is approved.
-4. User packs live in `~/.claude-dungeon/`.
+4. User packs live in `~/.ai-gramam/`.
 5. Characters are chosen per project, with a per-session override.
 6. Finished sessions stay 2 minutes.
 7. Project = the git root.
-8. The old dungeon is **removed**. It stays only as a temporary Phase 1 scaffold and is deleted (with its sprites) in Phase 2.
+8. The original map is **removed**. It stays only as a temporary Phase 1 scaffold and is deleted (with its sprites) in Phase 2.
 
-Also agreed: nothing outside this repo and `~/.claude-dungeon` is changed, and all git actions use the Aswin1819 account only.
+Also agreed: nothing outside this repo and `~/.ai-gramam` is changed, and all git actions use the Aswin1819 account only.
 
 ---
 
@@ -291,7 +291,7 @@ Also agreed: nothing outside this repo and `~/.claude-dungeon` is changed, and a
 
 After every phase: `vitest` and `tsc` pass, the existing e2e scripts pass, it's checked in Chrome at `127.0.0.1:4317`, and it works on Windows.
 
-### Phase 1: State model and identity (on the existing dungeon visuals)
+### Phase 1: State model and identity (on the original map)
 - New `server/monitor/`:
   - transcript tailer (start from the tail, buffer partial lines, string-content safe, watch subagents);
   - session registry reader;
@@ -316,10 +316,10 @@ After every phase: `vitest` and `tsc` pass, the existing e2e scripts pass, it's 
   - no network requests besides `127.0.0.1` (checked in the browser's network log).
 
 ### Phase 2: World system and Kerala
-- World loader with validation (zod), a static route for assets that only serves files from validated packs, hot reload via `fs.watch` (debounced) over `worlds/` and `~/.claude-dungeon/worlds`, and a `world-changed` WebSocket message.
+- World loader with validation (zod), a static route for assets that only serves files from validated packs, hot reload via `fs.watch` (debounced) over `worlds/` and `~/.ai-gramam/worlds`, and a `world-changed` WebSocket message.
 - Generic `WorldScene` (layers, locations, signboards, scenes, ambient effects, completion effect); a world switcher in the header that remembers your choice.
 - **Kerala** with generated placeholder art (simple shapes and colour blocks drawn by a script, committed as PNGs).
-- The existing dungeon is turned into a world pack (if kept).
+- The original map is removed with its third-party sprites.
 - **Done when:** switching worlds needs no page reload; dropping a new folder in `worlds/` makes it selectable in under 3 s without a restart; a broken `world.json` shows its errors in the UI and falls back to the default; tests cover the validator.
 
 ### Phase 3: Character packs
@@ -341,5 +341,5 @@ After every phase: `vitest` and `tsc` pass, the existing e2e scripts pass, it's 
 
 ### Phase 6: Docs
 - `docs/WORLDS.md` and `docs/PACKS.md`: the exact sprite-sheet layout with a diagram, limits, examples, and how to zip and share.
-- README: credits the original Claude Dungeon author (thousandsky2024) and the MIT license, lists changes, explains setup on Windows.
+- README: credits the original author (thousandsky2024) and the MIT license, lists changes, explains setup on Windows.
 - **Done when:** someone can build a new pack from `PACKS.md` alone, and it passes validation on the first try.

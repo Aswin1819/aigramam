@@ -1,133 +1,74 @@
 /**
- * Bridge API tests
+ * Bridge API key + bridge script checks, and the one-time data-folder carry-over.
  */
-
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
+import { getOrCreateApiKey } from "./bridge";
+import { migrateLegacyData } from "./_core/paths";
 
-// Use a temp dir for testing
-const TEST_DIR = path.join(os.tmpdir(), "claude-dungeon-test-" + Date.now());
-const TEST_CONFIG_PATH = path.join(TEST_DIR, "config.json");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const SCRIPT = path.join(ROOT, "bridge", "ai-gramam-bridge.mjs");
+let tmp: string;
 
-// Mock the DATA_DIR by temporarily overriding the module
-// We'll test the helper functions directly
+beforeEach(() => {
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gramam-bridge-"));
+});
+afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
-function ensureTestDir() {
-  if (!fs.existsSync(TEST_DIR)) fs.mkdirSync(TEST_DIR, { recursive: true });
-}
-
-function cleanupTestDir() {
-  if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true, force: true });
-}
-
-function loadTestConfig(): Record<string, unknown> {
-  try {
-    if (fs.existsSync(TEST_CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(TEST_CONFIG_PATH, "utf-8"));
-    }
-  } catch {}
-  return {};
-}
-
-function saveTestConfig(config: Record<string, unknown>) {
-  ensureTestDir();
-  fs.writeFileSync(TEST_CONFIG_PATH, JSON.stringify(config, null, 2));
-}
-
-function getOrCreateTestApiKey(): string {
-  const config = loadTestConfig();
-  if (config.bridgeApiKey && typeof config.bridgeApiKey === "string") {
-    return config.bridgeApiKey;
-  }
-  const key = "cpab_" + Array.from({ length: 32 }, () =>
-    Math.random().toString(36)[2]
-  ).join("");
-  saveTestConfig({ ...config, bridgeApiKey: key });
-  return key;
-}
-
-describe("Bridge API Key Management", () => {
-  beforeEach(() => {
-    ensureTestDir();
+describe("bridge API key", () => {
+  it("creates an unguessable key once and keeps it", () => {
+    const key = getOrCreateApiKey(tmp);
+    expect(key).toMatch(/^gramam_[0-9a-f]{48}$/);
+    expect(getOrCreateApiKey(tmp)).toBe(key);
+    expect(JSON.parse(fs.readFileSync(path.join(tmp, "config.json"), "utf8")).bridgeApiKey).toBe(key);
   });
 
-  afterEach(() => {
-    cleanupTestDir();
-  });
-
-  it("generates a new API key when none exists", () => {
-    const key = getOrCreateTestApiKey();
-    expect(key).toBeTruthy();
-    expect(key).toMatch(/^cpab_[a-z0-9]{32}$/);
-  });
-
-  it("returns the same key on subsequent calls", () => {
-    const key1 = getOrCreateTestApiKey();
-    const key2 = getOrCreateTestApiKey();
-    expect(key1).toBe(key2);
-  });
-
-  it("persists the key to config file", () => {
-    const key = getOrCreateTestApiKey();
-    const config = loadTestConfig();
-    expect(config.bridgeApiKey).toBe(key);
-  });
-
-  it("uses existing key from config file", () => {
-    const existingKey = "cpab_existingkey12345678901234567890";
-    saveTestConfig({ bridgeApiKey: existingKey });
-    const key = getOrCreateTestApiKey();
-    expect(key).toBe(existingKey);
-  });
-
-  it("API key has correct format (cpab_ prefix + 32 chars)", () => {
-    const key = getOrCreateTestApiKey();
-    const parts = key.split("_");
-    expect(parts[0]).toBe("cpab");
-    expect(parts[1]).toHaveLength(32);
+  it("keeps an existing key and other settings", () => {
+    fs.writeFileSync(path.join(tmp, "config.json"), JSON.stringify({ bridgeApiKey: "existing-key", theme: "dark" }));
+    expect(getOrCreateApiKey(tmp)).toBe("existing-key");
+    expect(JSON.parse(fs.readFileSync(path.join(tmp, "config.json"), "utf8")).theme).toBe("dark");
   });
 });
 
-describe("Bridge Script Validation", () => {
-  it("bridge script file exists", () => {
-    const bridgePath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
-      "bridge",
-      "claude-dungeon-bridge.mjs"
-    );
-    expect(fs.existsSync(bridgePath)).toBe(true);
+describe("data folder carry-over", () => {
+  it("copies config and hook key from the old folder once, leaving the old folder untouched", () => {
+    const legacy = path.join(tmp, "old");
+    const fresh = path.join(tmp, "new");
+    fs.mkdirSync(legacy);
+    fs.writeFileSync(path.join(legacy, "config.json"), '{"bridgeApiKey":"k"}');
+    fs.writeFileSync(path.join(legacy, "hook-key"), "a".repeat(48));
+    fs.writeFileSync(path.join(legacy, "heroes.json"), "[]");
+    expect(migrateLegacyData(fresh, legacy).sort()).toEqual(["config.json", "hook-key"]);
+    expect(fs.readFileSync(path.join(fresh, "config.json"), "utf8")).toBe('{"bridgeApiKey":"k"}');
+    expect(fs.existsSync(path.join(fresh, "heroes.json"))).toBe(false);
+    expect(fs.readdirSync(legacy).sort()).toEqual(["config.json", "heroes.json", "hook-key"]);
+    fs.writeFileSync(path.join(fresh, "config.json"), "{}");
+    expect(migrateLegacyData(fresh, legacy)).toEqual([]); // never overwrites
+    expect(fs.readFileSync(path.join(fresh, "config.json"), "utf8")).toBe("{}");
+    expect(migrateLegacyData(path.join(tmp, "x"), path.join(tmp, "missing"))).toEqual([]);
   });
+});
 
-  it("bridge script is valid JavaScript (no syntax errors)", () => {
-    const bridgePath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
-      "bridge",
-      "claude-dungeon-bridge.mjs"
-    );
-    const content = fs.readFileSync(bridgePath, "utf-8");
-    // Basic checks
-    expect(content).toContain("CLAUDE_DUNGEON_API_KEY");
-    expect(content).toContain("CLAUDE_DUNGEON_SERVER");
+describe("bridge script", () => {
+  it("is present, uses the Ai Gramam names and talks to the bridge API", () => {
+    const content = fs.readFileSync(SCRIPT, "utf-8");
+    expect(content).toContain("AI_GRAMAM_API_KEY");
     expect(content).toContain("/api/bridge/heroes");
     expect(content).toContain("x-bridge-api-key");
+    expect(content).not.toMatch(/dungeon|cpab_/i);
   });
 
-  it("bridge script defaults to the local server, not a third-party host", () => {
-    const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-    const content = fs.readFileSync(path.join(root, "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
-    expect(content).toMatch(/process\.env\.CLAUDE_DUNGEON_SERVER \|\|\s*"http:\/\/localhost:4317"/);
+  it("defaults to the local server, not a third-party host", () => {
+    const content = fs.readFileSync(SCRIPT, "utf-8");
+    expect(content).toMatch(/process\.env\.AI_GRAMAM_SERVER \|\|\s*"http:\/\/localhost:4317"/);
     expect(content).not.toContain("manus.space");
   });
 
-  it("downloadable bridge script matches the source copy", () => {
-    const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-    const source = fs.readFileSync(path.join(root, "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
-    const served = fs.readFileSync(path.join(root, "client", "public", "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
-    expect(served).toBe(source);
+  it("downloadable copy matches the source", () => {
+    const served = fs.readFileSync(path.join(ROOT, "client", "public", "bridge", "ai-gramam-bridge.mjs"), "utf-8");
+    expect(served).toBe(fs.readFileSync(SCRIPT, "utf-8"));
   });
 });

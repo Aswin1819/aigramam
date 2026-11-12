@@ -16,7 +16,7 @@ const coord = z.number().finite().min(-10000).max(10000);
 
 export const ANIM_NAMES = ["idle", "walk", "read", "write", "bash", "wait", "celebrate", "error"] as const;
 export const FX_NAMES = ["none", "sparks", "signal", "bell", "smoke", "glow", "steam"] as const;
-export const AMBIENT_TYPES = ["rain", "birds", "fireflies", "drift"] as const;
+export const AMBIENT_TYPES = ["rain", "birds", "fireflies", "lightning"] as const;
 export const COMPLETION_EFFECTS = ["lamp-row", "vehicle-pass", "confetti"] as const;
 export const SCENE_KINDS = ["read", "search", "write", "bash", "web", "delegate", "question", "tool", "think", "waiting", "idle", "done", "error"] as const;
 
@@ -42,6 +42,12 @@ export const locationSchema = z
     y: coord,
     prop: file.optional(),
     propScale: z.number().min(0.1).max(10).default(1),
+    /** How far below the standing spot the prop's bottom edge is (e.g. a boat's hull below its deck). */
+    propDy: coord.default(18),
+    /** Gentle motion shared by the prop and everyone standing there (a houseboat bobbing). */
+    propAnim: z.enum(["none", "bob"]).default("none"),
+    propAmp: z.number().min(0).max(40).default(2),
+    propSpeed: z.number().min(0).max(5).default(0.25),
     /** Where the signboard text sits, relative to x/y. */
     signboard: z.object({ dx: coord, dy: coord }).strict().default({ dx: 0, dy: -120 }),
     /** How many characters can stand here before they bunch up. */
@@ -58,6 +64,52 @@ export const sceneSchema = z
     /** Where the character stands relative to its spot while doing this. */
     offsetX: coord.default(0),
     offsetY: coord.default(0),
+  })
+  .strict();
+
+export const DECOR_ANIMS = ["none", "sway", "bob", "drift", "flicker", "dip", "pulse"] as const;
+
+/** Animated scenery: palms that sway, clouds that drift, lamps that glow at night… */
+export const decorSchema = z
+  .object({
+    id,
+    image: file,
+    x: coord,
+    y: coord,
+    scale: z.number().min(0.05).max(10).default(1),
+    originX: z.number().min(0).max(1).default(0.5),
+    originY: z.number().min(0).max(1).default(1),
+    flipX: z.boolean().default(false),
+    /** sky = behind the scenery layers (clouds); scene = sorted with props and characters by y; front = above everything. */
+    layer: z.enum(["sky", "scene", "front"]).default("scene"),
+    anim: z.enum(DECOR_ANIMS).default("none"),
+    /** Strength: degrees for sway/dip, pixels for bob, 0..1 for flicker/pulse. */
+    amp: z.number().min(0).max(200).default(1),
+    /** Cycles per second (drift: pixels per second, negative = leftwards). */
+    speed: z.number().min(-400).max(400).default(1),
+    phase: z.number().min(0).max(1000).default(0),
+    /** When it's visible: always, only at night (lamps, glows) or hidden at night. */
+    night: z.enum(["always", "only", "hide"]).default("always"),
+    blend: z.enum(["normal", "add"]).default("normal"),
+    alpha: z.number().min(0).max(1).default(1),
+  })
+  .strict();
+
+const hour = z.number().min(0).max(24);
+
+/** Time of day: sky gradient and scene tint by hour, interpolated. */
+export const lightingSchema = z
+  .object({
+    /** clock = follow this computer's local time; fixed = always fixedHour. */
+    mode: z.enum(["clock", "fixed"]).default("clock"),
+    fixedHour: hour.default(10),
+    sky: z.array(z.object({ hour, top: color, bottom: color }).strict()).min(2).max(24),
+    tint: z.array(z.object({ hour, color, alpha: z.number().min(0).max(0.9) }).strict()).min(1).max(24),
+    sun: z.boolean().default(true),
+    stars: z.boolean().default(true),
+    /** Hours treated as night (lamps on, fireflies, stars). */
+    nightFrom: hour.default(19),
+    nightTo: hour.default(6),
   })
   .strict();
 
@@ -103,6 +155,8 @@ export const worldSchema = z
       })
       .strict()
       .optional(),
+    decor: z.array(decorSchema).max(120).default([]),
+    lighting: lightingSchema.optional(),
     scenes: z.partialRecord(z.enum(SCENE_KINDS), sceneSchema).default({}),
     ambient: z.array(ambientSchema).max(6).default([]),
     completion: z
@@ -119,6 +173,8 @@ export const worldSchema = z
 
 export type WorldDef = z.infer<typeof worldSchema>;
 export type LocationDef = z.infer<typeof locationSchema>;
+export type DecorDef = z.infer<typeof decorSchema>;
+export type LightingDef = z.infer<typeof lightingSchema>;
 export type SceneKind = (typeof SCENE_KINDS)[number];
 
 /** A validated world as sent to the browser: file paths are replaced by URLs. */

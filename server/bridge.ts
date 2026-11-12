@@ -1,22 +1,19 @@
 /**
- * Bridge API - Receives data from local Claude Code Bridge script
+ * Bridge API - receives session updates from the optional remote bridge script
  *
  * The local bridge script runs on the user's machine, watches ~/.claude/projects/
- * and POSTs hero updates to this endpoint. This allows the cloud-hosted web app
- * to display real-time Claude Code activity without direct filesystem access.
+ * and POSTs session updates here, so Ai Gramam can show Claude Code activity
+ * from another machine.
  *
- * Security: protected by a shared API key stored in ~/.claude-dungeon/config.json
+ * Security: protected by a shared API key stored in ~/.ai-gramam/config.json
  */
 
 import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
-import os from "os";
 import crypto from "crypto";
 import { isLocalRequest } from "./_core/security";
-
-const DATA_DIR = path.join(os.homedir(), ".claude-dungeon");
-const CONFIG_PATH = path.join(DATA_DIR, "config.json");
+import { DATA_DIR } from "./_core/paths";
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
@@ -25,27 +22,25 @@ interface Config {
   claudeDir?: string;
 }
 
-function loadConfig(): Config {
+function loadConfig(dir = DATA_DIR): Config {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
-    }
-  } catch {}
-  return {};
+    return JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf-8"));
+  } catch {
+    return {};
+  }
 }
 
-function saveConfig(config: Config) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+function saveConfig(config: Config, dir = DATA_DIR) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "config.json"), JSON.stringify(config, null, 2));
 }
 
-function getOrCreateApiKey(): string {
-  const config = loadConfig();
+/** The key the remote bridge must send; created on first use. Anyone holding it can push sessions here. */
+export function getOrCreateApiKey(dir = DATA_DIR): string {
+  const config = loadConfig(dir);
   if (config.bridgeApiKey) return config.bridgeApiKey;
-  // Generate a random API key
-  // Must be unguessable: anyone holding it can push heroes to this server
-  const key = "cpab_" + crypto.randomBytes(24).toString("hex");
-  saveConfig({ ...config, bridgeApiKey: key });
+  const key = "gramam_" + crypto.randomBytes(24).toString("hex");
+  saveConfig({ ...config, bridgeApiKey: key }, dir);
   return key;
 }
 
@@ -151,4 +146,4 @@ export function createBridgeRouter(
   return router;
 }
 
-export { getOrCreateApiKey, loadConfig, saveConfig };
+export { loadConfig, saveConfig };

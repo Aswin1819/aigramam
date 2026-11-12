@@ -14,6 +14,7 @@ import { Monitor } from "./monitor/monitor";
 import { resolveProject } from "./monitor/projectRoot";
 import type { HookPayload } from "./monitor/store";
 import type { WorldsState } from "@shared/world";
+import type { CharactersState } from "@shared/character";
 
 const FLUSH_MS = 150;
 const DEMO_TICK_MS = 1000;
@@ -25,6 +26,7 @@ const bridgeSessions = new Map<string, SessionView>();
 let flushTimer: NodeJS.Timeout | null = null;
 let lastSent = "";
 let worldsState: (() => WorldsState) | null = null;
+let charactersState: (() => CharactersState) | null = null;
 
 export function getMonitor() {
   return monitor;
@@ -87,15 +89,17 @@ function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
 // ── Worlds ────────────────────────────────────────────────────────────────────
 
 function sendWorlds(ws: WebSocket) {
-  if (!worldsState || ws.readyState !== WebSocket.OPEN) return;
+  if (ws.readyState !== WebSocket.OPEN) return;
   try {
-    ws.send(JSON.stringify({ type: "worlds", payload: worldsState() }));
+    if (worldsState) ws.send(JSON.stringify({ type: "worlds", payload: worldsState() }));
+    if (charactersState) ws.send(JSON.stringify({ type: "characters", payload: charactersState() }));
   } catch {}
 }
 
 /** Called once at startup; every tab gets the world list on connect and on change. */
-export function setWorldsSource(get: () => WorldsState) {
+export function setWorldsSource(get: () => WorldsState, getCharacters: () => CharactersState) {
   worldsState = get;
+  charactersState = getCharacters;
 }
 
 export function broadcastWorlds() {

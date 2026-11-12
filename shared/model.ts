@@ -109,7 +109,8 @@ export interface Snapshot {
 
 export type ServerMessage =
   | { type: "snapshot"; payload: Snapshot }
-  | { type: "worlds"; payload: import("./world").WorldsState };
+  | { type: "worlds"; payload: import("./world").WorldsState }
+  | { type: "characters"; payload: import("./character").CharactersState };
 export type ClientMessage =
   | { type: "demo-start"; payload: null }
   | { type: "demo-stop"; payload: null };

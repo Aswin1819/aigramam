@@ -1,4 +1,5 @@
-import { WorldManager } from "./manager";
+import { CharacterManager, WorldManager } from "./manager";
 
-/** The app's single world manager (started from server/_core/index.ts). */
+/** The app's world and character managers (started from server/_core/index.ts). */
 export const worldManager = new WorldManager();
+export const characterManager = new CharacterManager();

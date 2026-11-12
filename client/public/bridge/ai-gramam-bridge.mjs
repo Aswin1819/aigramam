@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * Claude Dungeon Bridge Script
+ * Ai Gramam Bridge Script
  *
  * Run this on your LOCAL machine to push Claude Code activity
- * to a Claude Dungeon server (local by default, or one you host).
+ * to a Ai Gramam server (local by default, or one you host).
  *
  * Usage:
- *   node claude-dungeon-bridge.mjs --server http://localhost:4317 --key YOUR_API_KEY
+ *   node ai-gramam-bridge.mjs --server http://localhost:4317 --key YOUR_API_KEY
  *
  * Or set environment variables:
- *   CLAUDE_DUNGEON_SERVER=http://localhost:4317   (default; set to your own server URL if hosted elsewhere)
- *   CLAUDE_DUNGEON_API_KEY=cpab_xxxxx
- *   node claude-dungeon-bridge.mjs
+ *   AI_GRAMAM_SERVER=http://localhost:4317   (default; set to your own server URL if hosted elsewhere)
+ *   AI_GRAMAM_API_KEY=gramam_xxxxx
+ *   node ai-gramam-bridge.mjs
  *
  * How to get your API key:
- *   1. Open the Claude Dungeon web app
+ *   1. Open the Ai Gramam web app
  *   2. Click "⚙️ Config" in the header
  *   3. Copy the Bridge API Key shown there
  *
@@ -33,9 +33,9 @@ const args = parseArgs(process.argv.slice(2));
 const CONFIG = {
   server:
     args.server ||
-    process.env.CLAUDE_DUNGEON_SERVER ||
+    process.env.AI_GRAMAM_SERVER ||
     "http://localhost:4317",
-  apiKey: args.key || process.env.CLAUDE_DUNGEON_API_KEY || "",
+  apiKey: args.key || process.env.AI_GRAMAM_API_KEY || "",
   claudeDir:
     args["claude-dir"] ||
     process.env.CLAUDE_DIR ||
@@ -476,7 +476,7 @@ async function pushHeroes() {
 
 async function main() {
   console.log("╔════════════════════════════════════════╗");
-  console.log("║     Claude Dungeon Bridge v1.0         ║");
+  console.log("║     Ai Gramam Bridge v1.0         ║");
   console.log("╚════════════════════════════════════════╝");
   console.log("");
   console.log(`  Server:    ${CONFIG.server}`);
@@ -488,7 +488,7 @@ async function main() {
   if (!CONFIG.apiKey) {
     console.log("⚠️  WARNING: No API key set!");
     console.log("   Get your key from the web app → Config → Bridge API Key");
-    console.log("   Then run: CLAUDE_DUNGEON_API_KEY=cpab_xxx node claude-dungeon-bridge.mjs");
+    console.log("   Then run: AI_GRAMAM_API_KEY=gramam_xxx node ai-gramam-bridge.mjs");
     console.log("");
   }
 

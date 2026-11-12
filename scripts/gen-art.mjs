@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+/**
+ * Regenerates all built-in placeholder art (original, CC0):
+ *   node scripts/gen-art.mjs            worlds + characters
+ *   node scripts/gen-art.mjs worlds     only worlds
+ *   node scripts/gen-art.mjs characters only characters
+ * Deterministic: running it again produces identical files.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { buildKerala } from "./art/kerala.mjs";
+
+const root = path.resolve(import.meta.dirname, "..");
+const what = process.argv[2] ?? "all";
+const started = Date.now();
+
+if (what === "all" || what === "worlds") {
+  const dir = path.join(root, "worlds", "kerala", "assets");
+  fs.rmSync(dir, { recursive: true, force: true });
+  buildKerala(dir);
+}
+if (what === "all" || what === "characters") {
+  const { buildCharacters } = await import("./art/characters.mjs");
+  buildCharacters(path.join(root, "characters"));
+}
+console.log(`Done in ${((Date.now() - started) / 1000).toFixed(1)}s`);

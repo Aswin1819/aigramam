@@ -1,7 +1,7 @@
 /**
  * Install / uninstall our HTTP hooks in ~/.claude/settings.json.
  * Nothing changes until the user confirms in the UI after seeing the preview.
- * A backup of the previous file is saved in ~/.claude-dungeon/backups first.
+ * A backup of the previous file is saved in ~/.ai-gramam/backups first.
  */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";

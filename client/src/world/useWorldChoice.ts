@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { WorldInfo, WorldsState } from "@shared/world";
 
-const KEY = "claude-dungeon.world";
+const KEY = "ai-gramam.world";
 
 function readSaved(): string | null {
   try {

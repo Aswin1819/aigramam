@@ -8,10 +8,11 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { BIND_HOST, hostAndOriginGuard, localOnly } from "./security";
 import { isProduction, runtime } from "./runtime";
+import { migrateLegacyData } from "./paths";
 import { initializeWebSocket, getBroadcastCallbacks, handleHook, setHooksInstalled } from "../websocket";
 import { createBridgeRouter } from "../bridge";
 import { createHooksRouter, getOrCreateHookKey, HooksInstaller, HOOK_PATH } from "../monitor/hooks";
-import { worldManager } from "../worlds";
+import { characterManager, worldManager } from "../worlds";
 import { broadcastWorlds, setWorldsSource } from "../websocket";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -34,6 +35,8 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  const carried = migrateLegacyData();
+  if (carried.length) console.log(`[Ai Gramam] Copied ${carried.join(", ")} from the old data folder`);
   const app = express();
   const server = createServer(app);
   // Reject foreign Host headers (DNS rebinding) and cross-site browser requests
@@ -50,10 +53,13 @@ async function startServer() {
     })
   );
   // World packs (hot reloaded) + their assets
-  setWorldsSource(() => worldManager.state);
+  setWorldsSource(() => worldManager.state, () => characterManager.state);
   worldManager.onChange(() => broadcastWorlds());
+  characterManager.onChange(() => broadcastWorlds());
   worldManager.start();
+  characterManager.start();
   app.use("/world-assets", worldManager.assetsRouter());
+  app.use("/character-assets", characterManager.assetsRouter());
 
   // Live session monitor + WebSocket
   initializeWebSocket(server);

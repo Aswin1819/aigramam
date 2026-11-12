@@ -1,7 +1,7 @@
 /**
  * Local-only security guards.
  *
- * Claude Dungeon reads and writes files under ~/.claude, so its API must only be
+ * Ai Gramam reads and writes files under ~/.claude, so its API must only be
  * reachable by the person sitting at this machine:
  *   - the server binds to 127.0.0.1 by default (HOST env to override)
  *   - the Host header must be a loopback name (blocks DNS-rebinding attacks)

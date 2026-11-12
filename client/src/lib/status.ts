@@ -1,12 +1,14 @@
 import type { SessionStatus, SessionView, WaitingReason } from "@shared/model";
 
 export const STATUS_META: Record<SessionStatus, { label: string; emoji: string; color: string; bg: string }> = {
-  working: { label: "Working", emoji: "⚙️", color: "#7dd3fc", bg: "#0c4a6e55" },
-  waiting: { label: "Waiting for you", emoji: "🔔", color: "#fbbf24", bg: "#78350f66" },
-  idle: { label: "Idle", emoji: "💤", color: "#9ca3af", bg: "#37415144" },
-  finished: { label: "Finished", emoji: "✅", color: "#86efac", bg: "#14532d55" },
-  error: { label: "Error", emoji: "⚠️", color: "#fca5a5", bg: "#7f1d1d66" },
+  working: { label: "Working", emoji: "⚙️", color: "#5eead4", bg: "rgba(94, 234, 212, 0.14)" },
+  waiting: { label: "Waiting for you", emoji: "🔔", color: "#f5b33d", bg: "rgba(245, 179, 61, 0.16)" },
+  idle: { label: "Idle", emoji: "💤", color: "#9aa7a3", bg: "rgba(154, 167, 163, 0.14)" },
+  finished: { label: "Finished", emoji: "✅", color: "#8ee59a", bg: "rgba(142, 229, 154, 0.14)" },
+  error: { label: "Error", emoji: "⚠️", color: "#ff8a80", bg: "rgba(255, 90, 79, 0.16)" },
 };
+
+export const URGENT_COLOR = "#ff5a4f";
 
 export const WAITING_META: Record<WaitingReason, { label: string; urgent: boolean }> = {
   permission: { label: "Needs approval", urgent: true },
@@ -21,6 +23,10 @@ export function statusText(s: Pick<SessionView, "status" | "waitingReason">): st
 
 export function isUrgent(s: Pick<SessionView, "status" | "waitingReason">): boolean {
   return s.status === "waiting" && !!s.waitingReason && WAITING_META[s.waitingReason].urgent;
+}
+
+export function statusColor(s: Pick<SessionView, "status" | "waitingReason">): string {
+  return isUrgent(s) ? URGENT_COLOR : STATUS_META[s.status].color;
 }
 
 /** "45s", "12m", "3h 05m" */
@@ -41,4 +47,10 @@ export function clockTime(at: number): string {
 export function waitingOrder(a: SessionView, b: SessionView): number {
   const rank = (s: SessionView) => (isUrgent(s) ? 0 : s.status === "waiting" ? 1 : 2);
   return rank(a) - rank(b) || a.statusSince - b.statusSince;
+}
+
+/** Order for lists: needs-you first, then working, then idle/finished. */
+export function attentionOrder(a: SessionView, b: SessionView): number {
+  const rank = (s: SessionView) => (isUrgent(s) ? 0 : s.status === "waiting" ? 1 : s.status === "error" ? 2 : s.status === "working" ? 3 : 4);
+  return rank(a) - rank(b) || a.title.localeCompare(b.title);
 }

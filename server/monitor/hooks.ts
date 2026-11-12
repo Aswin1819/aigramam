@@ -8,10 +8,11 @@ import os from "os";
 import path from "path";
 import express, { type Request, type Response, type Router } from "express";
 import { isLocalRequest } from "../_core/security";
+import { DATA_DIR } from "../_core/paths";
 import type { HookPayload } from "./store";
 
 export const HOOK_PATH = "/api/hooks";
-export const HOOK_HEADER = "x-dungeon-hook-key";
+export const HOOK_HEADER = "x-ai-gramam-key";
 
 /** Events we listen to. All are informational; we never return a decision. */
 export const HOOK_EVENTS = [
@@ -33,7 +34,7 @@ const HOOK_TIMEOUT_SEC = 2;
 
 // ── Shared secret (stored with the app's own data, not in ~/.claude) ─────────
 
-export function getOrCreateHookKey(dataDir = path.join(os.homedir(), ".claude-dungeon")): string {
+export function getOrCreateHookKey(dataDir = DATA_DIR): string {
   const file = path.join(dataDir, "hook-key");
   try {
     const k = fs.readFileSync(file, "utf8").trim();
@@ -147,7 +148,7 @@ export interface HooksStatus {
 export class HooksInstaller {
   constructor(
     readonly settingsPath = path.join(os.homedir(), ".claude", "settings.json"),
-    private readonly backupDir = path.join(os.homedir(), ".claude-dungeon", "backups"),
+    private readonly backupDir = path.join(DATA_DIR, "backups"),
   ) {}
 
   private read(): { settings: Settings; raw: string | null } {
@@ -182,7 +183,7 @@ export class HooksInstaller {
     return { before: raw ?? "", after: JSON.stringify(next, null, 2) + "\n" };
   }
 
-  /** Writes the new settings after saving a timestamped backup in ~/.claude-dungeon/backups. */
+  /** Writes the new settings after saving a timestamped backup in ~/.ai-gramam/backups. */
   apply(port: number, key: string, mode: "install" | "uninstall"): { backupPath: string | null } {
     const { before, after } = this.preview(port, key, mode);
     let backupPath: string | null = null;
@@ -192,7 +193,7 @@ export class HooksInstaller {
       fs.writeFileSync(backupPath, before, "utf8");
     }
     fs.mkdirSync(path.dirname(this.settingsPath), { recursive: true });
-    const tmp = `${this.settingsPath}.dungeon-tmp`;
+    const tmp = `${this.settingsPath}.ai-gramam-tmp`;
     fs.writeFileSync(tmp, after, "utf8");
     fs.renameSync(tmp, this.settingsPath);
     return { backupPath };

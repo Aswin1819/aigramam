@@ -1,53 +1,29 @@
-# Contributing to Claude Dungeon
+# Contributing to Ai Gramam
 
-Thank you for your interest in contributing! Here's how to get started.
-
-## Development Setup
+## Setup (Windows, macOS or Linux)
 
 ```bash
-git clone https://github.com/your-username/claude-dungeon
-cd claude-dungeon
-pnpm install
+npx -y pnpm@10.4.1 install
 cp .env.example .env   # optional: change PORT
-pnpm dev
+npx pnpm@10.4.1 dev
 ```
 
-## Project Conventions
+## Conventions
 
-- **TypeScript everywhere** — no plain JS files in `client/src/` or `server/`
-- **tRPC for all API calls** — define procedures in `server/routers/`, consume with `trpc.*` hooks
-- **Canvas rendering** — all dungeon visuals live in `client/src/components/DungeonMap.tsx`
-- **Tests required** — add or update Vitest specs in `server/*.test.ts` for any backend changes
-
-Run tests:
+- **TypeScript everywhere**; shared types live in `shared/`.
+- **Local only**: the server binds to `127.0.0.1`; no telemetry, CDNs, web fonts or external calls.
+- **Packs are data**: worlds and characters are JSON + images, validated with zod; never code.
+- **Original art only**: no real people, film or cartoon characters, logos, film dialogue or music. Every pack declares an author and license.
+- **Text, not only icons**: every state and action needs a text label.
+- **Tests**: add or update Vitest specs in `server/*.test.ts` for server changes.
 
 ```bash
-pnpm test
+npx pnpm@10.4.1 test
+npx pnpm@10.4.1 check
 ```
 
-## Pull Request Guidelines
+## Pull requests
 
-1. Fork the repo and create a feature branch: `git checkout -b feat/my-feature`
-2. Keep PRs focused — one feature or fix per PR
-3. All tests must pass (`pnpm test`)
-4. TypeScript must compile cleanly (`npx tsc --noEmit`)
-5. Add a brief description of what changed and why
-
-## Good First Issues
-
-- [ ] Hero movement animation along corridors (lerp between room positions)
-- [ ] Sound effects using Web Audio API (sword clash, footsteps)
-- [ ] Dark/light theme toggle
-- [ ] Mobile-responsive canvas scaling
-- [ ] Support for Cursor / GitHub Copilot agent detection
-
-## Code Style
-
-- Prettier handles formatting (run `pnpm format`)
-- Use `const` over `let` where possible
-- Prefer named exports over default exports for components
-- Keep `DungeonMap.tsx` drawing functions pure (no side effects)
-
-## Questions?
-
-Open a GitHub Discussion or file an issue.
+1. Work on a feature branch.
+2. Keep changes focused; describe what changed and why.
+3. Tests and type checks must pass.

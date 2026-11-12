@@ -54,33 +54,33 @@ function ItemEditor({ initialContent, onSave, onCancel, title }: AgentEditorProp
   const [content, setContent] = useState(initialContent || DEFAULT_AGENT_TEMPLATE);
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#0d0d1a] border-2 border-[#4B0082] rounded-lg w-full max-w-3xl flex flex-col font-mono text-white" style={{ maxHeight: "90vh" }}>
-        <div className="flex items-center justify-between p-4 border-b border-[#4B0082] bg-[#1a0a2e]">
-          <h3 className="text-[#FFD700] font-bold text-sm uppercase tracking-widest">{title}</h3>
+      <div className="bg-[#0f1d19] border-2 border-white/10 rounded-lg w-full max-w-3xl flex flex-col text-cream" style={{ maxHeight: "90vh" }}>
+        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/[0.04]">
+          <h3 className="text-brass font-bold text-sm tracking-wide">{title}</h3>
           <button onClick={onCancel} className="text-gray-400 hover:text-white"><X size={18} /></button>
         </div>
         <div className="flex-1 p-4 overflow-hidden flex flex-col gap-3">
-          <div className="text-xs text-gray-400 bg-[#1a1a2e] border border-[#333366] rounded p-2">
-            <strong className="text-[#88AAFF]">Format:</strong> YAML frontmatter between <code>---</code> markers, then Markdown system prompt.
+          <div className="text-xs text-gray-400 bg-white/5 border border-white/15 rounded p-2">
+            <strong className="text-sky-300">Format:</strong> YAML frontmatter between <code>---</code> markers, then Markdown system prompt.
           </div>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="flex-1 bg-[#0a0a14] border border-[#333366] rounded p-3 text-xs text-[#00FF88] font-mono resize-none focus:outline-none focus:border-[#4B0082]"
+            className="flex-1 bg-black/30 border border-white/15 rounded p-3 text-xs text-work font-mono resize-none focus:outline-none focus:border-white/10"
             style={{ minHeight: "320px" }}
             spellCheck={false}
           />
         </div>
-        <div className="flex gap-2 p-4 border-t border-[#4B0082] bg-[#1a0a2e]">
+        <div className="flex gap-2 p-4 border-t border-white/10 bg-white/[0.04]">
           <button
             onClick={() => onSave(content)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#4B0082] hover:bg-[#6a00b8] text-white text-sm font-bold rounded transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brass-deep hover:bg-brass hover:text-ink text-white text-sm font-bold rounded transition-colors"
           >
             <Save size={14} /> Save
           </button>
           <button
             onClick={onCancel}
-            className="flex items-center gap-2 px-4 py-2 border border-[#333366] text-gray-400 hover:text-white text-sm rounded transition-colors"
+            className="flex items-center gap-2 px-4 py-2 border border-white/15 text-gray-400 hover:text-white text-sm rounded transition-colors"
           >
             <X size={14} /> Cancel
           </button>
@@ -219,23 +219,23 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
   return (
     <>
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-40 p-4">
-        <div className="bg-[#0d0d1a] border-2 border-[#4B0082] rounded-lg w-full max-w-4xl flex flex-col font-mono text-white" style={{ maxHeight: "90vh" }}>
+        <div className="bg-[#0f1d19] border-2 border-white/10 rounded-lg w-full max-w-4xl flex flex-col text-cream" style={{ maxHeight: "90vh" }}>
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#4B0082] bg-[#1a0a2e]">
+          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-white/[0.04]">
             <div>
-              <h2 className="text-[#FFD700] font-bold text-lg">⚔️ Claude Code Manager</h2>
+              <h2 className="text-brass font-bold text-lg">⚔️ Claude Code Manager</h2>
               <p className="text-xs text-gray-400 mt-0.5">{pathInfo}</p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-xl"><X size={20} /></button>
           </div>
 
           {/* Tab Bar */}
-          <div className="flex border-b border-[#4B0082]">
+          <div className="flex border-b border-white/10">
             <button
               onClick={() => setActiveTab("agents")}
               className={`flex items-center gap-2 px-6 py-3 text-xs font-bold uppercase border-b-2 transition-colors ${
                 activeTab === "agents"
-                  ? "border-[#FFD700] text-[#FFD700]"
+                  ? "border-brass text-brass"
                   : "border-transparent text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -245,7 +245,7 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
               onClick={() => setActiveTab("skills")}
               className={`flex items-center gap-2 px-6 py-3 text-xs font-bold uppercase border-b-2 transition-colors ${
                 activeTab === "skills"
-                  ? "border-[#FFD700] text-[#FFD700]"
+                  ? "border-brass text-brass"
                   : "border-transparent text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -254,12 +254,12 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
           </div>
 
           {/* Scope Selector */}
-          <div className="flex items-center gap-4 px-4 py-3 border-b border-[#4B0082]/30 bg-black/30">
+          <div className="flex items-center gap-4 px-4 py-3 border-b border-white/10/30 bg-black/30">
             <div className="flex gap-2">
               <button
                 onClick={() => setScope("global")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase rounded transition-colors ${
-                  scope === "global" ? "bg-[#4B0082] text-white" : "bg-[#1a1a2e] text-gray-400 hover:text-white"
+                  scope === "global" ? "bg-brass-deep text-white" : "bg-white/5 text-gray-400 hover:text-white"
                 }`}
               >
                 <Globe size={12} /> Global
@@ -267,7 +267,7 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
               <button
                 onClick={() => setScope("project")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase rounded transition-colors ${
-                  scope === "project" ? "bg-[#4B0082] text-white" : "bg-[#1a1a2e] text-gray-400 hover:text-white"
+                  scope === "project" ? "bg-brass-deep text-white" : "bg-white/5 text-gray-400 hover:text-white"
                 }`}
               >
                 <FolderOpen size={12} /> Project
@@ -278,7 +278,7 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
-                className="bg-[#1a1a2e] border border-[#333366] text-gray-300 text-xs px-2 py-1.5 rounded focus:outline-none focus:border-[#4B0082] flex-1 max-w-xs"
+                className="bg-white/5 border border-white/15 text-gray-300 text-xs px-2 py-1.5 rounded focus:outline-none focus:border-white/10 flex-1 max-w-xs"
               >
                 {projects.length === 0 ? (
                   <option value="">No projects detected yet</option>
@@ -298,7 +298,7 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
                   if (activeTab === "agents") scope === "global" ? globalAgents.refetch() : projectAgents.refetch();
                   else scope === "global" ? globalSkills.refetch() : projectSkills.refetch();
                 }}
-                className="text-gray-500 hover:text-[#FFD700] p-1"
+                className="text-gray-500 hover:text-brass p-1"
                 title="Refresh"
               >
                 <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
@@ -314,14 +314,14 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
 
           {/* New Item Name Input */}
           {showEditor && !editingItem && (
-            <div className="px-4 py-2 bg-black/50 border-b border-[#4B0082]/20 flex items-center gap-2">
+            <div className="px-4 py-2 bg-black/50 border-b border-white/10/20 flex items-center gap-2">
               <span className="text-gray-400 text-xs">Name:</span>
               <input
                 type="text"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""))}
                 placeholder={activeTab === "agents" ? "my-agent" : "my-skill"}
-                className="bg-black border border-[#333366] text-[#00FF88] text-xs px-2 py-1 rounded focus:outline-none focus:border-[#4B0082] w-48"
+                className="bg-black border border-white/15 text-work text-xs px-2 py-1 rounded focus:outline-none focus:border-white/10 w-48"
                 autoFocus
                 onKeyDown={(e) => e.key === "Escape" && setShowEditor(false)}
               />
@@ -351,19 +351,19 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
             {currentItems.map((item: any) => (
               <div
                 key={item.name}
-                className="bg-black/40 border border-[#333366] rounded-lg overflow-hidden hover:border-[#4B0082]/50 transition-colors"
+                className="bg-black/40 border border-white/15 rounded-lg overflow-hidden hover:border-white/10/50 transition-colors"
               >
                 <div
                   className="flex items-center justify-between p-3 cursor-pointer"
                   onClick={() => setExpandedItem(expandedItem === item.name ? null : item.name)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-[#FFD700] text-sm">{activeTab === "agents" ? "🤖" : "⚡"}</span>
+                    <span className="text-brass text-sm">{activeTab === "agents" ? "🤖" : "⚡"}</span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[#00FF88] text-sm font-bold">{item.name}</span>
+                        <span className="text-work text-sm font-bold">{item.name}</span>
                         {item.model && (
-                          <span className="text-gray-600 text-xs bg-[#1a1a2e] px-1.5 py-0.5 rounded">{item.model}</span>
+                          <span className="text-gray-600 text-xs bg-white/5 px-1.5 py-0.5 rounded">{item.model}</span>
                         )}
                       </div>
                       <p className="text-gray-500 text-xs truncate mt-0.5">{item.description || "No description"}</p>
@@ -381,7 +381,7 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditingItem({ name: item.name, content: item.content }); setShowEditor(true); }}
-                      className="text-gray-600 hover:text-[#FFD700] p-1" title="Edit"
+                      className="text-gray-600 hover:text-brass p-1" title="Edit"
                     >
                       <Edit3 size={13} />
                     </button>
@@ -399,8 +399,8 @@ export default function SkillsManager({ onClose, projects }: SkillsManagerProps)
                 </div>
 
                 {expandedItem === item.name && (
-                  <div className="border-t border-[#333366]/50 p-3">
-                    <pre className="text-[#00FF88]/70 text-xs overflow-x-auto whitespace-pre-wrap bg-black/50 p-3 rounded max-h-48 overflow-y-auto">
+                  <div className="border-t border-white/15/50 p-3">
+                    <pre className="text-work/70 text-xs overflow-x-auto whitespace-pre-wrap bg-black/50 p-3 rounded max-h-48 overflow-y-auto">
                       {item.content}
                     </pre>
                     <p className="text-gray-600 text-xs mt-2">

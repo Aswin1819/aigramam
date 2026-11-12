@@ -53,8 +53,8 @@ describe("world validation", () => {
 
   it.each<[string, (w: Record<string, any>) => void, RegExp]>([
     ["id not matching folder", (w) => (w.id = "other"), /must match the folder name/],
-    ["path outside the folder", (w) => (w.layers[0].image = "../kerala/assets/sky.png"), /relative path inside the world folder/],
-    ["absolute path", (w) => (w.layers[0].image = "C:/Windows/win.ini"), /relative path inside/],
+    ["path outside the folder", (w) => (w.layers[0].image = "../kerala/assets/sky.png"), /relative path inside the pack folder/],
+    ["absolute path", (w) => (w.layers[0].image = "C:/Windows/win.ini"), /relative path inside the pack folder/],
     ["wrong file type", (w) => (w.layers[0].image = "world.json"), /must be \.png/],
     ["missing file", (w) => (w.layers[0].image = "assets/nope.png"), /not found/],
     ["unknown field (typo)", (w) => (w.layerz = []), /Unrecognized key/i],
@@ -68,11 +68,11 @@ describe("world validation", () => {
 
   it("rejects fake PNGs and oversized images", () => {
     const dir = makeWorld("bad");
-    fs.writeFileSync(path.join(dir, "assets", "sky.png"), "not a png at all, just text padding....");
+    fs.writeFileSync(path.join(dir, "assets", "far_hills.png"), "not a png at all, just text padding....");
     expect(errorsOf(dir)).toMatch(/is not a PNG image/);
     const huge = Buffer.from(fs.readFileSync(path.join(KERALA, "assets", "hut.png")));
     huge.writeUInt32BE(5000, 16);
-    fs.writeFileSync(path.join(dir, "assets", "sky.png"), huge);
+    fs.writeFileSync(path.join(dir, "assets", "far_hills.png"), huge);
     expect(errorsOf(dir)).toMatch(/at most 4096×4096/);
   });
 
@@ -162,7 +162,7 @@ describe("path and PNG helpers", () => {
     }
   });
   it("readPngSize reads the header and rejects non-PNGs", () => {
-    expect(readPngSize(fs.readFileSync(path.join(KERALA, "assets", "hut.png")))).toEqual({ width: 160, height: 140 });
+    expect(readPngSize(fs.readFileSync(path.join(KERALA, "assets", "hut.png")))).toEqual({ width: 190, height: 170 });
     expect(readPngSize(Buffer.from("GIF89a................."))).toBeNull();
   });
 });
@@ -194,5 +194,47 @@ describe("placement", () => {
     const spots = standSpots(p, 6);
     expect(spots).toHaveLength(6);
     expect(new Set(spots.map((s) => `${s.x},${s.y}`)).size).toBe(6);
+  });
+});
+
+describe("character packs", () => {
+  it("all built-in characters load with every animation inside their sheet", async () => {
+    const { loadAllCharacters } = await import("./characters/loader");
+    const { BUILTIN_CHARACTERS_DIR } = await import("./worlds/manager");
+    const { state } = loadAllCharacters([{ dir: BUILTIN_CHARACTERS_DIR, kind: "builtin" }]);
+    expect(state.errors).toEqual([]);
+    expect(state.characters.map((c) => c.id).sort()).toEqual(["chaya-sidekick", "mundu-hero", "shades-villain"]);
+    for (const c of state.characters) {
+      expect(c.license).toBe("CC0-1.0");
+      expect(Object.keys(c.def.animations).sort()).toEqual(["bash", "celebrate", "error", "idle", "read", "wait", "walk", "write"]);
+    }
+  });
+
+  it("rejects broken packs with clear messages", async () => {
+    const { loadCharacterFolder } = await import("./characters/loader");
+    const { BUILTIN_CHARACTERS_DIR } = await import("./worlds/manager");
+    const make = (name: string, mutate: (p: Record<string, any>) => void) => {
+      const dir = path.join(tmp, name);
+      fs.cpSync(path.join(BUILTIN_CHARACTERS_DIR, "mundu-hero"), dir, { recursive: true });
+      const p = JSON.parse(fs.readFileSync(path.join(dir, "pack.json"), "utf8"));
+      p.id = name;
+      mutate(p);
+      fs.writeFileSync(path.join(dir, "pack.json"), JSON.stringify(p));
+      return dir;
+    };
+    const err = (dir: string) => loadCharacterFolder(dir, "user").error?.messages.join(" | ") ?? "";
+    expect(err(make("too-many-frames", (p) => (p.animations.walk.frames = 12)))).toMatch(/12 frames need 384px but the sheet is 256px wide/);
+    expect(err(make("row-off-sheet", (p) => (p.animations.read.row = 9)))).toMatch(/below the bottom/);
+    expect(err(make("no-walk", (p) => delete p.animations.walk))).toMatch(/idle and walk animations are required/);
+    expect(err(make("bad-role", (p) => (p.role = "god")))).toMatch(/role/);
+    expect(err(make("escape", (p) => (p.sheet = "../mundu-hero/sprites.png")))).toMatch(/inside the pack folder/);
+    expect(loadCharacterFolder(make("fine", () => {}), "user").character?.info.id).toBe("fine");
+  });
+});
+
+describe("decor validation", () => {
+  it("rejects decor that points at a missing image or uses an unknown animation", () => {
+    expect(errorsOf(makeWorld("bad", (w) => w.decor.push({ id: "x", image: "assets/nope.png", x: 1, y: 1 })))).toMatch(/decor\.\d+\.image: file "assets\/nope.png" not found/);
+    expect(errorsOf(makeWorld("bad2", (w) => (w.decor[0].anim = "explode")))).toMatch(/decor\.0\.anim/);
   });
 });
