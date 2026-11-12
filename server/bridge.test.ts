@@ -117,14 +117,17 @@ describe("Bridge Script Validation", () => {
     expect(content).toContain("x-bridge-api-key");
   });
 
-  it("bridge script has correct server URL", () => {
-    const bridgePath = path.join(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
-      "bridge",
-      "claude-dungeon-bridge.mjs"
-    );
-    const content = fs.readFileSync(bridgePath, "utf-8");
-    expect(content).toContain("claudepixl-kuk4sjxk.manus.space");
+  it("bridge script defaults to the local server, not a third-party host", () => {
+    const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const content = fs.readFileSync(path.join(root, "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
+    expect(content).toMatch(/process\.env\.CLAUDE_DUNGEON_SERVER \|\|\s*"http:\/\/localhost:4317"/);
+    expect(content).not.toContain("manus.space");
+  });
+
+  it("downloadable bridge script matches the source copy", () => {
+    const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const source = fs.readFileSync(path.join(root, "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
+    const served = fs.readFileSync(path.join(root, "client", "public", "bridge", "claude-dungeon-bridge.mjs"), "utf-8");
+    expect(served).toBe(source);
   });
 });

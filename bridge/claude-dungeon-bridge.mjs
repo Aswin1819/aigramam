@@ -3,13 +3,13 @@
  * Claude Dungeon Bridge Script
  *
  * Run this on your LOCAL machine to push Claude Code activity
- * to the cloud-hosted Claude Dungeon web app.
+ * to a Claude Dungeon server (local by default, or one you host).
  *
  * Usage:
- *   node claude-dungeon-bridge.mjs --server https://claudepixl-kuk4sjxk.manus.space --key YOUR_API_KEY
+ *   node claude-dungeon-bridge.mjs --server http://localhost:4317 --key YOUR_API_KEY
  *
  * Or set environment variables:
- *   CLAUDE_DUNGEON_SERVER=https://claudepixl-kuk4sjxk.manus.space
+ *   CLAUDE_DUNGEON_SERVER=http://localhost:4317   (default; set to your own server URL if hosted elsewhere)
  *   CLAUDE_DUNGEON_API_KEY=cpab_xxxxx
  *   node claude-dungeon-bridge.mjs
  *
@@ -34,7 +34,7 @@ const CONFIG = {
   server:
     args.server ||
     process.env.CLAUDE_DUNGEON_SERVER ||
-    "https://claudepixl-kuk4sjxk.manus.space",
+    "http://localhost:4317",
   apiKey: args.key || process.env.CLAUDE_DUNGEON_API_KEY || "",
   claudeDir:
     args["claude-dir"] ||
@@ -241,7 +241,8 @@ function processLine(heroId, line) {
 
   // Tool use start
   if (type === "assistant") {
-    const blocks = record.message?.content || [];
+    const content = record.message?.content;
+    const blocks = Array.isArray(content) ? content : [];
     const toolUseBlocks = blocks.filter((b) => b.type === "tool_use");
 
     if (toolUseBlocks.length > 0) {
@@ -306,7 +307,8 @@ function processLine(heroId, line) {
 
   // Tool result
   if (type === "user") {
-    const blocks = record.message?.content || [];
+    const content = record.message?.content;
+    const blocks = Array.isArray(content) ? content : [];
     const resultBlocks = blocks.filter((b) => b.type === "tool_result");
 
     if (resultBlocks.length > 0) {

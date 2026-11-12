@@ -37,7 +37,7 @@ In another terminal, run Claude Code normally. Heroes will appear in the web app
 
 | Option | Env Variable | Default | Description |
 |--------|-------------|---------|-------------|
-| `--server URL` | `CLAUDE_DUNGEON_SERVER` | `https://claudepixl-kuk4sjxk.manus.space` | Cloud server URL |
+| `--server URL` | `CLAUDE_DUNGEON_SERVER` | `http://localhost:4317` | Claude Dungeon server URL |
 | `--key KEY` | `CLAUDE_DUNGEON_API_KEY` | *(required)* | Bridge API key |
 | `--claude-dir PATH` | `CLAUDE_DIR` | `~/.claude` | Claude config directory |
 | `--poll-interval MS` | - | `1000` | File poll interval (ms) |
@@ -93,4 +93,4 @@ Bridge Script                         │                         │
 - The API key is stored only in your environment (not in any file)
 - The bridge only sends hero state data (tool names, project paths, stats)
 - No file contents or sensitive data are transmitted
-- HTTPS is used for all communication with the cloud server
+- By default it talks to the local server (http://localhost:4317); use an https:// URL when pointing it at a server you host remotely
