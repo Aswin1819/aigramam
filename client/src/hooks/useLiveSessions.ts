@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Snapshot } from "@shared/model";
+import type { ChatItem, Snapshot } from "@shared/model";
 import type { WorldsState } from "@shared/world";
 import type { CharactersState } from "@shared/character";
 
@@ -27,6 +27,8 @@ export function useLiveSessions() {
   const wsRef = useRef<WebSocket | null>(null);
   const skewRef = useRef(0);
   const pending = useRef(new Map<string, (r: CommandOutcome) => void>());
+  const [chat, setChat] = useState<{ sessionId: string; items: ChatItem[] } | null>(null);
+  const chatRef = useRef<string | null>(null);
 
   const send = useCallback((type: "demo-start" | "demo-stop") => {
     const ws = wsRef.current;
@@ -44,12 +46,23 @@ export function useLiveSessions() {
       ws.onopen = () => {
         setConnected(true);
         if (modeRef.current === "demo") ws.send(JSON.stringify({ type: "demo-start", payload: null }));
+        if (chatRef.current) ws.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
       };
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
           if (msg?.type === "worlds") {
             setWorlds(msg.payload as WorldsState);
+            return;
+          }
+          if (msg?.type === "chat") {
+            const c = msg.payload as { sessionId: string; reset: boolean; items: ChatItem[] };
+            if (c.sessionId !== chatRef.current) return;
+            setChat((prev) => {
+              if (c.reset || !prev || prev.sessionId !== c.sessionId) return { sessionId: c.sessionId, items: c.items };
+              const seen = new Set(prev.items.map((i) => i.id));
+              return { sessionId: c.sessionId, items: [...prev.items, ...c.items.filter((i) => !seen.has(i.id))].slice(-400) };
+            });
             return;
           }
           if (msg?.type === "command-result") {
@@ -91,6 +104,7 @@ export function useLiveSessions() {
     setMode("demo");
     setSnapshot({ ...EMPTY, demo: true });
     send("demo-start");
+    if (chatRef.current) wsRef.current?.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
   }, [send]);
 
   const startLive = useCallback(() => {
@@ -98,6 +112,7 @@ export function useLiveSessions() {
     setMode("live");
     setSnapshot(EMPTY);
     send("demo-stop");
+    if (chatRef.current) wsRef.current?.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
   }, [send]);
 
   /** Send a command to a live session (via the Ai Gramam mod) and wait for the server's answer. */
@@ -121,5 +136,16 @@ export function useLiveSessions() {
     [],
   );
 
-  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command };
+  /** Follow one session's conversation (null to stop). */
+  const openChat = useCallback((sessionId: string | null) => {
+    if (chatRef.current === sessionId) return;
+    chatRef.current = sessionId;
+    setChat(sessionId ? { sessionId, items: [] } : null);
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(sessionId ? { type: "chat-open", payload: { sessionId } } : { type: "chat-close", payload: null }));
+    }
+  }, []);
+
+  return { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat };
 }

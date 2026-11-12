@@ -9,7 +9,7 @@ import type { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import type { ActivityEntry, SessionStatus, SessionView, Snapshot } from "@shared/model";
 import { verifyWsClient } from "./_core/security";
-import { demoSnapshot } from "./monitor/demo";
+import { demoChat, demoSnapshot } from "./monitor/demo";
 import { Monitor } from "./monitor/monitor";
 import { resolveProject } from "./monitor/projectRoot";
 import type { HookPayload } from "./monitor/store";
@@ -26,6 +26,21 @@ let wss: WebSocketServer | null = null;
 const monitor = new Monitor();
 const demoClients = new Map<WebSocket, number>(); // tab → demo start time
 const bridgeSessions = new Map<string, SessionView>();
+/** Which session's chat each tab has open (at most one). */
+const chatOpen = new Map<WebSocket, string>();
+
+monitor.store.onChat = (sessionId, items) => {
+  for (const [ws, open] of chatOpen) {
+    if (open === sessionId && !demoClients.has(ws)) sendChat(ws, sessionId, false, items);
+  }
+};
+
+function sendChat(ws: WebSocket, sessionId: string, reset: boolean, items: unknown[]) {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(JSON.stringify({ type: "chat", payload: { sessionId, reset, items } }));
+  } catch {}
+}
 let flushTimer: NodeJS.Timeout | null = null;
 let lastSent = "";
 let worldsState: (() => WorldsState) | null = null;
@@ -104,6 +119,24 @@ function reply(ws: WebSocket, requestId: unknown, result: { ok: boolean; error?:
 
 function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
   const p = (msg.payload ?? {}) as Record<string, unknown>;
+  if (msg.type === "chat-open" && typeof p.sessionId === "string") {
+    const sessionId = p.sessionId;
+    chatOpen.set(ws, sessionId);
+    if (demoClients.has(ws)) {
+      sendChat(ws, sessionId, true, demoChat(sessionId));
+      return;
+    }
+    // Send what's in memory now, then again once older history has been read.
+    sendChat(ws, sessionId, true, monitor.store.chat(sessionId));
+    void monitor.loadChatHistory(sessionId).then(() => {
+      if (chatOpen.get(ws) === sessionId) sendChat(ws, sessionId, true, monitor.store.chat(sessionId));
+    });
+    return;
+  }
+  if (msg.type === "chat-close") {
+    chatOpen.delete(ws);
+    return;
+  }
   // Commands that act on real sessions: never from a tab that is showing the demo.
   if (msg.type === "session-message" || msg.type === "session-stop" || msg.type === "approval-decide") {
     if (demoClients.has(ws)) return reply(ws, p.requestId, { ok: false, error: "Switch to Live to act on real sessions." });
@@ -175,7 +208,10 @@ export function initializeWebSocket(server: unknown) {
         handleClientMessage(ws, JSON.parse(data.toString()));
       } catch {}
     });
-    ws.on("close", () => demoClients.delete(ws));
+    ws.on("close", () => {
+      demoClients.delete(ws);
+      chatOpen.delete(ws);
+    });
     ws.on("error", (e) => console.error("[WebSocket] Error:", e.message));
   });
 

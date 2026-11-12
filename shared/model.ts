@@ -48,6 +48,15 @@ export interface ActivityEntry {
   agent?: string;
 }
 
+/** One line of a session's conversation, for the chat view. */
+export interface ChatItem {
+  id: string;
+  at: number;
+  kind: "user" | "assistant" | "tool" | "note";
+  text: string;
+  emoji?: string;
+}
+
 export interface SubagentView {
   id: string;
   sessionId: string;
@@ -124,7 +133,12 @@ export type ClientMessage =
   | { type: "demo-stop"; payload: null }
   | { type: "session-message"; payload: { requestId: string; sessionId: string; text: string } }
   | { type: "session-stop"; payload: { requestId: string; sessionId: string } }
-  | { type: "approval-decide"; payload: { requestId: string; approvalId: string; decision: "allow" | "deny" } };
+  | { type: "approval-decide"; payload: { requestId: string; approvalId: string; decision: "allow" | "deny" } }
+  | { type: "chat-open"; payload: { sessionId: string } }
+  | { type: "chat-close"; payload: null };
+
+/** A session's conversation: the whole recent history when opened (reset), then new items as they come. */
+export type ChatMessage = { type: "chat"; payload: { sessionId: string; reset: boolean; items: ChatItem[] } };
 
 /** The server's reply to a browser command. */
 export type CommandResult = { type: "command-result"; payload: { requestId: string; ok: boolean; error?: string } };

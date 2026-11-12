@@ -9,6 +9,7 @@
 import type {
   Action,
   ActivityEntry,
+  ChatItem,
   HooksInfo,
   ProjectView,
   SessionSource,
@@ -42,6 +43,7 @@ export const TIMING = {
   /** Finished subagents stay this long (time to walk away). */
   subagentLingerMs: 20_000,
   recentMax: 50,
+  chatMax: 300,
 };
 
 const NO_APPROVAL_MODES = new Set(["bypassPermissions", "auto", "dontAsk"]);
@@ -90,6 +92,9 @@ interface SessState {
   source: SessionSource;
   prUrl?: string;
   recent: ActivityEntry[];
+  /** The conversation (prompts, replies, tool lines), newest last; memory only. */
+  chat: ChatItem[];
+  chatIds: Set<string>;
   subagents: Map<string, SubState>;
   statusKey?: string;
   statusSince: number;
@@ -119,6 +124,37 @@ export class SessionStore {
   hooksInstalled = false;
   /** Bumped on every change, so the monitor knows when to send a snapshot. */
   version = 0;
+  /** Told about new chat items, so open chat views update right away. */
+  onChat: (sessionId: string, items: ChatItem[]) => void = () => {};
+
+  chat(sessionId: string): ChatItem[] {
+    return this.sessions.get(sessionId)?.chat.slice() ?? [];
+  }
+
+  /** Merge older history (read later from the transcript) into a session's chat, oldest first. */
+  importChat(sessionId: string, items: ChatItem[]) {
+    const s = this.sessions.get(sessionId);
+    if (!s) return;
+    for (const it of items) {
+      if (s.chatIds.has(it.id)) continue;
+      s.chatIds.add(it.id);
+      s.chat.push(it);
+    }
+    s.chat.sort((a, b) => a.at - b.at);
+    if (s.chat.length > TIMING.chatMax) {
+      for (const old of s.chat.splice(0, s.chat.length - TIMING.chatMax)) s.chatIds.delete(old.id);
+    }
+  }
+
+  private addChat(s: SessState, item: ChatItem) {
+    if (s.chatIds.has(item.id)) return;
+    s.chatIds.add(item.id);
+    s.chat.push(item);
+    if (s.chat.length > TIMING.chatMax) {
+      for (const old of s.chat.splice(0, s.chat.length - TIMING.chatMax)) s.chatIds.delete(old.id);
+    }
+    this.onChat(s.id, [item]);
+  }
 
   has(id: string) {
     return this.sessions.has(id);
@@ -145,6 +181,8 @@ export class SessionStore {
         registryAlive: false,
         source,
         recent: [],
+        chat: [],
+        chatIds: new Set(),
         subagents: new Map(),
         statusSince: at,
       };
@@ -177,6 +215,9 @@ export class SessionStore {
       case "permission_mode":
         s.permissionMode = ev.mode;
         return;
+      case "chat":
+        this.addChat(s, { id: ev.id, at: ev.at, kind: ev.role, text: ev.text });
+        return;
       case "pr":
         s.prUrl = ev.url;
         return;
@@ -204,6 +245,7 @@ export class SessionStore {
         s.pending.set(ev.id, { id: ev.id, action, startedAt: ev.at });
         s.lastAction = action;
         this.log(s, ev.at, action.emoji, action.label);
+        this.addChat(s, { id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: action.label, emoji: action.emoji });
         return;
       }
       case "tool_end": {

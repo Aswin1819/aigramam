@@ -16,7 +16,7 @@ import BrandMark from "@/app/BrandMark";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
-  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command } = useLiveSessions();
+  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat } = useLiveSessions();
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
   const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -29,6 +29,8 @@ export default function Home() {
   const { sessions, projects, hooks } = snapshot;
   const cast = characters?.characters ?? [];
   const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
+  // Follow the selected session's conversation while its drawer is open.
+  useEffect(() => openChat(selected ? selected.id : null), [selected?.id, openChat]);
 
   const select = useCallback((id: string) => {
     setSelectedId((cur) => (cur === id ? null : id));
@@ -160,6 +162,7 @@ export default function Home() {
             session={selected}
             project={projects.find((x) => x.id === selected.projectId)}
             character={pickCharacter(selected.id, world, cast)}
+            chat={chat && chat.sessionId === selected.id ? chat.items : null}
             now={now}
             onClose={close}
             onFocus={() => worldRef.current?.focus(selected.id)}

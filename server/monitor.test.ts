@@ -62,7 +62,8 @@ describe("describeTool", () => {
 describe("parser", () => {
   it("handles string message content without throwing", () => {
     const evs = parseRecord(rec.prompt(0, "fix the bug"));
-    expect(evs.map((e) => e.t)).toEqual(["meta", "prompt"]);
+    expect(evs.map((e) => e.t)).toEqual(["meta", "prompt", "chat"]);
+    expect(evs[2]).toMatchObject({ role: "user", text: "fix the bug" });
   });
   it("ignores malformed lines, unknown record types and non-objects", () => {
     expect(parseLine("{not json")).toEqual([]);
@@ -433,5 +434,66 @@ describe("guessPathFromEncodedName", () => {
     }
     expect(guessPathFromEncodedName("C--nowhere-at-all", () => false)).toBeNull();
     expect(guessPathFromEncodedName("plainname", exists)).toBeNull();
+  });
+});
+
+describe("chat view", () => {
+  it("keeps what the person said, strips reminders, shows slash commands, drops engine notices", async () => {
+    const { chatTextOfPrompt } = await import("./monitor/parser");
+    expect(chatTextOfPrompt("please fix it")).toBe("please fix it");
+    expect(chatTextOfPrompt("hi <system-reminder>secret context</system-reminder>")).toBe("hi");
+    expect(chatTextOfPrompt("<command-name>/review</command-name><command-args>PR 12</command-args>")).toBe("/review PR 12");
+    expect(chatTextOfPrompt("<task-notification><task-id>x</task-id></task-notification>")).toBeNull();
+    expect(chatTextOfPrompt("<local-command-stdout>done</local-command-stdout>")).toBeNull();
+    expect(chatTextOfPrompt("<system-reminder>only this</system-reminder>")).toBeNull();
+  });
+
+  it("collects replies and tool lines in order, without duplicates or subagent chatter", () => {
+    const s = new SessionStore();
+    const seen: string[] = [];
+    s.onChat = (_id, items) => items.forEach((i) => seen.push(i.kind));
+    const reply = { type: "assistant", uuid: "a1", cwd: "C:\w", sessionId: SID, timestamp: iso(2), message: { content: [{ type: "text", text: "Found it." }, { type: "tool_use", id: "t9", name: "Edit", input: { file_path: "a.ts" } }] } };
+    feed(s, { ...rec.prompt(1, "why is login broken?"), uuid: "u1" }, reply, reply);
+    feed(s, { ...reply, uuid: "side", isSidechain: true, message: { content: [{ type: "text", text: "subagent musing" }] } });
+    const chat = s.chat(SID);
+    expect(chat.map((c) => [c.kind, c.text])).toEqual([["user", "why is login broken?"], ["assistant", "Found it."], ["tool", "Editing a.ts"]]);
+    expect(seen).toEqual(["user", "assistant", "tool"]);
+  });
+
+  it("caps the conversation it keeps", () => {
+    const s = new SessionStore();
+    for (let i = 0; i < 400; i++) feed(s, { ...rec.prompt(i, `m${i}`), uuid: `u${i}` });
+    const chat = s.chat(SID);
+    expect(chat).toHaveLength(TIMING.chatMax);
+    expect(chat.at(-1)?.text).toBe("m399");
+  });
+});
+
+describe("chat history", () => {
+  it("reads older conversation from the transcript when a chat is opened", async () => {
+    const claude = path.join(tmp, ".claude");
+    const proj = path.join(claude, "projects", "C--work-chat");
+    fs.mkdirSync(proj, { recursive: true });
+    const now = Date.now();
+    const at = (ms: number) => new Date(now - 60_000 + ms).toISOString();
+    const pad = "x".repeat(2000);
+    const lines = [JSON.stringify({ type: "user", uuid: "first", sessionId: SID, cwd: "C:\work\chat", timestamp: at(0), message: { content: "the very first question" } })];
+    for (let i = 0; i < 300; i++) lines.push(JSON.stringify({ type: "attachment", sessionId: SID, cwd: "C:\work\chat", timestamp: at(i + 1), attachment: { type: "noise", pad } }));
+    lines.push(JSON.stringify({ type: "assistant", uuid: "last", sessionId: SID, cwd: "C:\work\chat", timestamp: at(500), message: { content: [{ type: "text", text: "the latest answer" }] } }));
+    fs.writeFileSync(path.join(proj, `${SID}.jsonl`), lines.join("\n") + "\n");
+
+    const m = new Monitor({ claudeDir: claude });
+    m.scan();
+    expect(m.store.chat(SID).map((c) => c.text)).toEqual(["the latest answer"]); // beyond the startup tail
+    await m.loadChatHistory(SID);
+    expect(m.store.chat(SID).map((c) => c.text)).toEqual(["the very first question", "the latest answer"]);
+  });
+});
+
+describe("compaction summary", () => {
+  it("shows a note instead of a user bubble and doesn't count as a prompt", () => {
+    const evs = parseLine(JSON.stringify({ type: "user", uuid: "cs", isCompactSummary: true, timestamp: new Date().toISOString(), message: { content: "This session is being continued..." } }));
+    expect(evs.map((e) => e.t)).toEqual(["chat"]);
+    expect(evs[0]).toMatchObject({ role: "note" });
   });
 });

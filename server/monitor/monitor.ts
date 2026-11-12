@@ -10,6 +10,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { parseLine } from "./parser";
+import { describeTool } from "./actions";
+import type { ChatItem } from "@shared/model";
 import { readRegistry } from "./registry";
 import { SessionStore } from "./store";
 import { FileTailer, scanLinesContaining } from "./tailer";
@@ -28,6 +30,7 @@ interface Tracked {
   agentId?: string;
 }
 
+const NL = String.fromCharCode(10);
 const SESSION_FILE_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
 const AGENT_FILE_RE = /^agent-([A-Za-z0-9_-]+)\.jsonl$/;
 
@@ -74,6 +77,48 @@ export class Monitor {
     for (const w of this.watchers) try { w.close(); } catch {}
     this.timers = [];
     this.watchers = [];
+  }
+
+  private historyLoaded = new Set<string>();
+
+
+  /**
+   * Fill a session's chat with older conversation from its transcript (the
+   * last few MB, read once per session) the first time someone opens it.
+   */
+  async loadChatHistory(sessionId: string, maxBytes = 3 * 1024 * 1024): Promise<void> {
+    if (this.historyLoaded.has(sessionId)) return;
+    this.historyLoaded.add(sessionId);
+    const file = this.sessionFiles.get(sessionId);
+    if (!file) return;
+    let text: string;
+    try {
+      const fh = await fs.promises.open(file, "r");
+      try {
+        const { size } = await fh.stat();
+        const start = Math.max(0, size - maxBytes);
+        const buf = Buffer.alloc(size - start);
+        await fh.read(buf, 0, buf.length, start);
+        text = buf.toString("utf8");
+        if (start > 0) text = text.slice(text.indexOf(NL) + 1); // drop the partial first line
+      } finally {
+        await fh.close();
+      }
+    } catch {
+      return;
+    }
+    const items: ChatItem[] = [];
+    for (const line of text.split(NL)) {
+      if (!line.includes('"assistant"') && !line.includes('"user"')) continue;
+      for (const ev of parseLine(line)) {
+        if (ev.t === "chat") items.push({ id: ev.id, at: ev.at, kind: ev.role, text: ev.text });
+        else if (ev.t === "tool_start") {
+          const a = describeTool(ev.name, ev.input, ev.at);
+          items.push({ id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: a.label, emoji: a.emoji });
+        }
+      }
+    }
+    this.store.importChat(sessionId, items);
   }
 
   /** Make sure a transcript (e.g. from a hook's transcript_path) is being followed. */

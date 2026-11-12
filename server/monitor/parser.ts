@@ -17,7 +17,9 @@ export type MonitorEvent =
   | { t: "turn_end"; at: number; pendingBackground: number }
   | { t: "permission_mode"; mode: string }
   | { t: "api_error"; at: number }
-  | { t: "pr"; url: string };
+  | { t: "pr"; url: string }
+  /** A conversation message for the chat view (kept in memory only). */
+  | { t: "chat"; at: number; id: string; role: "user" | "assistant" | "note"; text: string };
 
 type Rec = Record<string, unknown>;
 
@@ -50,6 +52,29 @@ function textOf(r: Rec): string {
 }
 
 const INTERRUPT_RE = /^\[Request interrupted by user/;
+const MAX_CHAT_TEXT = 20_000;
+
+function clipChat(t: string): string {
+  return t.length > MAX_CHAT_TEXT ? t.slice(0, MAX_CHAT_TEXT) + "\n…" : t;
+}
+
+/**
+ * What the person actually said in a user record, for the chat view: system
+ * reminders stripped, a slash command shown as "/name args", and engine
+ * notices (background-task notifications, local command output) left out.
+ */
+export function chatTextOfPrompt(raw: string): string | null {
+  const t = raw.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+  if (!t) return null;
+  const cmd = /<command-name>([^<]*)<\/command-name>/.exec(t);
+  if (cmd) {
+    const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(t)?.[1]?.trim();
+    const name = (cmd[1] ?? "").trim();
+    return `${name.startsWith("/") ? name : "/" + name}${args ? " " + args : ""}`;
+  }
+  if (/^<(task-notification|local-command-[a-z]+|command-[a-z]+|bash-[a-z]+)\b/.test(t)) return null;
+  return clipChat(t);
+}
 
 export function parseRecord(raw: unknown): MonitorEvent[] {
   const r = asRec(raw);
@@ -93,6 +118,14 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
         return events;
       }
       let sawTool = false;
+      const said = blocksOf(r)
+        .filter((b) => b.type === "text" && typeof b.text === "string")
+        .map((b) => b.text as string)
+        .join("\n\n")
+        .trim();
+      if (said && r.isSidechain !== true) {
+        events.push({ t: "chat", at, id: typeof r.uuid === "string" ? r.uuid : `a-${at}`, role: "assistant", text: clipChat(said) });
+      }
       for (const b of blocksOf(r)) {
         if (b.type === "tool_use" && typeof b.id === "string") {
           sawTool = true;
@@ -121,10 +154,15 @@ export function parseRecord(raw: unknown): MonitorEvent[] {
         return events;
       }
       const text = textOf(r);
-      if (INTERRUPT_RE.test(text.trim())) {
+      if (r.isCompactSummary === true) {
+        // Claude Code's own summary after compaction: not something the person typed.
+        if (r.isSidechain !== true) events.push({ t: "chat", at, id: typeof r.uuid === "string" ? r.uuid : `c-${at}`, role: "note", text: "Conversation compacted · earlier context was summarised" });
+      } else if (INTERRUPT_RE.test(text.trim())) {
         events.push({ t: "interrupted", at });
       } else if (r.isMeta !== true && text.trim()) {
         events.push({ t: "prompt", at });
+        const said = r.isSidechain === true ? null : chatTextOfPrompt(text);
+        if (said) events.push({ t: "chat", at, id: typeof r.uuid === "string" ? r.uuid : `u-${at}`, role: "user", text: said });
       }
       return events;
     }
