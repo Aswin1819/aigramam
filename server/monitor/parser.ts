@@ -13,7 +13,8 @@ export type MonitorEvent =
   | { t: "assistant"; at: number }
   | { t: "tool_start"; at: number; id: string; name: string; input: unknown }
   | { t: "tool_end"; at: number; id: string; isError: boolean; interrupted: boolean; async: boolean; agentId?: string }
-  | { t: "interrupted"; at: number }
+  /** fromApp: the turn was stopped from Ai Gramam (reported by the mod). */
+  | { t: "interrupted"; at: number; fromApp?: boolean }
   | { t: "turn_end"; at: number; pendingBackground: number }
   | { t: "permission_mode"; mode: string }
   | { t: "api_error"; at: number }

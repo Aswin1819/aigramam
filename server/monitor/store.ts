@@ -25,6 +25,10 @@ import type { MonitorEvent } from "./parser";
 import type { RegistryEntry } from "./registry";
 import { resolveProject } from "./projectRoot";
 
+export const STOPPED_FROM_APP = "Stopped from Ai Gramam";
+/** One id per interrupt, so the live note and the one read back from history don't both show. */
+export const interruptNoteId = (at: number) => `interrupt:${at}`;
+
 export const TIMING = {
   /** A finished turn counts as "your turn" for this long, then becomes idle. */
   turnEndWaitMs: 10 * 60_000,
@@ -44,6 +48,8 @@ export const TIMING = {
   subagentLingerMs: 20_000,
   recentMax: 50,
   chatMax: 300,
+  /** How close an interrupt must be to a Stop pressed in Ai Gramam to count as that stop. */
+  stopMatchMs: 30_000,
 };
 
 const NO_APPROVAL_MODES = new Set(["bypassPermissions", "auto", "dontAsk"]);
@@ -81,6 +87,9 @@ interface SessState {
   turnEndedAt?: number;
   pendingBackground: number;
   interruptedAt?: number;
+  /** When Stop was pressed in Ai Gramam, so the interrupt that follows is shown as ours. */
+  stopRequestedAt?: number;
+  stoppedFromApp?: boolean;
   hookWaiting?: { reason: "permission" | "question"; at: number; detail?: string };
   hookIdleAt?: number;
   errorAt?: number;
@@ -156,6 +165,12 @@ export class SessionStore {
     this.onChat(s.id, [item]);
   }
 
+  /** Stop was sent from the browser; the next interrupt within a short window is labelled as ours. */
+  stopRequested(sessionId: string, at = Date.now()) {
+    const s = this.sessions.get(sessionId);
+    if (s) s.stopRequestedAt = at;
+  }
+
   has(id: string) {
     return this.sessions.has(id);
   }
@@ -225,6 +240,7 @@ export class SessionStore {
         this.touch(s, ev.at);
         s.turnEndedAt = undefined;
         s.interruptedAt = undefined;
+        s.stoppedFromApp = false;
         s.hookWaiting = undefined;
         s.hookIdleAt = undefined;
         s.errorAt = undefined;
@@ -268,13 +284,36 @@ export class SessionStore {
         }
         return;
       }
-      case "interrupted":
+      case "interrupted": {
+        // The same stop can arrive twice (the mod's report and the transcript record).
+        const again = s.interruptedAt !== undefined && Math.abs(ev.at - s.interruptedAt) < TIMING.stopMatchMs && s.interruptedAt >= s.lastActivityAt - TIMING.stopMatchMs;
+        const fromApp =
+          ev.fromApp === true ||
+          (s.stopRequestedAt !== undefined && ev.at >= s.stopRequestedAt - TIMING.stopMatchMs && ev.at - s.stopRequestedAt <= TIMING.stopMatchMs);
         this.touch(s, ev.at);
         s.pending.clear();
         s.hookWaiting = undefined;
+        s.turnEndedAt = undefined;
+        if (fromApp) s.stopRequestedAt = undefined;
+        if (again) {
+          const noteAt = s.interruptedAt!;
+          s.interruptedAt = Math.max(noteAt, ev.at); // stays the latest activity, so the status shows the stop
+          if (fromApp && !s.stoppedFromApp) {
+            s.stoppedFromApp = true;
+            const note = s.chat.find((c) => c.id === interruptNoteId(noteAt));
+            if (note) {
+              note.text = STOPPED_FROM_APP;
+              this.onChat(s.id, [note]);
+            }
+          }
+          return;
+        }
         s.interruptedAt = ev.at;
-        this.log(s, ev.at, "✋", "Interrupted by you", "warn");
+        s.stoppedFromApp = fromApp;
+        this.log(s, ev.at, "✋", fromApp ? STOPPED_FROM_APP : "Interrupted by you", "warn");
+        this.addChat(s, { id: interruptNoteId(ev.at), at: ev.at, kind: "note", text: fromApp ? STOPPED_FROM_APP : "Interrupted" });
         return;
+      }
       case "turn_end":
         this.touch(s, ev.at);
         s.pending.clear();
@@ -389,6 +428,8 @@ export class SessionStore {
         return;
       }
       case "Stop":
+        // The mod tells us when a turn was interrupted, and whether Ai Gramam asked for it.
+        if (p.aborted === true) return this.applyEvent(sessionId, { t: "interrupted", at: now, fromApp: p.stopped_by_app === true });
         return this.applyEvent(sessionId, { t: "turn_end", at: now, pendingBackground: 0 });
       case "StopFailure":
         s.errorAt = now;
@@ -524,7 +565,7 @@ export class SessionStore {
       }
     } else if (s.interruptedAt && s.interruptedAt >= lastActivityAt) {
       status = "idle";
-      action = { kind: "idle", emoji: "✋", label: "Interrupted by you", startedAt: s.interruptedAt };
+      action = { kind: "idle", emoji: "✋", label: s.stoppedFromApp ? STOPPED_FROM_APP : "Interrupted by you", startedAt: s.interruptedAt };
     } else if (s.turnEndedAt) {
       if (s.pendingBackground > 0) {
         status = "working";

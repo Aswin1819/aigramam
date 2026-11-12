@@ -141,7 +141,12 @@ function handleClientMessage(ws: WebSocket, msg: Record<string, unknown>) {
   if (msg.type === "session-message" || msg.type === "session-stop" || msg.type === "approval-decide") {
     if (demoClients.has(ws)) return reply(ws, p.requestId, { ok: false, error: "Switch to Live to act on real sessions." });
     if (msg.type === "session-message") return reply(ws, p.requestId, link.queueMessage(String(p.sessionId ?? ""), String(p.text ?? "")));
-    if (msg.type === "session-stop") return reply(ws, p.requestId, link.queueStop(String(p.sessionId ?? "")));
+    if (msg.type === "session-stop") {
+      const sessionId = String(p.sessionId ?? "");
+      const r = link.queueStop(sessionId);
+      if (r.ok) monitor.store.stopRequested(sessionId);
+      return reply(ws, p.requestId, r);
+    }
     const decision = p.decision === "allow" || p.decision === "deny" ? p.decision : null;
     const ok = !!decision && link.decide(String(p.approvalId ?? ""), decision);
     return reply(ws, p.requestId, ok ? { ok: true } : { ok: false, error: "That request was already answered or has expired." });

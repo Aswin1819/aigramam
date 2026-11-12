@@ -60,8 +60,11 @@ export function useLiveSessions() {
             if (c.sessionId !== chatRef.current) return;
             setChat((prev) => {
               if (c.reset || !prev || prev.sessionId !== c.sessionId) return { sessionId: c.sessionId, items: c.items };
+              // A pushed item with a known id replaces it (e.g. "Interrupted" becoming "Stopped from Ai Gramam").
+              const byId = new Map(c.items.map((i) => [i.id, i]));
+              const items = prev.items.map((i) => byId.get(i.id) ?? i);
               const seen = new Set(prev.items.map((i) => i.id));
-              return { sessionId: c.sessionId, items: [...prev.items, ...c.items.filter((i) => !seen.has(i.id))].slice(-400) };
+              return { sessionId: c.sessionId, items: [...items, ...c.items.filter((i) => !seen.has(i.id))].slice(-400) };
             });
             return;
           }

@@ -1,6 +1,6 @@
 {
   "name": "ai-gramam",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Links this Claude Code session to Ai Gramam: live status, messages and stop from the browser, approve permission requests there.",
   "author": {
     "name": "Aswin1819"

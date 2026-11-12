@@ -13,7 +13,7 @@
  */
 import type { EngineInterface, Register } from 'claude-code'
 
-const VERSION = '0.1.0'
+const VERSION = '0.1.1'
 const DEFAULT_BASE = 'http://127.0.0.1:4317'
 const POLL_MS = 1500
 const APPROVAL_WAIT_MS = 45_000
@@ -32,6 +32,7 @@ const link = {
   cwd: '',
   linked: false,
   mainTurnId: null as string | null,
+  stoppedTurnId: null as string | null, // the turn Ai Gramam asked to stop
   quietPolls: 0,
   agentTurns: new Map<string, string>(), // turnId → subagent id
 }
@@ -102,6 +103,7 @@ async function poll($: EngineInterface) {
       $.ui.toast('Message from Ai Gramam: it runs when this session is free')
       void $.prompt.submit({ text: c.text, asUser: true })
     } else if (c.type === 'stop' && link.mainTurnId) {
+      link.stoppedTurnId = link.mainTurnId
       void $.turn.abort({ turnId: link.mainTurnId })
       $.ui.toast('Stopped from Ai Gramam')
     }
@@ -174,7 +176,9 @@ export const register: Register = on => {
       send($, [{ hook_event_name: 'SubagentStop', agent_id: agentId }])
     } else {
       if (link.mainTurnId === e.turnId) link.mainTurnId = null
-      send($, [{ hook_event_name: e.reason === 'error' ? 'StopFailure' : 'Stop' }])
+      const fromApp = link.stoppedTurnId === e.turnId
+      if (fromApp) link.stoppedTurnId = null
+      send($, [{ hook_event_name: e.reason === 'error' ? 'StopFailure' : 'Stop', aborted: e.isAborted, stopped_by_app: fromApp && e.isAborted }])
     }
     return next(e)
   })

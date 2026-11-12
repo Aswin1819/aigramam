@@ -497,3 +497,46 @@ describe("compaction summary", () => {
     expect(evs[0]).toMatchObject({ role: "note" });
   });
 });
+
+describe("stopping from Ai Gramam", () => {
+  const notes = (s: SessionStore) => s.chat(SID).filter((c) => c.kind === "note").map((c) => c.text);
+
+  it("labels a turn the mod reports as stopped by the app", () => {
+    const s = new SessionStore();
+    feed(s, rec.toolUse(0, "t1", "Bash", { command: "sleep 100" }));
+    s.applyHook({ hook_event_name: "Stop", session_id: SID, aborted: true, stopped_by_app: true }, T0 + 5000);
+    const v = s.snapshot(T0 + 6000).sessions[0];
+    expect(v.status).toBe("idle");
+    expect(v.action?.label).toBe("Stopped from Ai Gramam");
+    expect(notes(s)).toEqual(["Stopped from Ai Gramam"]);
+  });
+
+  it("matches the transcript's interrupt to a Stop pressed in the browser, once", () => {
+    const s = new SessionStore();
+    feed(s, rec.toolUse(0, "t1", "Bash", { command: "sleep 100" }));
+    s.stopRequested(SID, T0 + 4000);
+    s.applyEvent(SID, { t: "interrupted", at: T0 + 5000 });
+    s.applyHook({ hook_event_name: "Stop", session_id: SID, aborted: true, stopped_by_app: true }, T0 + 5200);
+    expect(s.snapshot(T0 + 6000).sessions[0].action?.label).toBe("Stopped from Ai Gramam");
+    expect(notes(s)).toEqual(["Stopped from Ai Gramam"]);
+  });
+
+  it("relabels an earlier 'Interrupted' note when the mod's report comes second", () => {
+    const s = new SessionStore();
+    const pushed: string[] = [];
+    s.onChat = (_id, items) => pushed.push(...items.map((i) => i.text));
+    feed(s, rec.toolUse(0, "t1", "Bash", { command: "sleep 100" }));
+    s.applyEvent(SID, { t: "interrupted", at: T0 + 5000 });
+    s.applyHook({ hook_event_name: "Stop", session_id: SID, aborted: true, stopped_by_app: true }, T0 + 5300);
+    expect(notes(s)).toEqual(["Stopped from Ai Gramam"]);
+    expect(pushed.slice(-1)).toEqual(["Stopped from Ai Gramam"]);
+  });
+
+  it("keeps 'Interrupted by you' for a stop pressed in the terminal", () => {
+    const s = new SessionStore();
+    feed(s, rec.toolUse(0, "t1", "Bash", { command: "sleep 100" }));
+    s.applyHook({ hook_event_name: "Stop", session_id: SID, aborted: true, stopped_by_app: false }, T0 + 5000);
+    expect(s.snapshot(T0 + 6000).sessions[0].action?.label).toBe("Interrupted by you");
+    expect(notes(s)).toEqual(["Interrupted"]);
+  });
+});

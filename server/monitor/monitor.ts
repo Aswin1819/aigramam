@@ -13,7 +13,7 @@ import { parseLine } from "./parser";
 import { describeTool } from "./actions";
 import type { ChatItem } from "@shared/model";
 import { readRegistry } from "./registry";
-import { SessionStore } from "./store";
+import { SessionStore, interruptNoteId } from "./store";
 import { FileTailer, scanLinesContaining } from "./tailer";
 
 export interface MonitorOptions {
@@ -115,7 +115,7 @@ export class Monitor {
         else if (ev.t === "tool_start") {
           const a = describeTool(ev.name, ev.input, ev.at);
           items.push({ id: `tool:${ev.id}`, at: ev.at, kind: "tool", text: a.label, emoji: a.emoji });
-        }
+        } else if (ev.t === "interrupted") items.push({ id: interruptNoteId(ev.at), at: ev.at, kind: "note", text: "Interrupted" });
       }
     }
     this.store.importChat(sessionId, items);
