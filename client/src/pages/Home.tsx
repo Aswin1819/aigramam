@@ -1,360 +1,231 @@
-import { useState, useMemo } from "react";
-import DungeonMap from "@/components/DungeonMapPhaser";
-import HeroPanel from "@/components/HeroPanel";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { toast, Toaster } from "sonner";
+import WorldView, { type WorldHandle } from "@/world/WorldView";
+import { useWorldChoice } from "@/world/useWorldChoice";
+import { pickCharacter } from "@/world/characters";
 import SkillsManager from "@/components/SkillsManager";
-import ConfigPanel from "@/components/ConfigPanel";
-import { useHeroSocket } from "@/hooks/useHeroSocket";
-import { HERO_CLASSES, STATE_COLORS, STATE_LABELS } from "@/lib/dungeonConfig";
+import { useLiveSessions } from "@/hooks/useLiveSessions";
+import { isUrgent, statusText } from "@/lib/status";
 import { trpc } from "@/lib/trpc";
+import TopBar from "@/app/TopBar";
+import SessionDock from "@/app/SessionDock";
+import DetailDrawer from "@/app/DetailDrawer";
+import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
+import BrandMark from "@/app/BrandMark";
+import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 
 export default function Home() {
-  const { heroes, setHeroes, mode, connected, log, startDemo, startLive, clearHeroes } =
-    useHeroSocket();
-  const [selectedHeroId, setSelectedHeroId] = useState<number | null>(null);
-  const [showSkillsManager, setShowSkillsManager] = useState(false);
-  const [showLog, setShowLog] = useState(false);
-  const [showConfig, setShowConfig] = useState(false);
+  const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat } = useLiveSessions();
+  const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
+  const { prefs, update, hourOverride } = useDisplayPrefs();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<SettingsTab | null>(null);
+  const [skillsOpen, setSkillsOpen] = useState(false);
+  const worldRef = useRef<WorldHandle>(null);
+  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { enabled: skillsOpen });
 
-  const selectedHero = useMemo(
-    () => heroes.find((h) => h.id === selectedHeroId) || null,
-    [heroes, selectedHeroId]
-  );
+  const { sessions, projects, hooks } = snapshot;
+  const cast = characters?.characters ?? [];
+  const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
+  // Follow the selected session's conversation while its drawer is open.
+  useEffect(() => openChat(selected ? selected.id : null), [selected?.id, openChat]);
 
-  const refetchHeroes = trpc.agents.list.useQuery(undefined, { enabled: false });
-  const { data: trackedProjects } = trpc.agents.trackedProjects.useQuery(undefined, { refetchInterval: 5000 });
+  const select = useCallback((id: string) => {
+    setSelectedId((cur) => (cur === id ? null : id));
+    worldRef.current?.focus(id);
+  }, []);
+  const close = useCallback(() => {
+    setSelectedId(null);
+    worldRef.current?.resetView();
+  }, []);
 
-  const stats = useMemo(() => {
-    const active = heroes.filter(
-      (h) => h.state === "fighting" || h.state === "casting"
-    ).length;
-    const resting = heroes.filter((h) => h.state === "resting").length;
-    const planning = heroes.filter((h) => h.state === "shopping").length;
-    return { total: heroes.length, active, resting, planning };
-  }, [heroes]);
+  // Esc closes the drawer / resets the camera.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !settings && !skillsOpen) close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [close, settings, skillsOpen]);
+
+  const decide = useCallback(async (approvalId: string, decision: "allow" | "deny") => {
+    const r = await command("approval-decide", { approvalId, decision });
+    if (!r.ok) toast.error(r.error ?? "Couldn't send your answer");
+    else toast.success(decision === "allow" ? "Approved" : "Denied");
+  }, [command]);
+
+  // A toast the moment a session newly needs approval or asks a question.
+  const seenUrgent = useRef<Set<string> | null>(null);
+  const shownApprovals = useRef(new Set<string>());
+  useEffect(() => {
+    const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
+    if (seenUrgent.current && mode === "live") {
+      for (const s of sessions.filter(isUrgent)) {
+        if (seenUrgent.current.has(`${s.id}:${s.statusSince}`)) continue;
+        const approval = s.link?.approval;
+        toast(`${s.title}`, {
+          // One toast per request, so it can be closed once the request is answered anywhere.
+          id: approval ? `approval:${approval.id}` : `urgent:${s.id}:${s.statusSince}`,
+          description: `${statusText(s)}${s.action ? ` · ${s.action.label}` : ""}`,
+          action: approval ? { label: "Approve", onClick: () => decide(approval.id, "allow") } : { label: "Show me", onClick: () => select(s.id) },
+          cancel: approval ? { label: "Deny", onClick: () => decide(approval.id, "deny") } : undefined,
+          duration: approval ? 45000 : 8000,
+        });
+      }
+    }
+    // Close toasts for requests that were answered (here, in the terminal) or expired.
+    const openApprovals = new Set(sessions.map((s) => s.link?.approval?.id).filter(Boolean));
+    for (const id of shownApprovals.current) {
+      if (!openApprovals.has(id)) {
+        toast.dismiss(`approval:${id}`);
+        shownApprovals.current.delete(id);
+      }
+    }
+    for (const id of openApprovals) shownApprovals.current.add(id as string);
+    seenUrgent.current = urgentNow;
+  }, [sessions, mode, select, decide]);
+
+  const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}` : "none";
+  const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
+  const emptyHint = mode === "demo" ? "Loading the demo village…" : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
 
   return (
-    <div
-      className="h-screen flex flex-col bg-[#06060f] text-white overflow-hidden"
-      style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace" }}
-    >
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between px-4 py-2 border-b-2 border-[#4B0082] bg-[#0d0a1a] shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 flex items-center justify-center bg-[#1a0a2e] border border-[#4B0082] rounded">
-            <span className="text-lg leading-none">🏰</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-[#FFD700] uppercase tracking-widest leading-none">
-              Claude Dungeon
-            </h1>
-            <p className="text-xs text-[#AA88FF] leading-none mt-0.5">
-              Agent Visualization System
-            </p>
-          </div>
+    <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
+      {/* The world */}
+      {world && characters ? (
+        <WorldView
+          key={worldKey}
+          ref={worldRef}
+          world={world}
+          characters={cast}
+          sessions={sessions}
+          projects={projects}
+          selectedId={selectedId}
+          hoveredId={hoveredId}
+          onSelect={select}
+          now={now}
+          hourOverride={hourOverride}
+          reducedMotion={prefs.reducedMotion}
+        />
+      ) : (
+        <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,#173129,#0c1714)]">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
+            <BrandMark size={72} />
+            <div className="font-display text-2xl font-bold">Ai <span className="text-brass">Gramam</span></div>
+            <div className="text-sm text-cream/60">{worlds && worlds.worlds.length === 0 ? "No valid world is installed. Open settings to see why." : "Waking up the village…"}</div>
+          </motion.div>
         </div>
+      )}
 
-        {/* Stats Bar - 更丰富的统计显示 */}
-        <div className="hidden md:flex items-center gap-1">
-          {[
-            { label: "Heroes", value: stats.total, color: "#88AAFF", bg: "#88AAFF22", border: "#88AAFF44" },
-            { label: "Fighting", value: stats.active, color: "#FF4444", bg: "#FF444422", border: "#FF444444" },
-            { label: "Resting", value: stats.resting, color: "#44AA44", bg: "#44AA4422", border: "#44AA4444" },
-            { label: "Planning", value: stats.planning, color: "#FFAA00", bg: "#FFAA0022", border: "#FFAA0044" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded"
-              style={{ backgroundColor: s.bg, border: `1px solid ${s.border}` }}
-            >
-              <div className="text-xs font-bold" style={{ color: s.color }}>
-                {s.value}
-              </div>
-              <div className="text-xs text-gray-500 uppercase">{s.label}</div>
-            </div>
-          ))}
-        </div>
+      {/* Soft vignette so the glass UI reads over any scene */}
+      <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.35))]" />
 
-        {/* Controls */}
-        <div className="flex items-center gap-1.5">
-          {/* Connection status */}
-          <div className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-700">
-            <span
-              className={`w-2 h-2 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-            />
-            <span className={`text-xs font-bold ${connected ? "text-green-400" : "text-red-400"}`}>
-              {connected ? "ONLINE" : "OFFLINE"}
-            </span>
-          </div>
+      <TopBar
+        sessions={sessions}
+        projects={projects}
+        worlds={worlds?.worlds ?? []}
+        world={world}
+        brokenPacks={brokenPacks}
+        onWorld={chooseWorld}
+        mode={mode}
+        connected={connected}
+        onLive={startLive}
+        onDemo={startDemo}
+        time={prefs.time}
+        onTime={(time) => update({ time })}
+        onSelect={select}
+        onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+        onDecide={decide}
+        now={now}
+      />
 
-          {/* Mode Toggle */}
-          <div className="flex border border-[#4B0082] rounded overflow-hidden">
-            <button
-              onClick={startDemo}
-              className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors ${
-                mode === "demo"
-                  ? "bg-[#4B0082] text-white"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              🎮 Demo
-            </button>
-            <button
-              onClick={startLive}
-              className={`px-2.5 py-1 text-xs font-bold uppercase transition-colors ${
-                mode === "live"
-                  ? "bg-[#8B0000] text-white"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              📡 Live
-            </button>
-          </div>
+      <SessionDock
+        sessions={sessions}
+        projects={projects}
+        world={world}
+        characters={cast}
+        selectedId={selectedId}
+        open={prefs.dockOpen}
+        onToggle={() => update({ dockOpen: !prefs.dockOpen })}
+        onSelect={select}
+        onHover={setHoveredId}
+        now={now}
+        emptyHint={emptyHint}
+      />
 
-          <button
-            onClick={() => setShowConfig(true)}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-[#00AAFF] text-[#00AAFF] hover:bg-[#00AAFF] hover:text-black transition-colors rounded"
-          >
-            ⚙️ Config
-          </button>
-
-          <button
-            onClick={() => setShowSkillsManager(true)}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-[#FFAA00] text-[#FFAA00] hover:bg-[#FFAA00] hover:text-black transition-colors rounded"
-          >
-            ✨ Skills
-          </button>
-
-          <button
-            onClick={clearHeroes}
-            className="px-2.5 py-1 text-xs font-bold uppercase border border-gray-600 text-gray-400 hover:border-red-500 hover:text-red-400 transition-colors rounded"
-          >
-            🗑️ Clear
-          </button>
-
-          <button
-            onClick={() => setShowLog(!showLog)}
-            className={`px-2.5 py-1 text-xs font-bold uppercase border transition-colors rounded ${
-              showLog
-                ? "border-[#AA88FF] text-[#AA88FF] bg-[#AA88FF22]"
-                : "border-gray-600 text-gray-400 hover:text-white"
-            }`}
-          >
-            📜 Log
-          </button>
-        </div>
-      </header>
-
-      {/* ── Main Layout ── */}
-      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Left Sidebar - Hero List (加宽) */}
-        <div className="w-52 border-r border-[#4B0082] bg-[#0a0a18] flex flex-col shrink-0 overflow-hidden">
-          <div className="px-3 py-2 border-b border-[#4B0082] bg-[#0d0a1a]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#AA88FF] uppercase tracking-widest">
-                ⚔️ Heroes
-              </span>
-              <span
-                className="text-xs font-bold px-1.5 py-0.5 rounded"
-                style={{
-                  backgroundColor: heroes.length > 0 ? "#88AAFF22" : "#33333322",
-                  color: heroes.length > 0 ? "#88AAFF" : "#555555",
-                  border: `1px solid ${heroes.length > 0 ? "#88AAFF44" : "#33333344"}`,
-                }}
-              >
-                {heroes.length}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {heroes.length === 0 ? (
-              <div className="p-4 text-center">
-                <div className="text-3xl mb-2 opacity-30">⚔️</div>
-                <div className="text-xs text-gray-600 leading-relaxed">
-                  {mode === "demo"
-                    ? "Click 🎮 Demo\nto spawn heroes"
-                    : "Start Claude Code\nto see heroes"}
-                </div>
-              </div>
-            ) : (
-              heroes.map((hero) => {
-                const cls = HERO_CLASSES[hero.heroClass];
-                const stateColor = STATE_COLORS[hero.state];
-                const stateLabel = STATE_LABELS[hero.state];
-                const isSelected = hero.id === selectedHeroId;
-                const hpPct = Math.round((hero.hp / hero.maxHp) * 100);
-                return (
-                  <button
-                    key={hero.id}
-                    onClick={() =>
-                      setSelectedHeroId(isSelected ? null : hero.id)
-                    }
-                    className={`w-full text-left px-3 py-2.5 border-b border-[#1a1a2e] transition-all ${
-                      isSelected
-                        ? "bg-[#1a0a2e] border-l-2 border-l-[#FFD700]"
-                        : "hover:bg-[#1a1a2e]"
-                    }`}
-                  >
-                    {/* Hero name row */}
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-base leading-none">{cls?.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold text-white truncate">
-                          {hero.name}
-                        </div>
-                        <div className="text-xs" style={{ color: stateColor }}>
-                          {stateLabel}
-                        </div>
-                      </div>
-                      <div
-                        className="text-xs font-bold px-1 rounded"
-                        style={{ color: cls?.color, backgroundColor: (cls?.color || "#888") + "22" }}
-                      >
-                        Lv{hero.level}
-                      </div>
-                    </div>
-
-                    {/* HP bar */}
-                    <div className="h-1.5 bg-[#1a0a0a] rounded-full overflow-hidden border border-red-900/50">
-                      <div
-                        className="h-full transition-all duration-500"
-                        style={{
-                          width: `${hpPct}%`,
-                          backgroundColor: hpPct > 50 ? "#FF4444" : hpPct > 25 ? "#FF8800" : "#FF2200",
-                        }}
-                      />
-                    </div>
-
-                    {/* Active tools indicator */}
-                    {(hero.activeTools?.length || 0) > 0 && (
-                      <div className="mt-1 flex gap-0.5 flex-wrap">
-                        {hero.activeTools.slice(0, 3).map((t, idx) => (
-                          <span
-                            key={t.id ?? `${hero.id}-tool-${idx}`}
-                            className="text-xs px-1 rounded"
-                            style={{ backgroundColor: "#FF444433", color: "#FF9999" }}
-                          >
-                            {t.name.slice(0, 5)}
-                          </span>
-                        ))}
-                        {hero.activeTools.length > 3 && (
-                          <span className="text-xs text-gray-600">+{hero.activeTools.length - 3}</span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          {/* Mode info */}
-          <div className="p-2.5 border-t border-[#4B0082] bg-[#0d0a1a]">
-            {mode === "live" ? (
-              <div className="text-xs">
-                <div className="text-green-400 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
-                  LIVE MODE
-                </div>
-                <div className="text-gray-600 mt-0.5">Watching ~/.claude/</div>
-              </div>
-            ) : (
-              <div className="text-xs">
-                <div className="text-[#7744AA] font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#7744AA] inline-block" />
-                  DEMO MODE
-                </div>
-                <div className="text-gray-600 mt-0.5">Simulated agents</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Center - Dungeon Map */}
-        <div className="flex-1 relative bg-[#06060f] overflow-auto" style={{ minHeight: 0 }}>
-          <DungeonMap
-            heroes={heroes}
-            selectedHeroId={selectedHeroId}
-            onHeroClick={(id) =>
-              setSelectedHeroId(selectedHeroId === id ? null : id)
-            }
+      <AnimatePresence>
+        {selected && (
+          <DetailDrawer
+            key={selected.id}
+            session={selected}
+            project={projects.find((x) => x.id === selected.projectId)}
+            character={pickCharacter(selected.id, world, cast)}
+            chat={chat && chat.sessionId === selected.id ? chat.items : null}
+            now={now}
+            onClose={close}
+            onFocus={() => worldRef.current?.focus(selected.id)}
+            onSetupAlerts={() => setSettings("alerts")}
+            onSetupLink={() => setSettings("link")}
+            demo={mode === "demo"}
+            command={command}
           />
+        )}
+      </AnimatePresence>
 
-          {/* Empty state overlay - 放在右下角空白区域（Boss Arena下方），不覆盖地图内容 */}
-          {heroes.length === 0 && (
-            <div className="absolute bottom-4 right-4 pointer-events-none">
-              <div
-                className="text-center px-5 py-3 rounded-lg"
-                style={{
-                  backgroundColor: "rgba(6,6,15,0.9)",
-                  border: "1px solid #4B0082",
-                  backdropFilter: "blur(4px)",
-                  maxWidth: "220px",
-                }}
-              >
-                <div className="text-sm font-bold text-[#7744AA] uppercase tracking-widest">
-                  🏰 Dungeon Awaits
-                </div>
-                <div className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {mode === "demo"
-                    ? "Click 🎮 Demo to spawn heroes"
-                    : "Start Claude Code to see heroes appear"}
-                </div>
-              </div>
-            </div>
-          )}
+      {/* Empty state */}
+      <AnimatePresence>
+        {sessions.length === 0 && mode === "live" && world && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="glass pointer-events-auto absolute bottom-6 left-1/2 z-20 w-[min(440px,90vw)] -translate-x-1/2 rounded-2xl p-4 text-center"
+          >
+            <div className="font-display text-base font-semibold">The village is quiet</div>
+            <p className="mt-1 text-sm text-cream/65">Start Claude Code in any folder and a villager walks in within a few seconds.</p>
+            <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Activity Log Overlay */}
-          {showLog && (
-            <div className="absolute bottom-0 left-0 right-0 h-40 bg-[#06060f]/96 border-t border-[#4B0082] overflow-y-auto p-2">
-              <div className="flex items-center justify-between mb-1">
-                <div className="text-xs text-[#AA88FF] font-bold uppercase">
-                  📜 Activity Log
-                </div>
-                <button
-                  onClick={() => setShowLog(false)}
-                  className="text-gray-600 hover:text-gray-400 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-              {log.length === 0 ? (
-                <div className="text-xs text-gray-600 text-center py-2">No activity yet</div>
-              ) : (
-                log.slice(-30).map((entry, i) => (
-                  <div key={i} className="text-xs text-gray-400 leading-relaxed py-0.5 border-b border-[#1a1a2e]">
-                    {entry}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Hero Details */}
-        {selectedHero && (
-          <div className="w-64 shrink-0 overflow-hidden">
-            <HeroPanel
-              hero={selectedHero}
-              onClose={() => setSelectedHeroId(null)}
-              onSkillsUpdated={() => {}}
-            />
-          </div>
+      {/* Footer status */}
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 flex items-center gap-2 text-[11px] text-cream/55">
+        {fellBack && world && <span className="glass pointer-events-auto rounded-xl px-2 py-1 text-wait">Your chosen world isn't available, showing {world.name}</span>}
+        {mode === "demo" ? (
+          <span className="glass rounded-xl px-2 py-1 text-brass">Demo village · simulated sessions</span>
+        ) : hooks.installed ? (
+          <span className="glass rounded-xl px-2 py-1">Live · transcripts + hooks</span>
+        ) : (
+          <button onClick={() => setSettings("alerts")} className="glass pointer-events-auto rounded-xl px-2 py-1 hover:text-cream">Live · transcripts only · <span className="text-wait underline underline-offset-2">exact approval alerts</span></button>
         )}
       </div>
 
-      {/* Skills Manager Modal */}
-      {showSkillsManager && (
-        <SkillsManager
-          onClose={() => setShowSkillsManager(false)}
-          projects={trackedProjects ?? []}
-        />
-      )}
+      <AnimatePresence>
+        {settings && (
+          <SettingsSheet
+            tab={settings}
+            onTab={setSettings}
+            onClose={() => setSettings(null)}
+            worlds={worlds}
+            activeWorldId={world?.id}
+            onWorld={chooseWorld}
+            characters={characters}
+            lastHookAt={hooks.lastEventAt}
+            reducedMotion={prefs.reducedMotion}
+            onReducedMotion={(reducedMotion) => update({ reducedMotion })}
+            time={prefs.time}
+            onTime={(time) => update({ time })}
+            onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
+            linkedCount={sessions.filter((s) => s.link?.connected).length}
+            sessionCount={sessions.length}
+          />
+        )}
+      </AnimatePresence>
+      {skillsOpen && <SkillsManager onClose={() => setSkillsOpen(false)} projects={trackedProjects ?? []} />}
 
-      {/* Config Panel Modal */}
-      {showConfig && (
-        <ConfigPanel onClose={() => setShowConfig(false)} />
-      )}
+      <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-[#13221e]/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
     </div>
   );
 }

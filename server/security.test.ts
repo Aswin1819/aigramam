@@ -8,7 +8,7 @@ import {
   isLoopbackAddress,
 } from "./_core/security";
 
-const base = path.join(os.tmpdir(), "dungeon-skills");
+const base = path.join(os.tmpdir(), "gramam-skills");
 
 describe("safeChildPath", () => {
   it("accepts normal names", () => {

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "shades-villain",
+  "name": "Shades (Stylish Villain)",
+  "author": "Aswin1819",
+  "license": "CC0-1.0",
+  "role": "villain",
+  "frame": {
+    "width": 32,
+    "height": 48
+  },
+  "fps": 8,
+  "scale": 2,
+  "sheet": "sprites.png",
+  "animations": {
+    "idle": {
+      "row": 0,
+      "frames": 4
+    },
+    "walk": {
+      "row": 1,
+      "frames": 6
+    },
+    "read": {
+      "row": 2,
+      "frames": 4
+    },
+    "write": {
+      "row": 3,
+      "frames": 4
+    },
+    "bash": {
+      "row": 4,
+      "frames": 6
+    },
+    "wait": {
+      "row": 5,
+      "frames": 4
+    },
+    "celebrate": {
+      "row": 6,
+      "frames": 6,
+      "loop": true
+    },
+    "error": {
+      "row": 7,
+      "frames": 4,
+      "loop": true
+    }
+  }
+}

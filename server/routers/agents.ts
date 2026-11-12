@@ -1,5 +1,5 @@
 /**
- * Agents Router - Hero management, real Claude Code Skills CRUD, and monitoring
+ * Agents Router - real Claude Code skills/agents CRUD, config and connection status
  *
  * Claude Code file structure:
  *   Transcripts: ~/.claude/projects/<encoded-path>/<session-id>.jsonl
@@ -27,51 +27,6 @@ function childPath(dir: string, name: string, suffix = ""): string {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type HeroClass = "warrior" | "mage" | "cleric";
-export type HeroState =
-  | "idle"
-  | "walking"
-  | "fighting"
-  | "casting"
-  | "resting"
-  | "shopping"
-  | "hurt";
-export type DungeonRoom =
-  | "boss_arena"
-  | "church"
-  | "shop"
-  | "rest_area"
-  | "corridor";
-
-export interface ActiveTool {
-  id: string;
-  name: string;
-  status: string;
-  startedAt: number;
-}
-
-export interface Hero {
-  id: number;
-  name: string;
-  heroClass: HeroClass;
-  state: HeroState;
-  position: { x: number; y: number };
-  room: DungeonRoom;
-  activeTools: ActiveTool[];
-  subAgentTools: Record<string, ActiveTool[]>;
-  toolCount: { bash: number; read: number; write: number; web: number };
-  isWaiting: boolean;
-  skills: string[];
-  level: number;
-  exp: number;
-  hp: number;
-  maxHp: number;
-  mp: number;
-  maxMp: number;
-  projectPath?: string;
-  sessionFile?: string;
-}
-
 /** A real Claude Code skill backed by a SKILL.md file */
 export interface ClaudeSkill {
   name: string;           // folder name = slash command
@@ -83,31 +38,13 @@ export interface ClaudeSkill {
   skillPath: string;      // absolute path to the skill directory
 }
 
-// ─── Room Positions ───────────────────────────────────────────────────────────
-
-// Room positions match the canvas layout:
-// Canvas: 70 cols × 40 rows, each tile = 48px (TILE=16, SCALE=3)
-// spawn: cols 0-19, rows 0-19 → center ~(456, 456)
-// dungeon: cols 20-39, rows 0-19 → center ~(1416, 456)
-// boss: cols 40-69, rows 0-39 → center ~(2616, 936)
-// shop: cols 0-19, rows 20-39 → center ~(456, 1416)
-// rest: cols 20-39, rows 20-39 → center ~(1416, 1416)
-export const ROOM_POSITIONS: Record<DungeonRoom, { x: number; y: number }> = {
-  boss_arena: { x: 2616, y: 936 },
-  church:     { x: 456,  y: 456 },
-  shop:       { x: 456,  y: 1416 },
-  rest_area:  { x: 1416, y: 1416 },
-  corridor:   { x: 1416, y: 456 },
-};
-
 // ─── Paths ────────────────────────────────────────────────────────────────────
 
 const HOME_DIR = os.homedir();
 const CLAUDE_DIR = path.join(HOME_DIR, ".claude");
 const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 const GLOBAL_SKILLS_DIR = path.join(CLAUDE_DIR, "skills");
-const DATA_DIR = path.join(HOME_DIR, ".claude-dungeon");
-const HEROES_PATH = path.join(DATA_DIR, "heroes.json");
+import { DATA_DIR } from "../_core/paths";
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -140,45 +77,6 @@ function saveConfig(config: AppConfig) {
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function loadHeroes(): Hero[] {
-  ensureDataDir();
-  try {
-    if (fs.existsSync(HEROES_PATH)) {
-      return JSON.parse(fs.readFileSync(HEROES_PATH, "utf-8"));
-    }
-  } catch {}
-  return [];
-}
-
-function saveHeroes(heroes: Hero[]) {
-  ensureDataDir();
-  try {
-    fs.writeFileSync(HEROES_PATH, JSON.stringify(heroes, null, 2));
-  } catch (e) {
-    console.error("[Heroes] Save failed:", e);
-  }
-}
-
-// ─── Hero Class Detection ─────────────────────────────────────────────────────
-
-export function detectHeroClass(toolCount: {
-  bash: number;
-  read: number;
-  write: number;
-  web: number;
-}): HeroClass {
-  const total = toolCount.bash + toolCount.read + toolCount.write + toolCount.web;
-  if (total === 0) return "warrior";
-  const bashR = toolCount.bash / total;
-  const webR = toolCount.web / total;
-  const readR = toolCount.read / total;
-  if (bashR >= 0.35) return "warrior";
-  if (webR >= 0.3) return "mage";
-  if (readR >= 0.4) return "cleric";
-  if (toolCount.write / total >= 0.35) return "warrior";
-  return "warrior";
 }
 
 // ─── Real Claude Code Skills File System ─────────────────────────────────────
@@ -344,37 +242,79 @@ function deleteAgent(agentsDir: string, agentName: string): void {
 }
 
 /**
- * Decode Claude Code's encoded project path back to real path
- * ~/.claude/projects/-home-user-myproject → /home/user/myproject
+ * The real folder of a ~/.claude/projects/<encoded> directory. The encoding is
+ * lossy (every non-alphanumeric character becomes "-"), so read the cwd that
+ * Claude Code records inside the most recent transcript instead of decoding it.
  */
-function decodeProjectPath(encodedName: string): string {
-  // First try to get the real path from ~/.claude.json (most accurate)
-  try {
-    const claudeJsonPath = path.join(HOME_DIR, ".claude.json");
-    if (fs.existsSync(claudeJsonPath)) {
-      const claudeJson = JSON.parse(fs.readFileSync(claudeJsonPath, "utf-8"));
-      // ~/.claude.json has a `projects` object keyed by real path
-      // We need to find the entry whose encoded form matches
-      if (claudeJson.projects) {
-        for (const realPath of Object.keys(claudeJson.projects)) {
-          // Claude encodes by replacing / with - (after stripping leading /)
-          const encoded = "-" + realPath.replace(/\//g, "-").replace(/^-/, "");
-          if (encoded === encodedName) return realPath;
+const projectPathCache = new Map<string, string>();
+function realPathForProjectDir(projectDir: string, encodedName: string, sessionFiles: string[]): string {
+  const cached = projectPathCache.get(projectDir);
+  if (cached) return cached;
+  const newestFirst = sessionFiles
+    .map((f) => path.join(projectDir, f))
+    .sort((a, b) => { try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; } });
+  for (const file of newestFirst.slice(0, 3)) {
+    let fd: number | null = null;
+    try {
+      fd = fs.openSync(file, "r");
+      const buf = Buffer.alloc(64 * 1024);
+      const n = fs.readSync(fd, buf, 0, buf.length, 0);
+      const m = /"cwd":("(?:[^"\\]|\\.)*")/.exec(buf.subarray(0, n).toString("utf8"));
+      if (m) {
+        const cwd = JSON.parse(m[1]) as string;
+        projectPathCache.set(projectDir, cwd);
+        return cwd;
+      }
+    } catch {
+      // try the next file
+    } finally {
+      if (fd !== null) try { fs.closeSync(fd); } catch {}
+    }
+  }
+  const guessed = guessPathFromEncodedName(encodedName);
+  if (guessed) projectPathCache.set(projectDir, guessed);
+  return guessed ?? encodedName;
+}
+
+/**
+ * Fallback for project folders with no transcripts: find an existing folder
+ * whose encoding matches. Each "-" was a separator or one of - _ . space, so
+ * try those, keeping only branches that exist on disk. Read-only.
+ */
+export function guessPathFromEncodedName(encoded: string, exists: (p: string) => boolean = fs.existsSync): string | null {
+  let root: string;
+  let rest: string;
+  const drive = /^([A-Za-z])--(.*)$/.exec(encoded);
+  if (drive) {
+    root = `${drive[1].toUpperCase()}:\\`;
+    rest = drive[2];
+  } else if (encoded.startsWith("-")) {
+    root = "/";
+    rest = encoded.slice(1);
+  } else {
+    return null;
+  }
+  const tokens = rest.split("-");
+  const joiners = ["-", "_", ".", " "];
+  let budget = 2000; // bound the search on odd names
+  // Folder name = tokens i..j joined by one joiner (mixed joiners inside one name aren't tried).
+  const walk = (dir: string, i: number): string | null => {
+    if (i >= tokens.length) return dir;
+    for (let j = i; j < tokens.length; j++) {
+      if (budget-- <= 0) return null;
+      const names = j === i ? [tokens[i]] : joiners.map((jn) => tokens.slice(i, j + 1).join(jn));
+      for (const name of names) {
+        if (!name) continue;
+        const next = path.join(dir, name);
+        if (exists(next)) {
+          const found = walk(next, j + 1);
+          if (found) return found;
         }
       }
     }
-  } catch {}
-
-  // Fallback: reverse the encoding
-  // The encoding is: strip leading /, replace all / with -, prepend -
-  // Reverse: strip leading -, replace - with /, but we must be careful
-  // about project names that contain hyphens.
-  // Best we can do without the json: replace leading - with /, then
-  // replace remaining - sequences that look like path separators.
-  // Actually Claude uses a simple replace: realPath.replace(/\//g, '-')
-  // So the encoded form has no way to distinguish - in dir names from /
-  // We just do a best-effort decode:
-  return "/" + encodedName.replace(/^-/, "").replace(/-/g, "/");
+    return null;
+  };
+  return walk(root, 0);
 }
 
 /**
@@ -393,7 +333,7 @@ function getTrackedProjects(): Array<{ encodedName: string; realPath: string; se
           : [];
         return {
           encodedName: e.name,
-          realPath: decodeProjectPath(e.name),
+          realPath: realPathForProjectDir(projectDir, e.name, sessionFiles),
           sessionCount: sessionFiles.length,
         };
       });
@@ -405,81 +345,6 @@ function getTrackedProjects(): Array<{ encodedName: string; realPath: string; se
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const agentsRouter = router({
-  // ── Heroes ──────────────────────────────────────────────────────────────────
-  list: publicProcedure.query(() => loadHeroes()),
-
-  clearHeroes: publicProcedure.mutation(() => {
-    saveHeroes([]);
-    return { success: true };
-  }),
-
-  createDemoHeroes: publicProcedure.mutation(() => {
-    const heroes: Hero[] = [
-      {
-        id: 1,
-        name: "Agent-Alpha",
-        heroClass: "warrior",
-        state: "fighting",
-        position: { x: 400, y: 280 },
-        room: "boss_arena",
-        activeTools: [{ id: "t1", name: "Bash", status: "⚔️ Running: npm install", startedAt: Date.now() - 5000 }],
-        subAgentTools: {},
-        toolCount: { bash: 12, read: 3, write: 5, web: 1 },
-        isWaiting: false,
-        skills: [],
-        level: 5,
-        exp: 340,
-        hp: 85,
-        maxHp: 100,
-        mp: 40,
-        maxMp: 60,
-        projectPath: "/home/user/my-project",
-      },
-      {
-        id: 2,
-        name: "Agent-Beta",
-        heroClass: "mage",
-        state: "casting",
-        position: { x: 645, y: 185 },
-        room: "shop",
-        activeTools: [{ id: "t2", name: "WebSearch", status: "🔍 Searching: React hooks", startedAt: Date.now() - 3000 }],
-        subAgentTools: {},
-        toolCount: { bash: 2, read: 4, write: 3, web: 9 },
-        isWaiting: false,
-        skills: [],
-        level: 3,
-        exp: 120,
-        hp: 60,
-        maxHp: 70,
-        mp: 90,
-        maxMp: 100,
-        projectPath: "/home/user/another-project",
-      },
-      {
-        id: 3,
-        name: "Agent-Gamma",
-        heroClass: "cleric",
-        state: "resting",
-        position: { x: 400, y: 490 },
-        room: "rest_area",
-        activeTools: [],
-        subAgentTools: {},
-        toolCount: { bash: 1, read: 15, write: 2, web: 2 },
-        isWaiting: true,
-        skills: [],
-        level: 2,
-        exp: 80,
-        hp: 100,
-        maxHp: 100,
-        mp: 100,
-        maxMp: 100,
-        projectPath: "/home/user/docs-project",
-      },
-    ];
-    saveHeroes(heroes);
-    return heroes;
-  }),
-
   // ── Config ───────────────────────────────────────────────────────────────────
   getConfig: publicProcedure.query(() => loadConfig()),
 
@@ -679,22 +544,6 @@ export const agentsRouter = router({
       deleteAgent(agentsDir, input.agentName);
       return { success: true };
     }),
-
-  // ── Update Hero Skills (visual only, stored in heroes.json) ─────────────────
-  updateHeroSkills: publicProcedure
-    .input(z.object({ heroId: z.number(), skills: z.array(z.string()) }))
-    .mutation(({ input }) => {
-      const heroes = loadHeroes();
-      const hero = heroes.find((h) => h.id === input.heroId);
-      if (hero) {
-        hero.skills = input.skills;
-        saveHeroes(heroes);
-      }
-      return { success: true };
-    }),
-
-  // ── Room Positions ────────────────────────────────────────────────────────────
-  roomPositions: publicProcedure.query(() => ROOM_POSITIONS),
 
   // ── Bridge API Key ────────────────────────────────────────────────────────────
   bridgeApiKey: publicProcedure.query(() => {
