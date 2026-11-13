@@ -84,6 +84,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               <span className="text-[11px] tabular-nums text-cream/50">for {elapsed(s.statusSince, now)}</span>
               {s.link?.connected && <span className="flex items-center gap-1 text-[11px] text-work"><span className="h-1.5 w-1.5 rounded-full bg-work shadow-[0_0_6px_#5eead4]" />Linked</span>}
             </div>
+            {s.statusNote && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-cream/55" title="What this status is based on">{s.statusNote}</p>}
             <div className="mt-0.5 truncate text-[11px] text-cream/45">
               {project?.name}{s.gitBranch ? ` · ⎇ ${s.gitBranch}` : ""}{character ? ` · ${character.name}` : ""}
             </div>

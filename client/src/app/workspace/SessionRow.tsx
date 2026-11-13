@@ -23,7 +23,7 @@ export default function SessionRow({ s, project, now, selected, onSelect, extra 
           <span className="shrink-0 text-[11px] text-cream/45">{project}</span>
         </div>
         <div className="truncate text-[12px] text-cream/65">
-          <span style={{ color }}>{STATUS_META[s.status].emoji} {statusText(s)}</span>
+          <span style={{ color }} title={s.statusNote}>{STATUS_META[s.status].emoji} {statusText(s)}</span>
           {s.action && <span> · {s.action.label}</span>}
         </div>
         <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10.5px] text-cream/40">

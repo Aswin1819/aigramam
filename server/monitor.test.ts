@@ -236,6 +236,25 @@ describe("SessionStore", () => {
     expect(s.snapshot(T0).sessions).toHaveLength(0);
   });
 
+  it("explains each status in plain words", () => {
+    const s = new SessionStore();
+    feed(s, rec.meta(0));
+    expect(s.snapshot(T0 + 1000).sessions[0].statusNote).toMatch(/last 2 minutes/);
+    feed(s, rec.toolUse(1, "b1", "Bash", { command: "npm test" }));
+    expect(s.snapshot(T0 + 2000).sessions[0].statusNote).toMatch(/result isn't recorded yet/);
+    expect(s.snapshot(T0 + 10 * 60_000).sessions[0].statusNote).toMatch(/result isn't recorded yet/);
+    s.applyRegistry([{ pid: 1, sessionId: SID, alive: true }], T0);
+    s.applyRegistry([], T0 + 3000);
+    expect(s.snapshot(T0 + 3000).sessions[0]).toMatchObject({ status: "finished", statusNote: "Its Claude Code process is no longer running." });
+  });
+
+  it("says when a session is only presumed ended after a long silence", () => {
+    const s = new SessionStore();
+    feed(s, rec.meta(0));
+    s.prune(T0 + TIMING.silentEndMs + 1);
+    expect(s.snapshot(T0 + TIMING.silentEndMs + 2).sessions[0].statusNote).toMatch(/15 minutes/);
+  });
+
   it("tracks subagents and finishes them when the parent's Agent call returns", () => {
     const s = new SessionStore();
     feed(s, rec.toolUse(0, "agent-call", "Agent", { subagent_type: "Explore", description: "Map payments" }));

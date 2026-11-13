@@ -60,6 +60,11 @@ export function liveProjects() {
   return liveSnapshot().projects;
 }
 
+/** Ids of the real sessions shown right now (for History's "live" label). */
+export function liveSessionIds(): Set<string> {
+  return new Set(monitor.store.snapshot(Date.now()).sessions.map((s) => s.id.toLowerCase()));
+}
+
 // ── Snapshots ─────────────────────────────────────────────────────────────────
 
 function liveSnapshot(now = Date.now()): Snapshot {
@@ -77,6 +82,7 @@ function liveSnapshot(now = Date.now()): Snapshot {
           ? { kind: "question", emoji: "❓", label: `Asks: ${info.approval.label}`, startedAt: info.approval.since }
           : { kind: "waiting", emoji: "🔔", label: `Needs your approval: ${info.approval.label}`, startedAt: info.approval.since };
         s.statusSince = info.approval.since;
+        s.statusNote = question ? "The Ai Gramam mod passed on Claude's question; answer it here or in the terminal." : "The Ai Gramam mod passed on a permission request; answer it here or in the terminal.";
       }
     }
   }

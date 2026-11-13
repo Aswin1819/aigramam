@@ -104,6 +104,8 @@ export interface SessionView {
   waitingReason?: WaitingReason;
   /** Without hooks a long-pending tool may be a permission prompt; shown as a soft hint, not a banner. */
   maybeNeedsApproval?: boolean;
+  /** What the status is based on, in plain words, e.g. "A tool call has started and its result isn't recorded yet." */
+  statusNote?: string;
   action?: Action;
   startedAt: number;
   lastActivityAt: number;
