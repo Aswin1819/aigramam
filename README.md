@@ -14,16 +14,23 @@
 
 Everything runs on your machine: the server listens on `127.0.0.1` only, makes no outside network calls, and never writes your transcripts anywhere.
 
+## Two parts
+
+- **The app** (this repository): a local web app you start and open at http://localhost:4317. It shows the village, Workspace Mode, terminals and history, and works on its own by reading Claude Code's files.
+- **The mod** (`plugin/ai-gramam`, optional): a Claude Code plugin that links each session to the app so you can message, stop, approve and answer it from the browser.
+
+Installing the mod doesn't install or start the app. Full steps, updates and removal: **[docs/INSTALL.md](docs/INSTALL.md)**.
+
 ## Quick start (Windows)
 
-Requirements: Node.js 18+.
+Requirements: Node.js 18+ and Claude Code.
 
 ```powershell
 npx -y pnpm@10.4.1 install
 npx pnpm@10.4.1 dev
 ```
 
-Open **http://localhost:4317** (the port comes from `.env`; copy `.env.example` to change it). Start Claude Code in any folder and a villager walks in within a few seconds. No sessions yet? Click **Demo** in the top bar, or open http://localhost:4317/?demo.
+Open **http://localhost:4317** (the port comes from `.env`; copy `.env.example` to change it). Start Claude Code in any folder and a villager walks in within a few seconds. No sessions yet? Click **Demo** in the top bar, or open http://localhost:4317/?demo. Something missing? **Settings → Session link** checks each part and says which one needs attention ([docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)).
 
 Tips: drag to pan, scroll to zoom, click a villager (or a row in the dock) to open its details, <kbd>Esc</kbd> to step back. Try `?time=night` to preview the night.
 
@@ -43,7 +50,7 @@ claude plugin marketplace add C:\path\to\aigramam
 claude plugin install ai-gramam@aigramam
 ```
 
-Sessions that were already running link after a restart. **Settings → Session link** shows how many are linked. The mod's source is in `plugin/ai-gramam`.
+Sessions that were already running link after a restart. **Settings → Session link** shows whether the mod is installed and up to date and how many sessions are linked, and each session's status line says `Ai Gramam ● linked` (or why it isn't). To update: `claude plugin marketplace update aigramam` then `claude plugin update ai-gramam@aigramam`. The mod's source is in `plugin/ai-gramam`.
 
 ## Terminals
 
@@ -84,6 +91,19 @@ Tests: `npx pnpm@10.4.1 test` · Types: `npx pnpm@10.4.1 check` · Production: `
 ## Remote bridge (optional)
 
 To show sessions from another computer, run `bridge/ai-gramam-bridge.mjs` there. **Settings → Remote bridge** gives you the exact commands with your key.
+
+## Known limitations
+
+- Built and tested on Windows 11. Other systems are untested; terminals start `powershell.exe`.
+- Without the mod, permission prompts can only be guessed from transcripts (install the mod, or the optional hooks, for exact alerts).
+- Plan approvals, and permission requests another plugin answers first, stay in the terminal.
+- History only reaches back as far as Claude Code keeps transcripts (30 days by default), and approvals aren't recorded in transcripts.
+- Token counts are the API's own figures; Ai Gramam shows no costs.
+- The mod is distributed from this repository's own marketplace, not Anthropic's plugin directory.
+
+## Docs
+
+[Install](docs/INSTALL.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Security and your data](SECURITY.md) · [Changelog](CHANGELOG.md) · [Worlds](docs/WORLDS.md) · [Characters](docs/PACKS.md) · [Art styles](docs/ART-STYLES.md)
 
 ## License
 

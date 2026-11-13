@@ -4,6 +4,7 @@ import { gitRouter } from "./routers/git";
 import { historyRouter } from "./routers/history";
 import { hooksRouter } from "./routers/hooks";
 import { projectsRouter } from "./routers/projects";
+import { setupRouter } from "./routers/setup";
 import { worldsRouter } from "./routers/worlds";
 
 export const appRouter = router({
@@ -12,6 +13,7 @@ export const appRouter = router({
   history: historyRouter,
   hooks: hooksRouter,
   projects: projectsRouter,
+  setup: setupRouter,
   worlds: worldsRouter,
 });
 

@@ -95,7 +95,7 @@ export default function Workspace(p: Props) {
         {p.page === "terminals" && <TerminalsPage api={p.terminals} sessions={p.sessions} projects={p.projects} mode={p.mode} connected={p.connected} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />}
         {p.page === "history" && <HistoryPage now={p.now} demo={p.mode === "demo"} liveIds={new Set(p.sessions.map((s) => s.id.toLowerCase()))} onOpenLive={(id) => p.onSelectSession(p.sessions.find((s) => s.id.toLowerCase() === id)?.id ?? id)} />}
         {p.page === "agents" && (
-          <AgentsPage sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
+          <AgentsPage connected={p.mode !== "live" || p.connected} sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}
       </div>
     </div>

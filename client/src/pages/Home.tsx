@@ -181,7 +181,7 @@ export default function Home() {
 
   const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}|${assignmentsKey(assignments)}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
-  const emptyHint = mode === "demo" ? "Loading the demo village…" : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
+  const emptyHint = mode === "demo" ? "Loading the demo village…" : !connected ? "Can't reach the Ai Gramam server, reconnecting…\nSessions can't be shown until it's back; this doesn't mean none are running." : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
@@ -382,8 +382,7 @@ export default function Home() {
             time={prefs.time}
             onTime={(time) => update({ time })}
             onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
-            linkedCount={sessions.filter((s) => s.link?.connected).length}
-            sessionCount={sessions.length}
+            connected={mode === "live" ? connected : true}
           />
         )}
       </AnimatePresence>
