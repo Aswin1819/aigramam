@@ -1,6 +1,7 @@
 import { skeleton } from "../scene";
 import { asVillagerFrame } from "./reference";
 import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 import {
   BLR_BAND_H, BLR_BAND_TOP, BLR_PAVER, FONT, INK, PAPER, autoRickshaw, caption, cityBus, cityTree, farPalm, halftone, hash, ink, kite, limb,
   glyphBubble, iconBadge, lighten, makeLayer, metroTrain, nameBoard, paintBlrBand, paintBlrTile, palm, puff, sfx, skyline, sparkle,
@@ -1427,6 +1428,7 @@ export const comicArtLive: LiveStyle = {
       }
     }
 
+    drawStations(c, f, view, PROP_LOOKS.comic);
     // 5. Villagers and their companions back-to-front, then companion props
     // and tags, then villager labels (selected and urgent last, on top).
     depth.length = 0;

@@ -24,6 +24,7 @@ import {
   type PlaceSprite, type Sprite,
 } from "./ps2Kit";
 import { GROUND, LIVE_STATUS_COLOR, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 
 /** Low-res buffer height in pixels (the "console" resolution). */
 const BH = 240;
@@ -739,6 +740,7 @@ export const ps2Live: LiveStyle = {
     if (blr) blrGlow(g, f, view);
     else flames(g, f, view);
 
+    drawStations(g, f, view, PROP_LOOKS.ps2);
     // Villagers and their subagent companions, back to front by feet y.
     const lod = px > 2.5;
     type Fig = { y: number; v: LiveVillager; c?: LiveCompanion };

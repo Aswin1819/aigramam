@@ -15,6 +15,7 @@ import {
   fitText, makeSprite, type Box, type Sprite,
 } from "./explainer3dKit";
 import { GROUND, WORLD_H, type LiveFrame, type LivePlace, type LiveStatus, type LiveCompanion, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 
 type C = CanvasRenderingContext2D;
 
@@ -565,6 +566,7 @@ export const explainer3dLive: LiveStyle = {
     if (f.theme === "bengaluru") drawBengaluruScene(ctx, f, view);
     else drawKeralaScene(ctx, f, view);
 
+    drawStations(ctx, f, view, PROP_LOOKS.explainer);
     // Companions (first COMP_MAX per villager), culled to the view.
     const comps: { v: LiveVillager; k: LiveCompanion }[] = [];
     for (const v of f.villagers) {

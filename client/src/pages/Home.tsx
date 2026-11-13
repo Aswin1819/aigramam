@@ -35,6 +35,8 @@ export default function Home() {
   const { active: world, choose: chooseWorld, fellBack } = useWorldChoice(worlds);
   const { prefs, update, hourOverride } = useDisplayPrefs();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The session open on Workspace → Focus (its conversation shows in the page, not the drawer).
+  const [focusId, setFocusId] = useState<string | null>(null);
   // The project open on Workspace → Projects, and (in the village) whether its drawer is showing.
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectDrawer, setProjectDrawer] = useState(false);
@@ -74,13 +76,24 @@ export default function Home() {
     onError: () => toast.error("Couldn't save the character choice"),
   });
   const selected = useMemo(() => sessions.find((s) => s.id === selectedId) ?? null, [sessions, selectedId]);
-  // Follow the selected session's conversation while its drawer is open.
-  useEffect(() => openChat(selected ? selected.id : null), [selected?.id, openChat]);
+  const onFocusPage = prefs.view === "workspace" && prefs.workspacePage === "overview";
+  // Follow the drawer's session's conversation, or the Focus page's.
+  const chatId = selected ? selected.id : onFocusPage ? focusId : null;
+  useEffect(() => openChat(chatId), [chatId, openChat]);
 
-  const select = useCallback((id: string) => {
-    setSelectedId((cur) => (cur === id ? null : id));
-    worldRef.current?.focus(id);
-  }, []);
+  const select = useCallback(
+    (id: string) => {
+      // On Workspace → Focus, picking a session (top bar, toast, notification) focuses it in the page.
+      if (onFocusPage) {
+        setSelectedId(null);
+        setFocusId(id);
+        return;
+      }
+      setSelectedId((cur) => (cur === id ? null : id));
+      worldRef.current?.focus(id);
+    },
+    [onFocusPage],
+  );
   const close = useCallback(() => {
     setSelectedId(null);
     setProjectDrawer(false);
@@ -188,7 +201,7 @@ export default function Home() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
-      {/* Workspace: the Overview dashboard. World: the village. */}
+      {/* Workspace: Focus, Projects, Agents, Terminals, History. World: the village. */}
       {prefs.view === "workspace" ? (
         <Workspace
           page={prefs.workspacePage}
@@ -207,6 +220,12 @@ export default function Home() {
           onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
           terminals={terminals}
           onOpenTerminal={openTerminal}
+          cast={{ world, cast, assignments }}
+          chat={chat}
+          command={command}
+          focusId={focusId}
+          onFocus={setFocusId}
+          onOpenDetails={setSelectedId}
         />
       ) : styled ? (
         <StyledWorldView

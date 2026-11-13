@@ -1,10 +1,11 @@
 import { motion } from "motion/react";
-import { FolderGit2, History, LayoutGrid, TerminalSquare, Users } from "lucide-react";
-import type { ProjectView, SessionView } from "@shared/model";
-import type { AppMode } from "@/hooks/useLiveSessions";
+import { Crosshair, FolderGit2, History, TerminalSquare, Users } from "lucide-react";
+import type { ChatItem, ProjectView, SessionView } from "@shared/model";
+import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
 import type { WorkspacePage } from "../useDisplayPrefs";
-import Overview from "./Overview";
+import FocusPage from "./FocusPage";
+import type { Cast } from "./VillageStrip";
 import ProjectsPage from "./ProjectsPage";
 import AgentsPage from "./AgentsPage";
 import TerminalsPage from "./TerminalsPage";
@@ -32,10 +33,17 @@ interface Props {
   terminals: TerminalsApi;
   /** Start a terminal in a project's folder (optionally running Claude Code) and show it on the Terminals page. */
   onOpenTerminal: (projectId: string, start?: TerminalStart) => void;
+  /** Focus page: characters for the faces, the streamed conversation, commands, and the focused session. */
+  cast: Cast;
+  chat: { sessionId: string; items: ChatItem[] } | null;
+  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  focusId: string | null;
+  onFocus: (id: string | null) => void;
+  onOpenDetails: (id: string) => void;
 }
 
-const PAGES: Array<[WorkspacePage, string, typeof LayoutGrid]> = [
-  ["overview", "Overview", LayoutGrid],
+const PAGES: Array<[WorkspacePage, string, typeof Crosshair]> = [
+  ["overview", "Focus", Crosshair],
   ["projects", "Projects", FolderGit2],
   ["agents", "Agents", Users],
   ["terminals", "Terminals", TerminalSquare],
@@ -55,22 +63,26 @@ export default function Workspace(p: Props) {
               {p.page === id && <motion.span layoutId="workspace-tab" className="absolute inset-0 -z-0 rounded-xl bg-white/10 ring-1 ring-white/10" />}
               <Icon size={15} className={`relative ${p.page === id ? "text-brass" : "text-cream/50"}`} />
               <span className={`relative ${p.page === id ? "font-semibold text-cream" : "text-cream/65"}`}>{label}</span>
-              {id === "agents" && urgent > 0 && <span className="relative chip bg-urgent text-white">{urgent}</span>}
+              {id === "overview" && urgent > 0 && <span className="relative chip bg-urgent text-white">{urgent}</span>}
               {id === "terminals" && liveTerminals > 0 && <span className="relative chip bg-white/10 text-cream/80">{liveTerminals}</span>}
             </button>
           ))}
         </nav>
 
         {p.page === "overview" && (
-          <Overview
+          <FocusPage
             sessions={p.sessions}
             projects={p.projects}
             now={p.now}
             mode={p.mode}
             connected={p.connected}
             hooksInstalled={p.hooksInstalled}
-            selectedId={p.selectedSessionId}
-            onSelect={p.onSelectSession}
+            cast={p.cast}
+            command={p.command}
+            chat={p.chat}
+            focusId={p.focusId}
+            onFocus={p.onFocus}
+            onOpenDetails={p.onOpenDetails}
             onDecide={p.onDecide}
             onSettings={p.onSettings}
             onOpenProject={(id) => {

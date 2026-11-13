@@ -21,6 +21,7 @@ import {
   type C2, type Sprite,
 } from "./toyBrickKit";
 import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 
 const FPS = 10;
 
@@ -921,6 +922,7 @@ export const toyBrickLive: LiveStyle = {
 
 /** Villagers and their companions (back-to-front by y), then labels; selected label last; the HUD. Shared by both places. */
 function drawPeople(ctx: C2, f: LiveFrame, k: number, inView: (x: number, pad?: number) => boolean, view: ViewRect) {
+  drawStations(ctx, f, view, PROP_LOOKS.toy);
   const zoomed = view.w < 700;
   type Body = { y: number; v: LiveVillager; c: Comp | null };
   const bodies: Body[] = [];
