@@ -1,6 +1,20 @@
 # Ai Gramam
 
+[![CI](https://github.com/Aswin1819/aigramam/actions/workflows/ci.yml/badge.svg)](https://github.com/Aswin1819/aigramam/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Aswin1819/aigramam)](https://github.com/Aswin1819/aigramam/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **Your Claude Code agents, living in a village.** Ai Gramam is a local browser app that turns every running Claude Code session into a villager in an animated Indian world, so you can tell at a glance which project, session and subagent is doing what, and when one of them needs you.
+
+![The Kerala backwaters village at dusk: four demo sessions in three project yards, one waiting for approval](docs/images/village.webp)
+
+| Workspace → Focus | Bengaluru Tech Park |
+|---|---|
+| ![Focus: a queue of sessions with the one that needs approval first, and its conversation beside it](docs/images/workspace-focus.webp) | ![The Bengaluru world at dusk with the metro, an auto stand and a darshini](docs/images/village-bengaluru-dusk.webp) |
+| **Toy Brick art style** | **Comic Art style** |
+| ![The Kerala village drawn as toy bricks](docs/images/style-toy-brick.webp) | ![The Bengaluru village drawn as a comic page, with a "Needs approval?" speech bubble](docs/images/style-comic.webp) |
+
+<sub>All screenshots use the built-in demo (simulated sessions).</sub>
 
 - **Projects are places.** Each project gets a location (a houseboat, the chaya kada, the temple…) and its own yard, with its name and counts on a signboard in the project's colour. It keeps its place while the page is open.
 - **Sessions are villagers.** Each session stands at the station for what it's doing (study for reading, desk for writing, works for commands and tests, gate for the web, porch when it needs you, bench when it's your turn), with a label showing the live action: `✏️ Editing auth.ts`, `🧪 Running tests`, `🔍 Searching "login"`. Villagers walk only when their work changes, and one lamp per session shows its state.
