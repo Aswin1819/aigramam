@@ -26,6 +26,17 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 - `server/history/` (`summarize.ts`, `timeline.ts`, `index.ts`) + `server/routers/history.ts` + `shared/history.ts`: session history (roadmap Phase 3) counted from every transcript still in `~/.claude/projects`: read in the background on the first History visit (newest first, with progress), then only the bytes appended since; figures and short metadata only, in memory, nothing written. Usage = the API's own token counts (deduplicated per response, main conversation only); no cost estimates. A session's timeline is read on request (start + latest 800 events). Approvals aren't in transcripts, so the timeline doesn't claim them. UI: Workspace → History (`client/src/app/workspace/HistoryPage.tsx`, pure helpers in `history.ts`).
 - Setup checks (roadmap Phase 4): `server/setup/status.ts` + `server/routers/setup.ts` + `shared/setup.ts` read whether Claude Code lists the mod as installed (`~/.claude/plugins/installed_plugins.json`, read-only; unreadable = "unknown", never "not installed"), the shipped mod version and `Link.summary()`. UI: `client/src/app/SetupChecks.tsx` (logic in `checkList.ts`), in Settings → Session link and on the empty Overview. Server unreachable, no sessions, mod missing/outdated and not linked must always read differently. The mod's status line says why it isn't linked.
 - Status notes: `SessionView.statusNote` says in plain words what each status is based on (set in `store.ts` `deriveSession`; sessions record how they ended: SessionEnd hook, process gone from the registry, or 15 min of silence).
+- Village layout: `shared/stations.ts`, used by both renderers.
+  - `PlaceKeeper` keeps each project's place.
+  - `StationKeeper` applies the dwell rule.
+  - `stationSpot` places villagers inside a plot.
+  - `wantedStation` maps state to station.
+  - World packs give `plots` (style + station props) and an optional `locations[].plot.w`.
+  - The Phaser scene draws plots, gate posts, lamps and props (`updatePlots`).
+  - The art styles get station positions from `styles/live/sim.ts`; they don't draw props.
+  - Never add wandering or decorative walking: movement must mean a change of activity.
+  - Station props come from `node scripts/gen-art.mjs stations`.
+  - The guide is `client/src/app/VillageLegend.tsx`.
 - Village (roadmap section 5):
   - `client/src/app/NoticeBoard.tsx`, with its logic in `notices.ts`: the notice board, a view of `attention.ts` groups, never its own data.
   - `client/src/world/calm.ts`: a minimum pose hold, plus the `test` → `bash` scene fallback.

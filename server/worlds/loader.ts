@@ -29,6 +29,7 @@ export function referencedFiles(def: WorldDef): FileRef[] {
   def.locations.forEach((l, i) => l.prop && out.push({ rel: l.prop, kind: "image", where: `locations.${i}.prop` }));
   def.decor.forEach((d, i) => out.push({ rel: d.image, kind: "image", where: `decor.${i}.image` }));
   if (def.overflow?.prop) out.push({ rel: def.overflow.prop, kind: "image", where: "overflow.prop" });
+  for (const [st, rel] of Object.entries(def.plots?.props ?? {})) if (rel) out.push({ rel, kind: "image", where: `plots.props.${st}` });
   if (def.completion?.sound) out.push({ rel: def.completion.sound, kind: "sound", where: "completion.sound" });
   return out;
 }

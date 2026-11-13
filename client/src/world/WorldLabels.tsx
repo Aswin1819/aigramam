@@ -4,6 +4,7 @@ import type { ProjectView, SessionView, SubagentView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
 import { elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
 import type { CharacterPositions, SignPos } from "./WorldScene";
+import { projectAccent } from "@shared/stations";
 
 /** What a companion is doing, in words (its tag always says it, not only the sprite). */
 function companionText(a: SubagentView): string {
@@ -121,10 +122,17 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {projects.filter((p) => withSessions.has(p.id)).map((p) => {
         const selectedSign = p.id === selectedProjectId;
+        const mine = sessions.filter((s) => s.projectId === p.id);
+        const needs = mine.filter(isUrgent).length;
+        const turn = mine.filter((s) => s.status === "waiting" && !isUrgent(s)).length;
+        const busy = mine.filter((s) => s.status === "working").length;
+        const counts = [needs ? `${needs} need${needs === 1 ? "s" : ""} you` : "", turn ? `${turn} your turn` : "", busy ? `${busy} working` : ""].filter(Boolean).join(" · ");
         const body = (
           <>
-            <div className="max-w-[210px] truncate font-display text-[12.5px] font-semibold tracking-wide text-cream">{p.name}</div>
-            {signLabel(p.id) && <div className="text-[10px] uppercase tracking-[0.14em] text-brass/90">{signLabel(p.id)}</div>}
+            <span className="absolute inset-y-1 left-1 w-[3px] rounded-full" style={{ background: projectAccent(p.id) }} aria-hidden />
+            <div className="max-w-[210px] truncate pl-1 font-display text-[12.5px] font-semibold tracking-wide text-cream">{p.name}</div>
+            {signLabel(p.id) && <div className="pl-1 text-[10px] uppercase tracking-[0.14em] text-brass/90">{signLabel(p.id)}</div>}
+            {counts && <div className={`pl-1 text-[10.5px] font-semibold ${needs ? "text-red-300" : turn ? "text-wait" : "text-work"}`}>{counts}</div>}
           </>
         );
         const signClass = `signboard absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md px-2.5 py-1 text-center transition-[filter,box-shadow] ${

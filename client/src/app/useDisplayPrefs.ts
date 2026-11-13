@@ -9,6 +9,8 @@ interface Prefs {
   dockOpen: boolean;
   /** The village notice board (world view) open or folded. */
   boardOpen: boolean;
+  /** The "how to read the village" guide was dismissed. */
+  legendSeen: boolean;
   /** "classic" (the world pack, drawn by Phaser) or one of the art styles in styles/live/registry. */
   artStyle: string;
   /** Sound cues when a session needs you (approval, question) or finishes its turn. */
@@ -29,7 +31,7 @@ const KEY = "ai-gramam.display";
 
 function load(): Prefs {
   const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, boardOpen: true, artStyle: "classic", sound: true, view: "world", workspacePage: "overview", desktopNotify: false };
+  const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, boardOpen: true, legendSeen: false, artStyle: "classic", sound: true, view: "world", workspacePage: "overview", desktopNotify: false };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
   } catch {

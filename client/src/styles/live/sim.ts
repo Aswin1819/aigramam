@@ -1,12 +1,14 @@
 /**
  * Turns the live snapshot (projects + sessions) into a LiveFrame every
- * animation frame: lays out places, walks villagers around, picks label
- * positions that don't overlap. Stateful (positions carry over between
+ * animation frame: lays out places (each project keeps its place), puts each
+ * villager at the station for what it's doing (shared/stations.ts: they walk
+ * only when that changes), picks label positions that don't overlap. Stateful (positions carry over between
  * frames); styles only draw what it returns.
  */
 import type { CharacterPalette } from "@shared/character";
 import type { ProjectView, SessionView } from "@shared/model";
 import { hashString } from "@shared/placement";
+import { PlaceKeeper, StationKeeper, stationIndexes, stationSpot, wantedStation, type Station } from "@shared/stations";
 import { statusText } from "@/lib/status";
 import { CompanionTracker } from "./companions";
 import {
@@ -85,6 +87,10 @@ export class LiveSim {
   /** Sessions seen finishing while this view was open (they light the lamps). */
   private finished = new Set<string>();
   private companions = new CompanionTracker();
+  /** Projects keep their place in order of arrival, and for a while after their last session ends. */
+  private placeKeeper = new PlaceKeeper();
+  private stationKeeper = new StationKeeper();
+  private names = new Map<string, string>();
 
   frame(dt: number, input: SimInput): LiveFrame {
     this.t += dt;
@@ -98,9 +104,10 @@ export class LiveSim {
       list.push(s);
       byProject.set(s.projectId, list);
     }
-    const placed = projects.filter((p) => byProject.has(p.id)).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-    // Sessions whose project isn't in the list still need a home.
-    for (const id of byProject.keys()) if (!placed.some((p) => p.id === id)) placed.push({ id, name: id.split(/[\\/]/).pop() || "project", root: id });
+    for (const p of projects) this.names.set(p.id, p.name);
+    const nowMs = Date.now();
+    this.placeKeeper.assign([...byProject.keys()], 256, nowMs, () => 0);
+    const placed = this.placeKeeper.held().map(({ id }) => ({ id, name: this.names.get(id) ?? (id.split(/[\\/]/).pop() || "project"), root: id }));
 
     const n = placed.length;
     const worldW = Math.max(640, MARGIN * 2 + SLOT_W * n);
@@ -126,11 +133,18 @@ export class LiveSim {
     const live = new Set<string>();
     places.forEach((place) => {
       const list = (byProject.get(place.id) ?? []).slice().sort((a, b) => a.startedAt - b.startedAt || a.id.localeCompare(b.id));
-      list.forEach((s, j) => {
+      // Each villager stands at the station for what it's doing, in its own place's yard.
+      const plot = { x: place.x, y: GROUND.pathTop + 16, w: SLOT_W - 24 };
+      const stations = list.map((s) => ({ id: s.id, startedAt: s.startedAt, station: this.stationKeeper.stationOf(s.id, wantedStation(s), nowMs) }));
+      const stationOf = new Map(stations.map((x) => [x.id, x.station] as const));
+      const index = stationIndexes(stations);
+      list.forEach((s) => {
         live.add(s.id);
         const status = liveStatus(s);
-        const spotX = place.x - 30 + [40, 92, -6, 128, 64, 14, 110, -40][j % 8]! + Math.floor(j / 8) * 9;
-        const spotY = GROUND.pathTop + 14 + ((j * 17) % 46);
+        const station: Station = stationOf.get(s.id) ?? "desk";
+        const spot = stationSpot(plot, station, index.get(s.id) ?? 0);
+        const spotX = spot.x;
+        const spotY = spot.y;
         let w = this.walkers.get(s.id);
         if (!w) {
           w = { x: place.building.doorX, y: spotY, tx: spotX, facing: 1, pauseLeft: 0, phase: rand(s.id, 1), bornT: t, hops: 0, labelY: spotY - 100, lastStatus: status, finishedAtT: null, step: 0 };
@@ -144,18 +158,8 @@ export class LiveSim {
         }
         if (status === "finished") this.finished.add(s.id);
 
-        // Movement: workers wander around their place; everyone else goes to their spot.
-        const lo = place.x - 104;
-        const hi = place.x + 112;
-        if (status === "working" && !input.reducedMotion) {
-          if (Math.abs(w.tx - w.x) < 1) {
-            if (w.pauseLeft <= 0) w.pauseLeft = 0.6 + rand(s.id, ++w.step) * 1.4;
-            w.pauseLeft -= dt;
-            if (w.pauseLeft <= 0) w.tx = lo + rand(s.id, ++w.step + 99) * (hi - lo);
-          }
-        } else {
-          w.tx = spotX;
-        }
+        // Movement: only to the station (no wandering), so walking always means a change of activity.
+        w.tx = spotX;
         const dx = w.tx - w.x;
         const moving = Math.abs(dx) > 0.8;
         if (moving) {
@@ -163,9 +167,9 @@ export class LiveSim {
           w.x += Math.sign(dx) * stepLen;
           w.facing = dx > 0 ? 1 : -1;
           w.phase = (w.phase + (stepLen / WALK_SPEED) * 1.6) % 1;
-        } else if (status !== "working") {
-          // Stand facing the place's door (or the camera side for urgent ones).
-          w.facing = place.building.doorX < w.x ? -1 : 1;
+        } else {
+          // At work, face the place; asking for you, face the viewer's side of the yard's centre.
+          w.facing = station === "porch" ? (w.x < place.x ? 1 : -1) : place.building.doorX < w.x ? -1 : 1;
         }
 
         let jump = 0;
@@ -182,7 +186,7 @@ export class LiveSim {
           name: short(s.title),
           status,
           color: LIVE_STATUS_COLOR[status],
-          label: short(liveLabel(s, status), 34),
+          label: short(status === "working" && s.action?.emoji ? `${s.action.emoji} ${liveLabel(s, status)}` : liveLabel(s, status), 34),
           urgent: status === "approval",
           x: w.x,
           y: w.y,
@@ -196,7 +200,7 @@ export class LiveSim {
           mundu: pal?.lower ?? MUNDUS[(h >>> 4) % MUNDUS.length]!,
           skin: pal?.skin ?? SKINS[(h >>> 8) % SKINS.length]!,
           hair: pal?.hair ?? HAIRS[(h >>> 12) % HAIRS.length]!,
-          carry: status === "working" ? "laptop" : status === "approval" || status === "turn" ? "glass" : undefined,
+          carry: status === "working" && (station === "desk" || station === "works") ? "laptop" : status === "approval" || status === "turn" ? "glass" : undefined,
           linked: !!s.link?.connected,
           helpers: s.subagents.filter((a) => a.status === "working" || a.status === "waiting").length,
           companions: this.companions.frame(s, w, t, input.reducedMotion, { min: 40, max: worldW - 40 }),
@@ -207,6 +211,7 @@ export class LiveSim {
       });
     });
     for (const id of [...this.walkers.keys()]) if (!live.has(id)) this.walkers.delete(id);
+    this.stationKeeper.prune(live);
     this.companions.prune(live);
 
     this.layoutLabels(villagers, dt);
