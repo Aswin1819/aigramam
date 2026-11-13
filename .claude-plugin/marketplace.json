@@ -1,5 +1,15 @@
 {
   "name": "aigramam",
   "owner": { "name": "Aswin1819" },
-  "plugins": [{ "name": "ai-gramam", "source": "./plugin/ai-gramam", "description": "Links Claude Code sessions to Ai Gramam: live status, messages, stop and approvals from the browser." }]
+  "description": "The Ai Gramam mod for Claude Code. It links sessions to the Ai Gramam app, which you install and run separately on the same computer.",
+  "plugins": [
+    {
+      "name": "ai-gramam",
+      "source": "./plugin/ai-gramam",
+      "version": "0.3.0",
+      "description": "Links Claude Code sessions to the Ai Gramam app on this computer: live status, messages, stop, approvals and answers from the browser.",
+      "license": "MIT",
+      "homepage": "https://github.com/Aswin1819/aigramam#readme"
+    }
+  ]
 }

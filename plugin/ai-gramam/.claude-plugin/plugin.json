@@ -1,9 +1,12 @@
 {
   "name": "ai-gramam",
-  "version": "0.2.0",
-  "description": "Links this Claude Code session to Ai Gramam: live status, messages and stop from the browser, approve permission requests there.",
+  "version": "0.3.0",
+  "description": "Links this Claude Code session to Ai Gramam, a local app you run separately: live status, messages and stop from the browser, and approvals and Claude's questions answered there.",
   "author": {
     "name": "Aswin1819"
   },
-  "license": "MIT"
+  "homepage": "https://github.com/Aswin1819/aigramam#readme",
+  "repository": "https://github.com/Aswin1819/aigramam",
+  "license": "MIT",
+  "keywords": ["ai-gramam", "sessions", "monitor", "approvals", "local"]
 }

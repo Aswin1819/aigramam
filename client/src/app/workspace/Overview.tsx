@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Bell, CheckCircle2, Clock, FolderGit2, GitBranch, Link2, MessageCircleQuestion, Moon, Play, Unplug, Users, Zap } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
+import SetupChecks from "../SetupChecks";
 import { elapsed } from "@/lib/status";
 import SessionRow from "./SessionRow";
 import type { AppMode } from "@/hooks/useLiveSessions";
@@ -68,10 +69,13 @@ export default function Overview(p: Props) {
 
         {p.sessions.length === 0 ? (
           <div className="glass mt-4 rounded-2xl p-6 text-center">
-            <div className="font-display text-lg font-semibold">{p.mode === "live" ? "No Claude Code sessions are running" : "The demo village is empty"}</div>
+            <div className="font-display text-lg font-semibold">{p.mode !== "live" ? "The demo village is empty" : !p.connected ? "Can't reach the Ai Gramam server" : "No Claude Code sessions are running"}</div>
             <p className="mx-auto mt-1 max-w-md text-[13px] text-cream/60">
-              Start Claude Code in any project folder and it shows up here within a few seconds. Sessions are read from your local Claude Code files; nothing leaves this computer.
+              {p.mode === "live" && !p.connected
+                ? "Sessions can't be shown until this page reconnects; this doesn't mean none are running."
+                : "Start Claude Code in any project folder and it shows up here within a few seconds. Sessions are read from your local Claude Code files; nothing leaves this computer."}
             </p>
+            {p.mode === "live" && <div className="mx-auto mt-4 max-w-lg"><SetupChecks connected={p.connected} compact /></div>}
           </div>
         ) : (
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

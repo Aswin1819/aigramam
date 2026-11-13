@@ -13,7 +13,7 @@
  */
 import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
 
-const VERSION = '0.2.0'
+const VERSION = '0.3.0'
 const DEFAULT_BASE = 'http://127.0.0.1:4317'
 const POLL_MS = 1500
 const APPROVAL_WAIT_MS = 45_000
@@ -26,6 +26,14 @@ const LABEL_FIELDS = ['file_path', 'notebook_path', 'path', 'command', 'descript
 
 type Json = Record<string, unknown>
 
+/** Why this session isn't linked, in the person's words (status line). */
+type LinkProblem = 'no-key' | 'unreachable' | 'refused'
+const PROBLEM_TEXT: Record<LinkProblem, string> = {
+  'no-key': 'Ai Gramam ○ not set up: start the app once',
+  unreachable: 'Ai Gramam ○ app not running',
+  refused: 'Ai Gramam ○ key not accepted, retrying',
+}
+
 /** This session's link state (starts over when the mod reloads). */
 const link = {
   base: DEFAULT_BASE,
@@ -33,6 +41,8 @@ const link = {
   sessionId: '',
   cwd: '',
   linked: false,
+  /** Why the last call didn't reach Ai Gramam (shown in the status line), or null. */
+  problem: null as LinkProblem | null,
   mainTurnId: null as string | null,
   stoppedTurnId: null as string | null, // the turn Ai Gramam asked to stop
   quietPolls: 0,
@@ -63,17 +73,28 @@ async function loadKey($: EngineInterface): Promise<string | null> {
 }
 
 async function call($: EngineInterface, path: string, method = 'GET', body?: Json): Promise<Json | null> {
+  if (!link.sessionId) return null
   const k = await loadKey($)
-  if (!k || !link.sessionId) return null
+  if (!k) {
+    link.problem = 'no-key'
+    return null
+  }
   try {
     const res = await $.http.fetch(`${link.base}/api/link${path}`, {
       method,
       headers: { 'content-type': 'application/json', 'x-ai-gramam-key': k },
       body: body ? JSON.stringify(body) : undefined,
     })
+    if (res.status === 401 || res.status === 403) {
+      link.key = null // the app made a new key: read it again next time
+      link.problem = 'refused'
+      return null
+    }
+    link.problem = null
     if (!res.ok) return null
     return JSON.parse(res.text) as Json
   } catch {
+    link.problem = 'unreachable'
     return null
   }
 }
@@ -82,10 +103,13 @@ function send($: EngineInterface, events: Json[]) {
   void call($, '/events', 'POST', { sessionId: link.sessionId, version: VERSION, events: events.map(e => ({ cwd: link.cwd, ...e })) })
 }
 
+let shownStatus: string | undefined
 function setLinked($: EngineInterface, value: boolean) {
-  if (value === link.linked) return
   link.linked = value
-  $.ui.status(value ? 'Ai Gramam ● linked' : undefined)
+  const text = value ? 'Ai Gramam ● linked' : link.problem ? PROBLEM_TEXT[link.problem] : undefined
+  if (text === shownStatus) return
+  shownStatus = text
+  $.ui.status(text)
 }
 
 async function poll($: EngineInterface) {
@@ -160,7 +184,7 @@ export const register: Register = on => {
   on('prompt.submit', ($, e, next) => {
     send($, [{ hook_event_name: 'UserPromptSubmit' }])
     return next(e)
-  })
+  }).catch(($, e, next) => next(e)) // never block a prompt over a link problem
 
   on('tool.call', async ($, e, next) => {
     const { tool, tool_use_id, agentId } = e as unknown as { tool: string; tool_use_id?: string; agentId?: string }
@@ -181,7 +205,7 @@ export const register: Register = on => {
     const failed = (result as { deny?: string }).deny !== undefined || (result as { isError?: boolean }).isError === true
     send($, [{ hook_event_name: failed ? 'PostToolUseFailure' : 'PostToolUse', tool_name: tool, tool_use_id: id, agent_id: agentId }])
     return result
-  })
+  }).catch(($, e, next) => next(e)) // replay-safe: a tool that already ran isn't run again
 
   on('turn.start', ($, e, next) => {
     if (e.agentId) {

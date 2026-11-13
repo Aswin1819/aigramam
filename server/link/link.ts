@@ -107,6 +107,8 @@ const isSessionId = (v: unknown): v is string => typeof v === "string" && /^[A-Z
 export class Link {
   private sessions = new Map<string, LinkedSession>();
   private approvals = new Map<string, Approval>();
+  /** When any mod last checked in (kept after its session is pruned), and with which version. */
+  private lastContact: { at: number; version?: string } | null = null;
   /** Called whenever something the browser shows changed. */
   onChange: () => void = () => {};
 
@@ -125,6 +127,7 @@ export class Link {
     const wasLinked = Date.now() - s.lastSeen < LINKED_MS;
     s.lastSeen = Date.now();
     if (version) s.version = version;
+    this.lastContact = { at: s.lastSeen, version: s.version };
     if (!wasLinked) this.onChange();
     return s;
   }
@@ -138,6 +141,13 @@ export class Link {
       queued: s?.inbox.filter((c) => c.type === "prompt").length ?? 0,
       approval: approval && { id: approval.id, tool: approval.tool, label: approval.label, since: approval.createdAt, ...(approval.questions ? { questions: approval.questions } : {}) },
     };
+  }
+
+  /** For the setup checks: sessions linked right now, their mod versions, and the last time any mod checked in. */
+  summary(now = Date.now()): { linkedNow: number; versions: string[]; lastContactAt: number | null; lastVersion: string | null } {
+    const live = [...this.sessions.values()].filter((s) => now - s.lastSeen < LINKED_MS);
+    const versions = [...new Set(live.map((s) => s.version).filter((v): v is string => !!v))].sort();
+    return { linkedNow: live.length, versions, lastContactAt: this.lastContact?.at ?? null, lastVersion: this.lastContact?.version ?? null };
   }
 
   // ── Browser side ───────────────────────────────────────────────────────────

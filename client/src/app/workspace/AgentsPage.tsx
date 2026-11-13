@@ -11,6 +11,8 @@ interface Props {
   now: number;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
+  /** False when the page can't reach the server (then an empty list says so). */
+  connected?: boolean;
 }
 
 const GROUPS: AgentGroup[] = ["all", "needsYou", "yourTurn", "working", "quiet", "errors", "recentlyDone", "idle"];
@@ -63,7 +65,7 @@ export default function AgentsPage(p: Props) {
         {list.map((s) => <SessionRow key={s.id} s={s} project={projectName(s)} now={p.now} selected={s.id === p.selectedSessionId} onSelect={() => p.onSelectSession(s.id)} />)}
         {list.length === 0 && (
           <p className="py-6 text-center text-[12.5px] text-cream/45">
-            {p.sessions.length === 0 ? "No Claude Code sessions are running." : "No session matches these filters."}
+            {p.sessions.length === 0 ? (p.connected === false ? "Can't reach the Ai Gramam server, so sessions can't be listed right now." : "No Claude Code sessions are running.") : "No session matches these filters."}
           </p>
         )}
       </div>
