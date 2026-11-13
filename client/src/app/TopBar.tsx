@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Bell, ChevronDown, Moon, Radio, Settings2, Sparkles, Sun, Sunrise, Sunset, Clock3, Globe2, LayoutDashboard, Palette, Volume2, VolumeX } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { WorldInfo } from "@shared/world";
-import { elapsed, isUrgent, statusText, waitingOrder } from "@/lib/status";
+import { elapsed, isUrgent, statusText, waitingOrder, waitingSummary } from "@/lib/status";
 import type { AppMode } from "@/hooks/useLiveSessions";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -94,7 +94,7 @@ export default function TopBar(p: Props) {
               >
                 <Bell size={15} strokeWidth={2.5} />
               </motion.span>
-              <span className="shrink-0 pr-1 text-xs font-semibold text-cream">{waiting.length === 1 ? "1 needs you" : `${waiting.length} need you`}</span>
+              <span className="shrink-0 pr-1 text-xs font-semibold text-cream">{waitingSummary(waiting)}</span>
               <AnimatePresence initial={false}>
                 {waiting.map((s) => (
                   <motion.button

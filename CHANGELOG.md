@@ -14,6 +14,7 @@ The app and the mod have separate version numbers. The app's version is in `pack
 - **Running tests:** a test command (vitest, jest, pytest, `npm test`, `go test`…) shows as its own activity with its own effect. It's recognised only from the command itself.
 - **Calmer villagers:** through quick tool calls a villager keeps each pose for at least 1.5 s. Waiting, questions, errors and finishing still show at once.
 - **Inside a building** (and on Workspace → Projects): the project's Git state (branch, upstream, changed files, last commit) and its recent sessions from History.
+- The top bar says "needs you" only for approvals and questions, and "your turn" for sessions waiting for your next message, as the Overview does.
 - History files a session under its latest folder, as the live view does, so both list it under the same project.
 
 ### Mod 0.3.0

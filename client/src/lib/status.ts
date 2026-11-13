@@ -54,3 +54,17 @@ export function attentionOrder(a: SessionView, b: SessionView): number {
   const rank = (s: SessionView) => (isUrgent(s) ? 0 : s.status === "waiting" ? 1 : s.status === "error" ? 2 : s.status === "working" ? 3 : 4);
   return rank(a) - rank(b) || a.title.localeCompare(b.title);
 }
+
+/**
+ * The top bar's summary of waiting sessions, worded like the Overview:
+ * "needs you" only for approvals and questions, "your turn" for the rest.
+ */
+export function waitingSummary(sessions: Array<Pick<SessionView, "status" | "waitingReason">>): string {
+  const waiting = sessions.filter((s) => s.status === "waiting");
+  const urgent = waiting.filter(isUrgent).length;
+  const turn = waiting.length - urgent;
+  const parts: string[] = [];
+  if (urgent) parts.push(urgent === 1 ? "1 needs you" : `${urgent} need you`);
+  if (turn) parts.push(`${turn} your turn`);
+  return parts.join(" · ");
+}
