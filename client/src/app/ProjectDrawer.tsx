@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import type { TerminalStart } from "@shared/terminal";
 import { LayoutDashboard, X } from "lucide-react";
 import ProjectDetail from "./workspace/ProjectDetail";
 import type { ProjectSummary } from "./workspace/attention";
@@ -10,7 +11,7 @@ interface Props {
   onSelectSession: (id: string) => void;
   onOpenInWorkspace: () => void;
   /** Start a terminal in this project's folder (opens Workspace → Terminals). */
-  onOpenTerminal?: (projectId: string) => void;
+  onOpenTerminal?: (projectId: string, start?: TerminalStart) => void;
   terminalBlockedReason?: string | null;
   onClose: () => void;
 }

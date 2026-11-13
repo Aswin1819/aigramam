@@ -14,6 +14,8 @@ export interface RegistryEntry {
   nameSource?: string;
   status?: string;
   startedAt?: number;
+  /** "interactive" for a terminal session; other kinds are one-off runs. */
+  kind?: string;
   alive: boolean;
 }
 
@@ -49,6 +51,7 @@ export function readRegistry(dir: string, pidAlive: (pid: number) => boolean = i
         nameSource: typeof o.nameSource === "string" ? o.nameSource : undefined,
         status: typeof o.status === "string" ? o.status : undefined,
         startedAt: typeof o.startedAt === "number" ? o.startedAt : undefined,
+        kind: typeof o.kind === "string" ? o.kind : undefined,
         alive: pidAlive(pid),
       });
     } catch {

@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { Check, Copy, FolderGit2, GitBranch, TerminalSquare, Users } from "lucide-react";
+import { Bot, Check, Copy, FolderGit2, GitBranch, TerminalSquare, Users } from "lucide-react";
+import type { TerminalStart } from "@shared/terminal";
 import type { SessionView } from "@shared/model";
 import { elapsed } from "@/lib/status";
 import { attentionOf, type ProjectSummary } from "./attention";
 import SessionRow from "./SessionRow";
+import ProjectShortcuts from "./ProjectShortcuts";
 
 interface Props {
   summary: ProjectSummary;
   now: number;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
-  /** "Open terminal here": start PowerShell in this project's folder (Workspace → Terminals). */
-  onOpenTerminal?: (projectId: string) => void;
+  /** "Open terminal here" / "Start Claude here": start PowerShell (optionally running Claude Code) in this project's folder (Workspace → Terminals). */
+  onOpenTerminal?: (projectId: string, start?: TerminalStart) => void;
   /** Why a terminal can't start right now (the button is disabled with this text). */
   terminalBlockedReason?: string | null;
 }
@@ -48,17 +50,29 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
 
       {onOpenTerminal && (
         <div className="mt-2.5">
-          <button
-            onClick={() => onOpenTerminal(pr.project.id)}
-            disabled={!!terminalBlockedReason}
-            title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root}`}
-            className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
-          >
-            <TerminalSquare size={14} className="text-brass" /> Open terminal here
-          </button>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => onOpenTerminal(pr.project.id)}
+              disabled={!!terminalBlockedReason}
+              title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root}`}
+              className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
+            >
+              <TerminalSquare size={14} className="text-brass" /> Open terminal here
+            </button>
+            <button
+              onClick={() => onOpenTerminal(pr.project.id, "claude")}
+              disabled={!!terminalBlockedReason}
+              title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root} and run Claude Code (claude) in it`}
+              className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
+            >
+              <Bot size={14} className="text-brass" /> Start Claude here
+            </button>
+          </div>
           {terminalBlockedReason && <p className="mt-1 text-[11px] text-cream/45">{terminalBlockedReason}</p>}
         </div>
       )}
+
+      <ProjectShortcuts projectId={pr.project.id} demo={pr.sessions.every((x) => x.source === "demo")} />
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Fact label="Sessions" value={String(pr.sessions.length)} />

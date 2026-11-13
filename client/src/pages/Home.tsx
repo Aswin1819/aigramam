@@ -1,4 +1,5 @@
 import type { SessionView } from "@shared/model";
+import type { TerminalStart } from "@shared/terminal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast, Toaster } from "sonner";
@@ -93,15 +94,26 @@ export default function Home() {
     [selectedProjectId, projects, sessions],
   );
 
-  /** "Open terminal here": start PowerShell in the project's folder and show it in Workspace → Terminals. */
+  /** "Open terminal here" / "Start Claude here": start PowerShell (optionally running Claude Code) in the project's folder and show it in Workspace → Terminals. */
   const createTerminal = terminals.create;
   const openTerminal = useCallback(
-    (projectId: string) => {
+    (projectId: string, start?: TerminalStart) => {
       setProjectDrawer(false);
       update({ view: "workspace", workspacePage: "terminals" });
-      void createTerminal(projectId);
+      void createTerminal(projectId, start);
     },
     [update, createTerminal],
+  );
+  /** A session's "Running in an Ai Gramam terminal — Open": show that terminal. */
+  const setActiveTerminal = terminals.setActiveId;
+  const showTerminal = useCallback(
+    (terminalId: string) => {
+      setSelectedId(null);
+      setProjectDrawer(false);
+      setActiveTerminal(terminalId);
+      update({ view: "workspace", workspacePage: "terminals" });
+    },
+    [update, setActiveTerminal],
   );
 
   // Esc closes the drawer / resets the camera.
@@ -300,6 +312,7 @@ export default function Home() {
             onSetupLink={() => setSettings("link")}
             demo={mode === "demo"}
             command={command}
+            onOpenTerminal={showTerminal}
           />
         )}
       </AnimatePresence>

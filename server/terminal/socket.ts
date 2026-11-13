@@ -3,10 +3,13 @@
  * create one from a click, attach to see output, type, resize and close.
  * Demo tabs can't use terminals (the demo never acts on this computer).
  */
+import os from "os";
+import path from "path";
 import { WebSocket } from "ws";
 import * as pty from "node-pty";
 import type { ProjectView } from "@shared/model";
 import type { TerminalServerMessage } from "@shared/terminal";
+import { readRegistry } from "../monitor/registry";
 import { TerminalManager, type Spawn } from "./manager";
 
 const spawnPty: Spawn = (shell, args, o) =>
@@ -25,11 +28,13 @@ function send(ws: WebSocket, msg: TerminalServerMessage) {
   }
 }
 
-/** Called once at startup. */
-export function initTerminals(projects: () => ProjectView[]) {
+/** Called once at startup. `claudeDir` is where Claude Code keeps its session registry (read-only). */
+export function initTerminals(projects: () => ProjectView[], claudeDir = path.join(os.homedir(), ".claude")) {
+  const sessionsDir = path.join(claudeDir, "sessions");
   manager = new TerminalManager({
     spawn: spawnPty,
     projects,
+    registry: () => readRegistry(sessionsDir),
     onOutput: (id, data) => {
       for (const ws of subscribers.get(id) ?? []) send(ws, { type: "term-output", payload: { id, data } });
     },
@@ -38,10 +43,16 @@ export function initTerminals(projects: () => ProjectView[]) {
       for (const ws of clients) send(ws, { type: "term-list", payload: { terminals } });
     },
   });
+  manager.startLinking();
   // Never leave shells running after the server stops.
   const stopAll = () => manager?.closeAll();
   process.once("exit", stopAll);
   for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(sig, () => (stopAll(), process.exit(0)));
+}
+
+/** The managed terminal a Claude Code session runs in (exact process-tree match), if any. */
+export function terminalForSession(sessionId: string): string | undefined {
+  return manager?.terminalForSession(sessionId);
 }
 
 export function terminalClientConnected(ws: WebSocket) {
@@ -66,9 +77,12 @@ export function handleTerminalMessage(ws: WebSocket, msg: Record<string, unknown
   }
   switch (msg.type) {
     case "term-create": {
-      const r = manager.create(String(p.projectId ?? ""), p.cols, p.rows);
-      send(ws, { type: "term-created", payload: { requestId: String(p.requestId ?? ""), ...r } });
-      if (r.ok) subscribers.set(r.id, new Set([ws]));
+      const m = manager;
+      const requestId = String(p.requestId ?? "");
+      void m.create(String(p.projectId ?? ""), p.cols, p.rows, p.start).then((r) => {
+        if (r.ok) subscribers.set(r.id, new Set([ws]));
+        send(ws, { type: "term-created", payload: { requestId, ...r } });
+      });
       return true;
     }
     case "term-attach": {

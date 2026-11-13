@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TerminalClientMessage, TerminalInfo, TerminalServerMessage } from "@shared/terminal";
+import type { TerminalClientMessage, TerminalInfo, TerminalServerMessage, TerminalStart } from "@shared/terminal";
 import { chunkInput, neighbourAfterClose } from "@/app/terminal/terminalState";
 
 export type CreateResult = { ok: true; id: string } | { ok: false; error: string };
@@ -56,9 +56,12 @@ export function useTerminals({ onTerminal, sendTerminal }: Options) {
     [onTerminal],
   );
 
-  /** Start PowerShell in a project's folder (only from an explicit click). */
+  /**
+   * Start PowerShell in a project's folder (only from an explicit click); with
+   * start "claude" it runs Claude Code there and stays open after it exits.
+   */
   const create = useCallback(
-    (projectId: string, cols = 100, rows = 30): Promise<CreateResult> => {
+    (projectId: string, start?: TerminalStart, cols = 100, rows = 30): Promise<CreateResult> => {
       const requestId = Math.random().toString(36).slice(2) + Date.now().toString(36);
       setError(null);
       return new Promise((resolve) => {
@@ -73,7 +76,7 @@ export function useTerminals({ onTerminal, sendTerminal }: Options) {
           resolve(r);
         };
         pending.current.set(requestId, finish);
-        if (!sendTerminal({ type: "term-create", payload: { requestId, projectId, cols, rows } })) {
+        if (!sendTerminal({ type: "term-create", payload: { requestId, projectId, cols, rows, ...(start ? { start } : {}) } })) {
           pending.current.delete(requestId);
           finish({ ok: false, error: "Not connected to Ai Gramam." });
         }

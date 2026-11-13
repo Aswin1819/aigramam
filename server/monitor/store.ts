@@ -98,6 +98,8 @@ interface SessState {
   hooksActive: boolean;
   registrySeen: boolean;
   registryAlive: boolean;
+  /** Opened (seen in the registry) but nothing recorded yet: waiting for the first message. */
+  awaitingFirstMessage?: boolean;
   source: SessionSource;
   prUrl?: string;
   recent: ActivityEntry[];
@@ -247,6 +249,7 @@ export class SessionStore {
   applyEvent(sessionId: string, ev: MonitorEvent, agentId?: string) {
     const s = this.ensure(sessionId);
     this.version++;
+    s.awaitingFirstMessage = false;
     if (agentId) return this.applySubEvent(s, agentId, ev);
 
     switch (ev.t) {
@@ -493,6 +496,22 @@ export class SessionStore {
 
   // ── Registry ───────────────────────────────────────────────────────────────
 
+  /**
+   * A session that's open (its process is alive) but hasn't written a
+   * transcript yet, e.g. Claude just started and is waiting for its first
+   * message. It shows as idle from the registry's facts only.
+   */
+  addFromRegistry(e: RegistryEntry, now = Date.now()) {
+    if (this.sessions.has(e.sessionId)) return;
+    const at = e.startedAt && e.startedAt <= now ? e.startedAt : now;
+    const s = this.ensure(e.sessionId, "transcript", at);
+    s.startedAt = at;
+    s.lastActivityAt = at;
+    s.awaitingFirstMessage = true;
+    if (e.cwd) s.cwd = e.cwd;
+    this.version++;
+  }
+
   applyRegistry(entries: RegistryEntry[], now = Date.now()) {
     const byId = new Map(entries.map((e) => [e.sessionId, e]));
     for (const e of entries) {
@@ -610,6 +629,9 @@ export class SessionStore {
         waitingReason = "turn_end";
         action = stateAction("turn_end", s.turnEndedAt);
       }
+    } else if (s.awaitingFirstMessage) {
+      status = "idle";
+      action = { kind: "idle", emoji: "💬", label: "Waiting for its first message", startedAt: s.startedAt };
     } else if (now - lastActivityAt < TIMING.idleAfterMs) {
       status = "working";
       action = stateAction("think", lastActivityAt);

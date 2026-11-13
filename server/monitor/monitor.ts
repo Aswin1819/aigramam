@@ -284,6 +284,8 @@ export class Monitor {
       if (!e.alive || this.store.has(e.sessionId) || this.ended.has(e.sessionId)) continue;
       const file = this.findTranscript(e.sessionId);
       if (file) this.track(file, e.sessionId);
+      // A terminal session that hasn't written anything yet still shows; its transcript is picked up when it appears.
+      else if (e.kind === "interactive") this.store.addFromRegistry(e);
     }
     this.store.applyRegistry(entries);
   }
