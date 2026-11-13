@@ -20,8 +20,8 @@ interface Prefs {
 }
 
 export type AppView = "world" | "workspace";
-export type WorkspacePage = "overview" | "projects" | "agents" | "terminals";
-const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "projects", "agents", "terminals"];
+export type WorkspacePage = "overview" | "projects" | "agents" | "terminals" | "history";
+const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "projects", "agents", "terminals", "history"];
 
 const KEY = "ai-gramam.display";
 

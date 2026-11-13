@@ -92,6 +92,8 @@ interface SessState {
   stoppedFromApp?: boolean;
   hookWaiting?: { reason: "permission" | "question"; at: number; detail?: string };
   hookIdleAt?: number;
+  /** How Ai Gramam learned the session ended (shown so "Finished" isn't a mystery). */
+  endReason?: "hook" | "closed" | "silent";
   errorAt?: number;
   finishedAt?: number;
   permissionMode?: string;
@@ -279,6 +281,7 @@ export class SessionStore {
         s.hookIdleAt = undefined;
         s.errorAt = undefined;
         s.finishedAt = undefined;
+        s.endReason = undefined;
         this.log(s, ev.at, "💬", "You sent a prompt");
         return;
       case "assistant":
@@ -430,6 +433,7 @@ export class SessionStore {
         this.touch(s, now);
         if (s.startedAt > now) s.startedAt = now;
         s.finishedAt = undefined;
+        s.endReason = undefined;
         return;
       case "UserPromptSubmit":
         return this.applyEvent(sessionId, { t: "prompt", at: now });
@@ -487,6 +491,7 @@ export class SessionStore {
         return;
       case "SessionEnd":
         s.finishedAt = now;
+        s.endReason = "hook";
         s.pending.clear();
         s.hookWaiting = undefined;
         this.log(s, now, "✅", "Session ended");
@@ -537,6 +542,7 @@ export class SessionStore {
       if (!e || !e.alive) {
         s.registryAlive = false;
         s.finishedAt = now;
+        s.endReason = "closed";
         s.pending.clear();
         this.log(s, now, "✅", "Session closed");
         this.version++;
@@ -577,6 +583,8 @@ export class SessionStore {
     let waitingReason: WaitingReason | undefined;
     let action: Action | undefined;
     let maybeNeedsApproval = false;
+    /** What the status is based on, in plain words (see SessionView.statusNote). */
+    let note: string;
 
     const pending = [...s.pending.values()];
     const { lastActivityAt } = this.times(s, now);
@@ -585,21 +593,30 @@ export class SessionStore {
     if (s.finishedAt) {
       status = "finished";
       action = stateAction("done", s.finishedAt);
+      note =
+        s.endReason === "hook"
+          ? "Claude Code reported that the session ended."
+          : s.endReason === "closed"
+            ? "Its Claude Code process is no longer running."
+            : "No activity was recorded for 15 minutes and it isn't among Claude Code's running sessions, so it's shown as ended.";
     } else if (s.errorAt && s.errorAt >= lastActivityAt) {
       status = "error";
       action = stateAction("error", s.errorAt);
+      note = "The last thing recorded was an error from the API. Claude Code may retry or wait for you.";
     } else if (s.hookWaiting) {
       status = "waiting";
       waitingReason = s.hookWaiting.reason;
       action = s.hookWaiting.reason === "permission"
         ? stateAction("permission", s.hookWaiting.at, s.hookWaiting.detail)
         : stateAction("question", s.hookWaiting.at);
+      note = s.hookWaiting.reason === "permission" ? "Claude Code reported a permission dialog waiting for an answer." : "Claude Code reported a question waiting for your answer.";
     } else if (pending.length > 0 && !stale) {
       const question = pending.find((p) => p.action.kind === "question");
       if (question) {
         status = "waiting";
         waitingReason = "question";
         action = question.action;
+        note = "Claude asked a question and no answer has been recorded yet.";
       } else {
         status = "working";
         const newest = pending.reduce((a, b) => (b.startedAt >= a.startedAt ? b : a));
@@ -613,31 +630,40 @@ export class SessionStore {
           !NO_APPROVAL_MODES.has(s.permissionMode || "") &&
           now - oldest.startedAt > TIMING.maybeApprovalMs &&
           now - lastActivityAt > TIMING.maybeApprovalMs;
+        note = pending.length > 1 ? `${pending.length} tool calls have started and their results aren't recorded yet.` : "A tool call has started and its result isn't recorded yet.";
+        if (maybeNeedsApproval) note += " Without hooks Ai Gramam can't tell whether it's waiting for your approval.";
       }
     } else if (s.interruptedAt && s.interruptedAt >= lastActivityAt) {
       status = "idle";
       action = { kind: "idle", emoji: "✋", label: s.stoppedFromApp ? STOPPED_FROM_APP : "Interrupted by you", startedAt: s.interruptedAt };
+      note = "The turn was interrupted and nothing has happened since.";
     } else if (s.turnEndedAt) {
       if (s.pendingBackground > 0) {
         status = "working";
         action = { kind: "delegate", emoji: "⏳", label: `Waiting for ${s.pendingBackground} background agent${s.pendingBackground > 1 ? "s" : ""}`, startedAt: s.turnEndedAt };
+        note = "The reply finished, but background agents it started are still running.";
       } else if (s.hookIdleAt || now - s.turnEndedAt > TIMING.turnEndWaitMs) {
         status = "idle";
         action = stateAction("idle", s.turnEndedAt);
+        note = s.hookIdleAt ? "Claude Code reported it's idle, waiting for a message." : "The reply finished more than 10 minutes ago and no new message was sent.";
       } else {
         status = "waiting";
         waitingReason = "turn_end";
         action = stateAction("turn_end", s.turnEndedAt);
+        note = "Claude finished its reply and is waiting for your next message.";
       }
     } else if (s.awaitingFirstMessage) {
       status = "idle";
       action = { kind: "idle", emoji: "💬", label: "Waiting for its first message", startedAt: s.startedAt };
+      note = "It's open (listed among Claude Code's running sessions) but no message has been sent yet.";
     } else if (now - lastActivityAt < TIMING.idleAfterMs) {
       status = "working";
       action = stateAction("think", lastActivityAt);
+      note = "Activity was recorded in the last 2 minutes.";
     } else {
       status = "idle";
       action = stateAction("idle", lastActivityAt);
+      note = stale && pending.length > 0 ? "A tool call never recorded a result and nothing has happened for 30 minutes, so it's no longer counted as running." : "No activity has been recorded for over 2 minutes.";
     }
 
     const key = `${status}|${waitingReason ?? ""}`;
@@ -645,7 +671,7 @@ export class SessionStore {
       s.statusKey = key;
       s.statusSince = action?.startedAt && action.startedAt <= now ? action.startedAt : now;
     }
-    return { status, waitingReason, action, maybeNeedsApproval };
+    return { status, waitingReason, action, maybeNeedsApproval, statusNote: note };
   }
 
   private deriveSub(sub: SubState, now: number): SubagentView {
@@ -693,6 +719,7 @@ export class SessionStore {
       }
       if (!s.finishedAt && !s.registryAlive && s.source !== "bridge" && now - this.times(s, now).lastActivityAt > TIMING.silentEndMs) {
         s.finishedAt = now;
+        s.endReason = "silent";
         s.pending.clear();
         this.version++;
       }
@@ -728,6 +755,7 @@ export class SessionStore {
         status: d.status,
         waitingReason: d.waitingReason,
         maybeNeedsApproval: d.maybeNeedsApproval || undefined,
+        statusNote: d.statusNote,
         action: d.action,
         startedAt: times.startedAt,
         lastActivityAt: times.lastActivityAt,

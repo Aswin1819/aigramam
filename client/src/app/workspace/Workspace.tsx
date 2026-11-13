@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { FolderGit2, LayoutGrid, TerminalSquare, Users } from "lucide-react";
+import { FolderGit2, History, LayoutGrid, TerminalSquare, Users } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import type { AppMode } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
@@ -8,6 +8,7 @@ import Overview from "./Overview";
 import ProjectsPage from "./ProjectsPage";
 import AgentsPage from "./AgentsPage";
 import TerminalsPage from "./TerminalsPage";
+import HistoryPage from "./HistoryPage";
 import type { TerminalsApi } from "@/hooks/useTerminals";
 import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
@@ -38,6 +39,7 @@ const PAGES: Array<[WorkspacePage, string, typeof LayoutGrid]> = [
   ["projects", "Projects", FolderGit2],
   ["agents", "Agents", Users],
   ["terminals", "Terminals", TerminalSquare],
+  ["history", "History", History],
 ];
 
 /** Workspace Mode: the practical side of Ai Gramam, on the same live data as the village. */
@@ -91,6 +93,7 @@ export default function Workspace(p: Props) {
           />
         )}
         {p.page === "terminals" && <TerminalsPage api={p.terminals} sessions={p.sessions} projects={p.projects} mode={p.mode} connected={p.connected} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />}
+        {p.page === "history" && <HistoryPage now={p.now} demo={p.mode === "demo"} liveIds={new Set(p.sessions.map((s) => s.id.toLowerCase()))} onOpenLive={(id) => p.onSelectSession(p.sessions.find((s) => s.id.toLowerCase() === id)?.id ?? id)} />}
         {p.page === "agents" && (
           <AgentsPage sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}
