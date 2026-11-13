@@ -20,6 +20,7 @@ import { desktopNotify } from "@/lib/desktopNotify";
 import TopBar from "@/app/TopBar";
 import SessionDock from "@/app/SessionDock";
 import NoticeBoard from "@/app/NoticeBoard";
+import VillageLegend from "@/app/VillageLegend";
 import DetailDrawer from "@/app/DetailDrawer";
 import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
 import BrandMark from "@/app/BrandMark";
@@ -40,6 +41,7 @@ export default function Home() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const worldRef = useRef<WorldHandle>(null);
   // The chosen art style's renderer, loaded on demand ("classic" = the Phaser world).
   const [liveStyle, setLiveStyle] = useState<LiveStyle | null>(null);
@@ -304,8 +306,22 @@ export default function Home() {
           onToggle={() => update({ boardOpen: !prefs.boardOpen })}
           onSelect={select}
           onHover={setHoveredId}
+          onLegend={() => setLegendOpen(true)}
         />
       )}
+
+      <AnimatePresence>
+        {prefs.view === "world" && world && sessions.length > 0 && !selected && !projectDrawer && (legendOpen || !prefs.legendSeen) && (
+          <VillageLegend
+            key="legend"
+            world={world}
+            onClose={() => {
+              setLegendOpen(false);
+              if (!prefs.legendSeen) update({ legendSeen: true });
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selected && (

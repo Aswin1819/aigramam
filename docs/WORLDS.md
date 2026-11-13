@@ -107,9 +107,9 @@ Big flat images: hills, water, ground. They are drawn in list order (first = fur
 
 ### locations: how projects find a place
 
-Each **project** gets one location. Placement ([`shared/placement.ts`](../shared/placement.ts)) is stable: the project id is hashed to pick a location, and if that one is taken it moves to the next free one. So a project usually keeps its spot as other projects come and go. When every location is taken, the remaining projects share the **overflow** area (below).
+Each **project** gets one location. The project id is hashed to pick a location, and if that one is taken it moves to the next free one. Once placed, a project **keeps its location while the page is open**, and for two minutes after its last session ends, so nobody walks across the village because another project started or stopped. When every location is taken, the remaining projects share the **overflow** area (below).
 
-The project's name replaces `label` on the signboard. Sessions of the project stand in a centred row around `x`, `y`; when there are more than `slots`, extra rows step back 34 px, offset by half a spacing.
+The project's name replaces `label` on the signboard, which also shows its counts ("1 needs you · 2 working") and the project's colour. In front of the location is the project's **plot** (see `plots` below): its villagers stand at the plot's stations, never outside it.
 
 | Field | Type and limits | Default | Notes |
 |---|---|---|---|
@@ -123,11 +123,35 @@ The project's name replaces `label` on the signboard. Sessions of the project st
 | `propAnim` | `none` or `bob` | `none` | `bob` moves the prop **and everyone standing on it** up and down. |
 | `propAmp` | 0 to 40 | `2` | Bob height in pixels. |
 | `propSpeed` | 0 to 5 | `0.25` | Bob cycles per second. |
-| `signboard` | `{ dx, dy }` (coords) | `{ "dx": 0, "dy": -120 }` | Where the sign sits, relative to `x`, `y`. Both are required if you give `signboard`. |
-| `slots` | whole number 1–12 | `4` | Villagers per row before a new row starts. |
-| `spacing` | 20 to 400 | `70` | Pixels between villagers. |
+| `signboard` | `{ dx, dy }` (coords) | `{ "dx": 0, "dy": -120 }` | Where the sign sits, relative to `x`, `y`. Both are required if you give `signboard`. It rises at most 230 px, so the name stays near its people. |
+| `plot` | `{ w }` (100–600) | the room before the neighbours on the same row, up to 320 | Width of the yard in front, e.g. a houseboat's deck. |
+| `slots` | whole number 1–12 | `4` | Kept for older worlds; plots and stations decide where villagers stand. |
+| `spacing` | 20 to 400 | `70` | Kept for older worlds. |
 
 Props, scene decor and characters are depth-sorted by their `y`, so things lower on screen draw in front.
+
+### plots: each project's yard and stations
+
+Every project's yard has the same stations, in the same order from left to right, so learning one place teaches them all ([`shared/stations.ts`](../shared/stations.ts)):
+
+| Station | Where in the yard | Who stands there |
+|---|---|---|
+| `study` | left | reading or searching |
+| `desk` | left of centre | writing code, delegating to a subagent |
+| `works` | right of centre | running commands, tests, other tools |
+| `gate` | right edge | fetching from the web; villagers also arrive and leave through the gate |
+| `porch` | front centre, nearest you | waiting for your approval or answer |
+| `bench` | front left | your turn, or resting |
+
+A villager walks to a station only when its work changes: a new kind of work has to last 3 s before it moves, and it walks between work stations at most once every 6 s. Thinking and errors stay put; needing you goes to the porch or bench at once. Helpers (subagents) stay by their parent and only leave the yard, through the gate, to fetch from the web.
+
+| Field | Type and limits | Default | Notes |
+|---|---|---|---|
+| `style` | `courtyard` or `forecourt` | `courtyard` | A swept courtyard with a palm-frond fence, or a paved forecourt with a painted kerb. |
+| `props` | `{ study?, desk?, works?, gate?, porch?, bench? }` (PNG files) | none | One prop per station, shown while someone of that project works there. `desk` and `bench` draw under the villager (a mat, a seat); the others stand beside. |
+| `propScale` | 0.1 to 10 | `1` | |
+
+Each session also gets a small lamp at the front of its yard: lit = working, blinking red = needs your approval or answer, amber = your turn, dark red = error, out = resting.
 
 ### overflow
 

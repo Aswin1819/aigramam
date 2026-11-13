@@ -17,6 +17,16 @@ The app and the mod have separate version numbers. The app's version is in `pack
 - The top bar says "needs you" only for approvals and questions, and "your turn" for sessions waiting for your next message, as the Overview does.
 - History files a session under its latest folder, as the live view does, so both list it under the same project.
 
+### Village, easier to read
+- **Each project has its own yard:** a courtyard in Kerala and a forecourt in Bengaluru, with gate posts in the project's colour and a name board showing its counts.
+- **Projects keep their place** while the page is open, so nobody walks across the village because another project started or stopped.
+- **Stations instead of wandering:** every yard has the same stations: study, desk, works, gate, porch and bench. A villager walks only when its work changes.
+  - Kerala props: a palm-leaf book stand, a grass mat, a hearth with an uruli, a post box, a bell post and a verandah seat.
+  - Bengaluru props: a bookshelf, a hot desk, a server rack, an STD booth, a reception bell and waiting chairs.
+- **One lamp per session** shows its state at a glance, day or night.
+- **Art styles:** villagers stand at their stations instead of wandering, and labels start with the activity's icon.
+- **"How to read the village":** shown once, then available from the notice board.
+
 ### Mod 0.3.0
 - The status line says why a session isn't linked: `app not running`, `not set up`, or `key not accepted`.
 - A failure inside the mod never blocks a prompt or a tool call (fallbacks on every hook that can block).

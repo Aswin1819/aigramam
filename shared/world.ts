@@ -50,6 +50,8 @@ export const locationSchema = z
     propSpeed: z.number().min(0).max(5).default(0.25),
     /** Where the signboard text sits, relative to x/y. */
     signboard: z.object({ dx: coord, dy: coord }).strict().default({ dx: 0, dy: -120 }),
+    /** The yard in front of the place (where villagers' stations are); its width defaults to the room before the neighbours. */
+    plot: z.object({ w: z.number().min(100).max(600) }).strict().optional(),
     /** How many characters can stand here before they bunch up. */
     slots: z.number().int().min(1).max(12).default(4),
     /** Distance between standing characters, in world pixels. */
@@ -156,6 +158,15 @@ export const worldSchema = z
       .strict()
       .optional(),
     decor: z.array(decorSchema).max(120).default([]),
+    /** Each place's yard and its stations (see shared/stations.ts): the ground style and a prop per station. */
+    plots: z
+      .object({
+        style: z.enum(["courtyard", "forecourt"]).default("courtyard"),
+        props: z.partialRecord(z.enum(["study", "desk", "works", "gate", "porch", "bench"]), file).default({}),
+        propScale: z.number().min(0.1).max(10).default(1),
+      })
+      .strict()
+      .optional(),
     lighting: lightingSchema.optional(),
     scenes: z.partialRecord(z.enum(SCENE_KINDS), sceneSchema).default({}),
     ambient: z.array(ambientSchema).max(6).default([]),

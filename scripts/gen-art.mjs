@@ -4,6 +4,7 @@
  *   node scripts/gen-art.mjs            worlds + characters
  *   node scripts/gen-art.mjs worlds     only worlds
  *   node scripts/gen-art.mjs characters only characters
+ *   node scripts/gen-art.mjs stations   only the station props (also part of worlds)
  * Deterministic: running it again produces identical files.
  */
 import fs from "node:fs";
@@ -21,6 +22,10 @@ if (what === "all" || what === "worlds") {
     fs.rmSync(dir, { recursive: true, force: true });
     build(dir);
   }
+}
+if (what === "all" || what === "worlds" || what === "stations") {
+  const { buildStations } = await import("./art/stations.mjs");
+  buildStations(path.join(root, "worlds"));
 }
 if (what === "all" || what === "characters") {
   const { buildCharacters } = await import("./art/characters.mjs");

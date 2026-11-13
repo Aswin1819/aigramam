@@ -110,6 +110,18 @@
     { "id": "halo-busstop", "image": "assets/glow_small.png", "x": 1440, "y": 840, "scale": 1.5, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.06, "speed": 0.8, "alpha": 0.4 },
     { "id": "halo-bandstand", "image": "assets/glow_warm.png", "x": 1760, "y": 870, "scale": 1.5, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.06, "speed": 0.8, "alpha": 0.55 }
   ],
+  "plots": {
+    "style": "forecourt",
+    "propScale": 1.1,
+    "props": {
+      "study": "assets/station_study.png",
+      "desk": "assets/station_desk.png",
+      "works": "assets/station_works.png",
+      "gate": "assets/station_gate.png",
+      "porch": "assets/station_porch.png",
+      "bench": "assets/station_bench.png"
+    }
+  },
   "scenes": {
     "read": { "anim": "read" },
     "search": { "anim": "read", "fx": "signal" },

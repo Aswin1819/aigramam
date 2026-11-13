@@ -52,8 +52,8 @@
     { "id": "ground", "image": "assets/ground.png" }
   ],
   "locations": [
-    { "id": "houseboat-west", "kind": "houseboat", "label": "Kettuvallam", "x": 400, "y": 690, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.22, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
-    { "id": "houseboat-east", "kind": "houseboat", "label": "Kettuvallam", "x": 1490, "y": 676, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.19, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
+    { "id": "houseboat-west", "plot": { "w": 230 }, "kind": "houseboat", "label": "Kettuvallam", "x": 400, "y": 690, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.22, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
+    { "id": "houseboat-east", "plot": { "w": 230 }, "kind": "houseboat", "label": "Kettuvallam", "x": 1490, "y": 676, "prop": "assets/houseboat.png", "propDy": 72, "propAnim": "bob", "propAmp": 2.5, "propSpeed": 0.19, "signboard": { "dx": 0, "dy": -112 }, "slots": 4, "spacing": 66 },
     { "id": "chaya-kada", "kind": "tea-shop", "label": "Chaya Kada", "x": 640, "y": 930, "prop": "assets/tea_shop.png", "propDy": 6, "signboard": { "dx": 0, "dy": -248 }, "slots": 4, "spacing": 60 },
     { "id": "ambalam", "kind": "temple", "label": "Ambalam", "x": 1260, "y": 928, "prop": "assets/temple.png", "propDy": 4, "signboard": { "dx": 0, "dy": -330 }, "slots": 5, "spacing": 60 },
     { "id": "cheena-vala", "kind": "fishing-nets", "label": "Cheena Vala", "x": 1790, "y": 842, "prop": "assets/nets_platform.png", "propDy": 50, "signboard": { "dx": -40, "dy": -210 }, "slots": 3, "spacing": 56 },
@@ -98,6 +98,18 @@
     { "id": "glow-chaya", "image": "assets/glow_warm.png", "x": 640, "y": 860, "scale": 1.6, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.15, "speed": 2, "alpha": 0.75 },
     { "id": "glow-kallu", "image": "assets/glow_warm.png", "x": 200, "y": 905, "scale": 1.4, "originY": 0.5, "layer": "front", "night": "only", "blend": "add", "anim": "flicker", "amp": 0.2, "speed": 2.4, "alpha": 0.65 }
   ],
+  "plots": {
+    "style": "courtyard",
+    "propScale": 1.1,
+    "props": {
+      "study": "assets/station_study.png",
+      "desk": "assets/station_desk.png",
+      "works": "assets/station_works.png",
+      "gate": "assets/station_gate.png",
+      "porch": "assets/station_porch.png",
+      "bench": "assets/station_bench.png"
+    }
+  },
   "scenes": {
     "read": { "anim": "read" },
     "search": { "anim": "read", "fx": "signal" },

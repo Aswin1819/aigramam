@@ -8,7 +8,8 @@ import Phaser from "phaser";
 import type { SessionView, SubagentView } from "@shared/model";
 import type { DecorDef, LightingDef, SceneKind, WorldInfo } from "@shared/world";
 import type { CharacterAssignments, CharacterInfo } from "@shared/character";
-import { hashString, placeProjects, standSpots, type Placement } from "@shared/placement";
+import { hashString, placeWithSlots, type Placement } from "@shared/placement";
+import { PlaceKeeper, StationKeeper, projectAccent, stationIndexes, stationSpot, wantedStation, type Plot, type Station } from "@shared/stations";
 import { pickPlace, type PlaceRect } from "@/styles/live/placeHit";
 import { calmKind, sceneKindFallback, type Held } from "./calm";
 import { isUrgent } from "@/lib/status";
@@ -31,8 +32,9 @@ const COMP_SCALE = 0.62;
 const COMP_SPEED = 95;
 const COMP_ARRIVE_S = 0.45;
 const COMP_CHEER_S = 0.9;
-const ERRAND_PROP: Partial<Record<SceneKind, string>> = { read: "📜", search: "🔍", web: "🌐" };
-const BUSY_PROP: Partial<Record<SceneKind, string>> = { write: "✏️", bash: "⚙️", test: "🧪", tool: "⚙️" };
+/** Only fetching from the web sends a companion out (to its plot's gate); everything else is done beside its parent. */
+const ERRAND_PROP: Partial<Record<SceneKind, string>> = { web: "🌐" };
+const BUSY_PROP: Partial<Record<SceneKind, string>> = { read: "📜", search: "🔍", write: "✏️", bash: "⚙️", test: "🧪", tool: "⚙️" };
 const ANIM_FALLBACK: Partial<Record<Anim, Anim>> = { bash: "write", wait: "idle", write: "idle", read: "idle", celebrate: "idle", error: "idle" };
 
 type CompMode = "arrive" | "slot" | "out" | "errand" | "back" | "leave";
@@ -87,6 +89,10 @@ interface Character {
   phase: "entering" | "alive" | "leaving";
   alpha: number;
   lastStatus?: string;
+  /** Where its plot's gate is: it arrives and leaves there. */
+  gateX?: number;
+  /** Its station in the plot right now. */
+  station?: Station;
   /** The pose shown and since when (kept calm through quick tool calls). */
   held?: Held;
   celebrateUntil: number;
@@ -140,6 +146,12 @@ export class WorldScene extends Phaser.Scene {
   private props = new Map<string, { img: Phaser.GameObjects.Image; baseY: number }>();
   private overflowProps = new Map<string, Phaser.GameObjects.Image>();
   private placements = new Map<string, Placement>();
+  /** Projects keep their place while the page is open, so nobody walks across the village for nothing. */
+  private placeKeeper = new PlaceKeeper();
+  private stationKeeper = new StationKeeper();
+  /** Each plot's ground, fence and lamps (redrawn each frame), and its station props. */
+  private plotGfx = new Map<string, Phaser.GameObjects.Graphics>();
+  private stationProps = new Map<string, Phaser.GameObjects.Image>();
   private lastFrameAt = 0;
   private t = 0;
   private dt = 0;
@@ -566,18 +578,18 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Sessions already running when the page opens start in place; later ones walk in from the edge. */
-  private spawn(s: SessionView, tx: number, ty: number): Character {
-    const W = this.world.def.size.width;
-    const fromLeft = tx < W / 2;
+  private spawn(s: SessionView, tx: number, ty: number, gateX: number): Character {
     const arriving = this.t > 2.5;
-    const x = arriving ? (fromLeft ? -50 : W + 50) : tx;
+    const fromLeft = gateX < tx;
+    // New sessions come in through their own plot's gate, not from the edge of the world.
+    const x = arriving ? gateX : tx;
     const pack = this.packFor(s);
     const key = pack && this.textures.exists(`c:${pack.id}`) ? `c:${pack.id}` : "fallback-char";
     const scale = pack ? pack.def.scale : 3;
     const sprite = this.add.sprite(x, ty, key).setOrigin(0.5, 1).setScale(scale);
     const shadow = this.add.ellipse(x, ty, 40, 11, 0x000000, 0.28);
     const ring = this.add.graphics();
-    return { id: s.id, pack: key === "fallback-char" ? null : pack, sprite, shadow, ring, x, y: ty, tx, ty, locationId: null, facingLeft: arriving ? !fromLeft : (hashString(s.id) & 1) === 1, phase: "entering", alpha: 0, companions: new Map(), seed: hashString(s.id), celebrateUntil: 0 };
+    return { id: s.id, pack: key === "fallback-char" ? null : pack, sprite, shadow, ring, x, y: ty, tx, ty, locationId: null, facingLeft: arriving ? !fromLeft : (hashString(s.id) & 1) === 1, phase: "entering", alpha: 0, companions: new Map(), seed: hashString(s.id), celebrateUntil: 0, gateX };
   }
 
   private playAnim(c: Character, anim: Anim) {
@@ -590,21 +602,26 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private targets(): Map<string, { x: number; y: number; locationId: string | null }> {
+  private targets(): Map<string, { x: number; y: number; locationId: string | null; gateX: number; station: Station }> {
     const byProject = new Map<string, SessionView[]>();
     for (const s of this.inp.sessions) byProject.set(s.projectId, [...(byProject.get(s.projectId) ?? []), s]);
-    this.placements = placeProjects([...byProject.keys()], this.world.def);
+    const locs = this.world.def.locations;
+    const now = Date.now();
+    const slots = this.placeKeeper.assign([...byProject.keys()], locs.length, now, (id) => hashString(id) % locs.length);
+    this.placements = placeWithSlots(slots, this.world.def);
     this.syncOverflowProps();
     this.signs = [...this.placements.values()].map((p) => ({ projectId: p.projectId, x: p.sign.x, y: p.sign.y + this.propOffset(p.locationId), locationLabel: p.locationLabel }));
-    const out = new Map<string, { x: number; y: number; locationId: string | null }>();
+    const out = new Map<string, { x: number; y: number; locationId: string | null; gateX: number; station: Station }>();
     for (const [pid, list] of byProject) {
       const p = this.placements.get(pid)!;
-      const spots = standSpots(p, list.length);
-      list.sort((a, b) => a.id.localeCompare(b.id)).forEach((s, i) => {
-        const sc = this.sceneFor(s, this.chars.get(s.id));
-        out.set(s.id, { x: spots[i].x + sc.offsetX, y: spots[i].y + sc.offsetY, locationId: p.locationId });
-      });
+      const stations = list.map((s) => ({ id: s.id, startedAt: s.startedAt, station: this.stationKeeper.stationOf(s.id, wantedStation(s), now) }));
+      const index = stationIndexes(stations);
+      for (const st of stations) {
+        const spot = stationSpot(p.plot, st.station, index.get(st.id) ?? 0);
+        out.set(st.id, { x: spot.x, y: spot.y, locationId: p.locationId, gateX: p.plot.x + p.plot.w * 0.5, station: st.station });
+      }
     }
+    this.stationKeeper.prune(new Set(this.inp.sessions.map((s) => s.id)));
     return out;
   }
 
@@ -688,7 +705,13 @@ export class WorldScene extends Phaser.Scene {
       const half = Math.max(40, (this.props.get(l.id)?.img.displayWidth ?? 200) / 2 - 60);
       return { min: l.x - half, max: l.x + half, water: true };
     }
+    const p = this.placements.get(this.projectOfChar(c) ?? "");
+    if (p) return { min: Math.max(40, p.plot.x - p.plot.w / 2 + 10), max: Math.min(W - 40, p.plot.x + p.plot.w / 2 - 10), water: false };
     return { min: 60, max: W - 60, water: false };
+  }
+
+  private projectOfChar(c: Character): string | undefined {
+    return this.inp.sessions.find((s) => s.id === c.id)?.projectId;
   }
 
   /** Where this trip goes, as an offset from the parent: deterministic per subagent, varied a little per trip. */
@@ -750,7 +773,7 @@ export class WorldScene extends Phaser.Scene {
     const t = this.t, dt = this.dt, reduced = this.reduced, kind = comp.kind;
     const errandKind = !!ERRAND_PROP[kind];
     const busyKind = !!BUSY_PROP[kind];
-    const pacing = (kind === "think" || kind === "delegate") && !reduced;
+    const pacing = false; // companions don't pace: they move only when something changes
     let speed = COMP_SPEED;
     const arrived = () => Math.hypot(comp.tox - comp.ox, comp.toy - comp.oy) < 0.5;
 
@@ -961,14 +984,15 @@ export class WorldScene extends Phaser.Scene {
     const W = this.world.def.size.width;
     for (const s of sessions.values()) if (!this.chars.has(s.id)) {
       const t = targets.get(s.id)!;
-      this.chars.set(s.id, this.spawn(s, t.x, t.y));
+      this.chars.set(s.id, this.spawn(s, t.x, t.y, t.gateX));
     }
     const now = Date.now();
     for (const [id, c] of this.chars) {
       const s = sessions.get(id);
       if (!s && c.phase !== "leaving") {
         c.phase = "leaving";
-        c.tx = c.x < W / 2 ? -70 : W + 70;
+        // Leave through the plot's gate and fade there.
+        c.tx = c.gateX ?? (c.x < W / 2 ? -70 : W + 70);
         c.ty = c.y;
         c.locationId = null;
       } else if (s) {
@@ -976,6 +1000,8 @@ export class WorldScene extends Phaser.Scene {
         c.tx = t.x;
         c.ty = t.y;
         c.locationId = t.locationId;
+        c.gateX = t.gateX;
+        c.station = t.station;
         const key = `${s.status}:${s.waitingReason ?? ""}`;
         const finishedTurn = c.lastStatus?.startsWith("working") && (key === "waiting:turn_end" || s.status === "finished");
         if (finishedTurn || (c.lastStatus && c.lastStatus !== key && s.status === "finished")) this.celebrate(c);
@@ -1088,6 +1114,111 @@ export class WorldScene extends Phaser.Scene {
     this.updateLight(now);
     this.updateDecor();
     this.updateCharacters();
+    this.updatePlots();
     this.updatePlaceHighlight();
   }
+
+  // ── Plots: ground, fence, lamps and station props ─────────────────────────
+  private updatePlots() {
+    const style = this.world.def.plots?.style ?? "courtyard";
+    const props = this.world.def.plots?.props ?? {};
+    const propScale = this.world.def.plots?.propScale ?? 1;
+    const live = new Set<string>();
+    const usedProps = new Set<string>();
+    const byProject = new Map<string, SessionView[]>();
+    for (const s of this.inp.sessions) byProject.set(s.projectId, [...(byProject.get(s.projectId) ?? []), s]);
+    for (const p of this.placements.values()) {
+      live.add(p.projectId);
+      let g = this.plotGfx.get(p.projectId);
+      if (!g) {
+        g = this.add.graphics();
+        this.plotGfx.set(p.projectId, g);
+      }
+      const bob = this.propOffset(p.locationId);
+      const onBoat = !!p.locationId && this.world.def.locations.find((l) => l.id === p.locationId)?.propAnim === "bob";
+      g.setDepth(DEPTH.scene + p.plot.y / 10 - 1.2); // behind its building, so the yard shows only in front of it
+      g.clear();
+      this.drawPlot(g, p.plot, bob, hexToInt(projectAccent(p.projectId)), style, onBoat);
+      const list = (byProject.get(p.projectId) ?? []).slice().sort((a, b) => a.startedAt - b.startedAt || a.id.localeCompare(b.id));
+      this.drawLamps(g, p.plot, bob, list);
+      // A station's prop shows while someone of this project works there.
+      for (const s of list) {
+        const st = this.chars.get(s.id)?.station;
+        const rel = st ? props[st] : undefined;
+        if (!st || !rel) continue;
+        const key = `${p.projectId}|${st}`;
+        if (usedProps.has(key)) continue;
+        usedProps.add(key);
+        let img = this.stationProps.get(key);
+        if (!img) {
+          img = this.add.image(0, 0, textureKey("w", rel)).setOrigin(0.5, 1).setScale(propScale).setAlpha(0);
+          this.stationProps.set(key, img);
+        }
+        const spot = stationSpot(p.plot, st, 0);
+        const under = st === "desk" || st === "bench"; // a mat or a seat is under the villager; the rest stand beside it
+        img.setPosition(spot.x + (under ? 0 : 26), spot.y + (under ? 4 : -6) + bob).setDepth(DEPTH.scene + (spot.y - (under ? 8 : 2)) / 10);
+      }
+    }
+    for (const [key, img] of this.stationProps) {
+      const want = usedProps.has(key) ? 1 : 0;
+      const a = this.reduced ? want : img.alpha + (want - img.alpha) * Math.min(1, this.dt * 4);
+      img.setAlpha(a);
+      if (!want && a < 0.02) {
+        img.destroy();
+        this.stationProps.delete(key);
+      }
+    }
+    for (const [pid, g] of this.plotGfx) {
+      if (live.has(pid)) continue;
+      g.destroy();
+      this.plotGfx.delete(pid);
+    }
+  }
+
+  /** The yard: a swept courtyard with a low palm-frond fence, or a paved forecourt with a painted kerb. The project's colour marks its gate posts. */
+  private drawPlot(g: Phaser.GameObjects.Graphics, plot: Plot, bob: number, accent: number, style: "courtyard" | "forecourt", onBoat: boolean) {
+    const x0 = plot.x - plot.w / 2, x1 = plot.x + plot.w / 2, top = plot.y - 24 + bob, front = plot.y + 36 + bob;
+    const night = this.night;
+    if (!onBoat) {
+      if (style === "courtyard") {
+        g.fillStyle(0xc49a62, 0.34 - night * 0.12).fillRoundedRect(x0, top, plot.w, front - top, 20);
+        g.lineStyle(2, 0x7a5a33, 0.45).strokeRoundedRect(x0, top, plot.w, front - top, 20);
+        for (let x = x0 + 18; x < x1 - 12; x += 22) g.fillStyle(0x6b4a22, 0.75).fillRect(x - 1.5, front - 10, 3, 12);
+        g.lineStyle(2, 0x8a6a3a, 0.7).lineBetween(x0 + 14, front - 8, x1 - 14, front - 8);
+      } else {
+        g.fillStyle(0x8d969b, 0.3 - night * 0.1).fillRect(x0, top, plot.w, front - top);
+        for (let x = x0, i = 0; x < x1; x += 14, i++) g.fillStyle(i % 2 ? 0x1c1c1c : 0xf2c230, 0.85).fillRect(x, front - 4, Math.min(14, x1 - x), 5);
+      }
+    }
+    for (const px of [x0 + 6, x1 - 6]) g.fillStyle(accent, 0.95).fillRect(px - 3, front - 26, 6, 28);
+    g.fillStyle(accent, 0.95).fillTriangle(x1 - 3, front - 26, x1 + 15, front - 21, x1 - 3, front - 16);
+  }
+
+  /** One small lamp per session at the front of the plot: lit = working, blinking red = approval or question, amber = your turn, dark red = error, out = resting. */
+  private drawLamps(g: Phaser.GameObjects.Graphics, plot: Plot, bob: number, list: SessionView[]) {
+    const y = plot.y + 46 + bob;
+    const n = list.length;
+    list.forEach((s, i) => {
+      const x = plot.x + (i - (n - 1) / 2) * 16;
+      g.fillStyle(0xb8862b, 1).fillRect(x - 1.5, y - 8, 3, 8);
+      g.fillEllipse(x, y, 10, 3);
+      g.fillEllipse(x, y - 8, 9, 3);
+      let flame: number | null = null;
+      let a = 1;
+      if (isUrgent(s)) {
+        flame = 0xff5a4f;
+        a = this.reduced ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(this.t * 3.2));
+      } else if (s.status === "waiting") flame = 0xf5b33d;
+      else if (s.status === "working") flame = 0xffc24d;
+      else if (s.status === "error") {
+        flame = 0x8b2b2b;
+        a = 0.8;
+      }
+      if (flame !== null) {
+        if (this.night > 0.2) g.fillStyle(flame, 0.18 * this.night * a).fillCircle(x, y - 13, 12);
+        g.fillStyle(flame, a).fillEllipse(x, y - 13, 5, 8);
+      }
+    });
+  }
+
 }

@@ -43,7 +43,7 @@ describe("LiveSim", () => {
     ];
     const f = new LiveSim().frame(0.016, input(sessions, [project("p", "app")]));
     const by = Object.fromEntries(f.villagers.map((v) => [v.id, v]));
-    expect(by.w).toMatchObject({ status: "working", label: "Editing auth.ts", urgent: false, carry: "laptop" });
+    expect(by.w).toMatchObject({ status: "working", label: "✏️ Editing auth.ts", urgent: false, carry: "laptop" });
     expect(by.q).toMatchObject({ status: "approval", urgent: true, linked: true });
     expect(by.q!.label).toContain("Running git push");
     expect(by.t).toMatchObject({ status: "turn", urgent: false });
@@ -61,6 +61,24 @@ describe("LiveSim", () => {
       expect(v.x).toBeLessThanOrEqual(place.x + 115);
     }
     expect(f.villagers.find((v) => v.id === "s")!.moving).toBe(false);
+  });
+
+  it("never wanders: a working villager stands still at its station", () => {
+    const sim = new LiveSim();
+    const i = input([session("w", "p", { status: "working", action: { kind: "read", emoji: "📖", label: "Reading a.ts", startedAt: 1 } })], [project("p", "app")]);
+    run(sim, i, 5);
+    const xs = new Set<number>();
+    for (let k = 0; k < 60; k++) xs.add(Math.round(sim.frame(0.05, i).villagers[0]!.x));
+    expect(xs.size).toBe(1);
+  });
+
+  it("keeps each project's place when another project stops", () => {
+    const sim = new LiveSim();
+    const projects = [project("p1", "alpha"), project("p2", "beta"), project("p3", "gamma")];
+    const all = input([session("a", "p1"), session("b", "p2"), session("c", "p3")], projects);
+    const before = sim.frame(0.016, all).places.find((p) => p.id === "p3")!.x;
+    const after = sim.frame(0.016, input([session("a", "p1"), session("c", "p3")], projects)).places.find((p) => p.id === "p3")!.x;
+    expect(after).toBe(before);
   });
 
   it("stacks labels so neighbours never overlap", () => {
