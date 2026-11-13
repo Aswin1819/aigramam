@@ -39,10 +39,10 @@ Phaser world stays the default.
 - Don't touch the dev server (it hot-reloads), git state, or the Chrome browser tools.
 
 ## Verify
-1. `cd /c/Users/aswin/Desktop/pp/aigramam && ./node_modules/.bin/tsc --noEmit` (your file must be clean).
+1. From the repository folder: `./node_modules/.bin/tsc --noEmit` (your file must be clean).
 2. Screenshot the real app in headless Edge with the style forced by URL (`?art=<id>` sets it for that load) and demo data (`?demo`):
    ```
-   S="C:/Users/aswin/AppData/Local/Temp/claude/122c389c13375d18/f23be7c2-b761-4f03-b5d2-d99915cdadfe/scratchpad"; mkdir -p "$S/shots"
+   S="$(mktemp -d)"; mkdir -p "$S/shots"   # any scratch folder
    "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --use-angle=swiftshader --user-data-dir="$S/edge-profile-<you>" --window-size=1600,900 --virtual-time-budget=9000 --screenshot="$S/shots/live-<id>.png" "http://localhost:4317/?demo&art=<id>"
    ```
    Also a narrow shot (`--window-size=1100,800`) and one live (no `?demo`) to see the real sessions. Check: whole view filled, every villager has a readable label, places show project names, urgent ones pulse, nothing broken (a failure shows "The … style failed to draw (…)").

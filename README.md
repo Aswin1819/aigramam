@@ -2,14 +2,15 @@
 
 **Your Claude Code agents, living in a village.** Ai Gramam is a local browser app that turns every running Claude Code session into a villager in an animated Indian world, so you can tell at a glance which project, session and subagent is doing what, and when one of them needs you.
 
-- **Projects are places.** Each project gets a location (a houseboat, the chaya kada, the temple…) with its name on a brass signboard.
-- **Sessions are villagers.** Each session stands at its project with a name tag and a speech bubble showing the live action: `✏️ Editing auth.ts`, `💻 Running npm test`, `🔍 Searching "login"`.
+- **Projects are places.** Each project gets a location (a houseboat, the chaya kada, the temple…) and its own yard, with its name and counts on a signboard in the project's colour. It keeps its place while the page is open.
+- **Sessions are villagers.** Each session stands at the station for what it's doing (study for reading, desk for writing, works for commands and tests, gate for the web, porch when it needs you, bench when it's your turn), with a label showing the live action: `✏️ Editing auth.ts`, `🧪 Running tests`, `🔍 Searching "login"`. Villagers walk only when their work changes, and one lamp per session shows its state.
 - **Subagents are companions** that walk in beside their parent while they work and leave when they finish.
 - **Waiting for you is impossible to miss.** Approvals and questions ring a bell in the top bar, glow red in the world and pop a toast. "Your turn" glows amber.
 - **A living world.** Real day and night that follow your clock, monsoon rain with lightning, swaying palms, drifting clouds, bobbing houseboats, a canoe, ducks, fireflies, and a row of nilavilakku lamps lighting up when a task finishes.
 - **Worlds and characters are data packs.** Upload a `.zip` in Settings, or drop a folder in, and it appears within seconds, no restart. Every pack shows its author and license.
 - **Your cast.** Choose the character each project's sessions appear as (drawer → Details → Character).
 - **Art styles.** Besides the Kerala world, draw the village as PS2, Comic Art, Flat Vector, CGI Motion, Toy Brick or Explainer 3D (world menu in the top bar). Compare all ten prototypes in the Style lab at `/styles`.
+- **Workspace → Focus:** a queue of every session, what needs you first, with the chosen session's conversation beside it: reply, stop, approve or answer without leaving the page (↑ ↓ or j k to move, Ctrl+K to find). Also Projects (with Git state), Agents, Terminals and History.
 - **Sound cues** when a session needs you or it's your turn (mute in the top bar).
 
 Everything runs on your machine: the server listens on `127.0.0.1` only, makes no outside network calls, and never writes your transcripts anywhere.
@@ -23,11 +24,22 @@ Installing the mod doesn't install or start the app. Full steps, updates and rem
 
 ## Quick start (Windows)
 
-Requirements: Node.js 18+ and Claude Code.
+Requirements: Node.js 18+, Git and Claude Code.
+
+**1. The app:**
 
 ```powershell
+git clone https://github.com/Aswin1819/aigramam.git
+cd aigramam
 npx -y pnpm@10.4.1 install
 npx pnpm@10.4.1 dev
+```
+
+**2. The mod** (optional: lets you talk to sessions from the browser), in a terminal, or inside Claude Code as `/plugin …`:
+
+```powershell
+claude plugin marketplace add Aswin1819/aigramam
+claude plugin install ai-gramam@aigramam
 ```
 
 Open **http://localhost:4317** (the port comes from `.env`; copy `.env.example` to change it). Start Claude Code in any folder and a villager walks in within a few seconds. No sessions yet? Click **Demo** in the top bar, or open http://localhost:4317/?demo. Something missing? **Settings → Session link** checks each part and says which one needs attention ([docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)).
@@ -36,7 +48,7 @@ Tips: drag to pan, scroll to zoom, click a villager (or a row in the dock) to op
 
 ## Talk to your sessions (the Ai Gramam mod)
 
-Install the mod once and every new Claude Code session links itself to the village. Then, from a villager's drawer, you can:
+Install the mod once and every new Claude Code session links itself to the village. Then, from a villager's drawer or Workspace → Focus, you can:
 
 - **send a message**: it runs as your own prompt as soon as the session is free;
 - **stop** what it's doing (like Esc in the terminal);
@@ -46,9 +58,11 @@ Install the mod once and every new Claude Code session links itself to the villa
 Plan approvals are still answered in the terminal, and if another plugin answers permission requests before the mod, those stay in the terminal too. The mod sends only small details (paths, commands) to `127.0.0.1` with your local key.
 
 ```powershell
-claude plugin marketplace add C:\path\to\aigramam
+claude plugin marketplace add Aswin1819/aigramam
 claude plugin install ai-gramam@aigramam
 ```
+
+(Or `claude plugin marketplace add C:\path\to\aigramam` to install from your clone.)
 
 Sessions that were already running link after a restart. **Settings → Session link** shows whether the mod is installed and up to date and how many sessions are linked, and each session's status line says `Ai Gramam ● linked` (or why it isn't). To update: `claude plugin marketplace update aigramam` then `claude plugin update ai-gramam@aigramam`. The mod's source is in `plugin/ai-gramam`.
 

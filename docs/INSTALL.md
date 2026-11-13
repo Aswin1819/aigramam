@@ -19,7 +19,7 @@ Installing the mod does **not** install or start the app, and the app works with
 ## 1. Install and start the app
 
 ```powershell
-git clone https://github.com/Aswin1819/aigramam.git   # needs read access to the repository
+git clone https://github.com/Aswin1819/aigramam.git
 cd aigramam
 npx -y pnpm@10.4.1 install
 npx pnpm@10.4.1 dev
@@ -36,17 +36,17 @@ npx pnpm@10.4.1 start
 
 ## 2. Install the mod (optional)
 
-From the app folder, or with the folder's full path:
-
-```powershell
-claude plugin marketplace add C:\path\to\aigramam
-claude plugin install ai-gramam@aigramam
-```
-
-Or straight from GitHub, if you can read the repository:
+Straight from GitHub, in a terminal (or inside Claude Code as `/plugin marketplace add Aswin1819/aigramam` and `/plugin install ai-gramam@aigramam`):
 
 ```powershell
 claude plugin marketplace add Aswin1819/aigramam
+claude plugin install ai-gramam@aigramam
+```
+
+Or from your clone (the folder's full path), for example to try local changes:
+
+```powershell
+claude plugin marketplace add C:\path\to\aigramam
 claude plugin install ai-gramam@aigramam
 ```
 

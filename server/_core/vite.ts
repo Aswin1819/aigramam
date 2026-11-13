@@ -10,7 +10,9 @@ import { isProduction } from "./runtime";
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
-    hmr: { server },
+    // No hot reload: reload the page for client changes. (A half-configured HMR
+    // made the page retry a socket on Vite's default port, an error in every tab.)
+    hmr: false as const,
     allowedHosts: true as const,
   };
 

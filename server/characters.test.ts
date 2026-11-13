@@ -17,11 +17,11 @@ describe("character choices per project", () => {
     const a = new CharacterAssignmentStore(file);
     let changes = 0;
     a.onChange = () => changes++;
-    expect(a.set("C:\\work\\alfredx", "mundu-hero")).toBe(true);
-    expect(a.set("C:\\work\\kurippu", "chaya-sidekick")).toBe(true);
-    expect(new CharacterAssignmentStore(file).all()).toEqual({ "C:\\work\\alfredx": "mundu-hero", "C:\\work\\kurippu": "chaya-sidekick" });
-    expect(a.set("C:\\work\\alfredx", null)).toBe(true);
-    expect(new CharacterAssignmentStore(file).all()).toEqual({ "C:\\work\\kurippu": "chaya-sidekick" });
+    expect(a.set("C:\\work\\shop", "mundu-hero")).toBe(true);
+    expect(a.set("C:\\work\\blog", "chaya-sidekick")).toBe(true);
+    expect(new CharacterAssignmentStore(file).all()).toEqual({ "C:\\work\\shop": "mundu-hero", "C:\\work\\blog": "chaya-sidekick" });
+    expect(a.set("C:\\work\\shop", null)).toBe(true);
+    expect(new CharacterAssignmentStore(file).all()).toEqual({ "C:\\work\\blog": "chaya-sidekick" });
     expect(changes).toBe(3);
     expect(fs.readdirSync(tmp)).toEqual(["characters.json"]); // no temp files left behind
   });
