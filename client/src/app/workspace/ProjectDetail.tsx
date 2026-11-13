@@ -6,6 +6,7 @@ import { elapsed } from "@/lib/status";
 import { attentionOf, type ProjectSummary } from "./attention";
 import SessionRow from "./SessionRow";
 import ProjectShortcuts from "./ProjectShortcuts";
+import { ProjectGit, ProjectRecent } from "./ProjectInterior";
 
 interface Props {
   summary: ProjectSummary;
@@ -25,6 +26,7 @@ interface Props {
  */
 export default function ProjectDetail({ summary: pr, now, selectedSessionId, onSelectSession, onOpenTerminal, terminalBlockedReason }: Props) {
   const [copied, setCopied] = useState(false);
+  const demo = pr.sessions.length > 0 && pr.sessions.every((x) => x.source === "demo");
   const a = attentionOf(pr.sessions, now);
   const ordered: SessionView[] = [...a.needsYou, ...a.yourTurn, ...a.errors, ...a.quiet, ...a.working, ...a.recentlyDone, ...a.idle];
   const copy = async () => {
@@ -72,7 +74,7 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
         </div>
       )}
 
-      <ProjectShortcuts projectId={pr.project.id} demo={pr.sessions.every((x) => x.source === "demo")} />
+      <ProjectShortcuts projectId={pr.project.id} demo={demo} />
 
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Fact label="Sessions" value={String(pr.sessions.length)} />
@@ -86,13 +88,17 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
         {pr.subagents > 0 && <span className="flex items-center gap-1"><Users size={13} /> {pr.subagents} subagent{pr.subagents > 1 ? "s" : ""} running</span>}
       </div>
 
+      <ProjectGit projectId={pr.project.id} demo={demo} />
+
       <h3 className="mb-1.5 mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Sessions</h3>
       <div className="space-y-1.5">
         {ordered.map((s) => (
           <SessionRow key={s.id} s={s} project={pr.project.name} now={now} selected={s.id === selectedSessionId} onSelect={() => onSelectSession(s.id)} />
         ))}
       </div>
-      <p className="mt-3 text-[11px] text-cream/40">Only sessions Ai Gramam can currently see are listed; closed sessions aren't kept.</p>
+      <p className="mt-2 text-[11px] text-cream/40">Sessions running now. Ended ones are under Recent history.</p>
+
+      <ProjectRecent projectId={pr.project.id} demo={demo} liveIds={new Set(pr.sessions.map((x) => x.id.toLowerCase()))} onSelectSession={(id) => onSelectSession(pr.sessions.find((x) => x.id.toLowerCase() === id)?.id ?? id)} />
     </div>
   );
 }

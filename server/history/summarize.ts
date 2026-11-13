@@ -121,7 +121,7 @@ export class TranscriptSummary {
       switch (ev.t) {
         case "meta":
           this.touch(ev.at);
-          if (ev.cwd && !this.cwd) this.cwd = ev.cwd;
+          if (ev.cwd) this.cwd = ev.cwd; // latest folder, as the live view does, so both put a session in the same project
           if (ev.gitBranch) this.gitBranch = ev.gitBranch;
           break;
         case "title":

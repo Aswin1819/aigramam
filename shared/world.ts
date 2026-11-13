@@ -18,7 +18,7 @@ export const ANIM_NAMES = ["idle", "walk", "read", "write", "bash", "wait", "cel
 export const FX_NAMES = ["none", "sparks", "signal", "bell", "smoke", "glow", "steam"] as const;
 export const AMBIENT_TYPES = ["rain", "birds", "fireflies", "lightning"] as const;
 export const COMPLETION_EFFECTS = ["lamp-row", "vehicle-pass", "confetti"] as const;
-export const SCENE_KINDS = ["read", "search", "write", "bash", "web", "delegate", "question", "tool", "think", "waiting", "idle", "done", "error"] as const;
+export const SCENE_KINDS = ["read", "search", "write", "bash", "test", "web", "delegate", "question", "tool", "think", "waiting", "idle", "done", "error"] as const;
 
 export const layerSchema = z
   .object({

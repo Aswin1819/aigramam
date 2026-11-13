@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import express from "express";
 import type { AddressInfo } from "net";
-import { describeTool } from "./monitor/actions";
+import { describeTool, isTestCommand } from "./monitor/actions";
 import { parseLine, parseRecord } from "./monitor/parser";
 import { FileTailer } from "./monitor/tailer";
 import { SessionStore, TIMING } from "./monitor/store";
@@ -41,10 +41,21 @@ const rec = {
 
 // ── actions ──────────────────────────────────────────────────────────────────
 
+describe("test commands", () => {
+  it("recognises common test runners from the command only", () => {
+    for (const c of ["npm test", "pnpm test:unit", "npx pnpm@10.4.1 test", "yarn run test", "./node_modules/.bin/vitest run", "npx -y vitest", "pytest -q tests/", "python -m pytest", "python3 -m unittest discover", "go test ./...", "cargo test", "cargo nextest run", "dotnet test", "mvn -q test", "./gradlew clean test", "cd app && jest --watch=false", "Invoke-Pester", "npx playwright test"])
+      expect(isTestCommand(c), c).toBe(true);
+    for (const c of ["npm run build", "cat jest.config.js", "echo 'add tests' > notes.txt", "ls tests", "node scripts/latest.js", "echo testing", "grep -r vitest package.json"])
+      expect(isTestCommand(c), c).toBe(false);
+  });
+});
+
 describe("describeTool", () => {
   it("labels common tools with text and a target", () => {
     expect(describeTool("Edit", { file_path: "C:\\src\\auth.ts" }).label).toBe("Editing auth.ts");
-    expect(describeTool("Bash", { command: "npm test" }).label).toBe("Running npm test");
+    expect(describeTool("Bash", { command: "npm test" })).toMatchObject({ kind: "test", label: "Running tests: npm test" });
+    expect(describeTool("Bash", { command: "npx vitest run", description: "Run the unit tests" })).toMatchObject({ kind: "test", label: "Running Run the unit tests" });
+    expect(describeTool("Bash", { command: "npm run build", description: "Run the tests" }).kind).toBe("bash");
     expect(describeTool("Grep", { pattern: "login" }).label).toBe('Searching "login"');
     expect(describeTool("WebFetch", { url: "https://example.com/a/b" }).label).toBe("Fetching example.com");
     expect(describeTool("mcp__github__create_issue", {}).label).toBe("Using github.create_issue");

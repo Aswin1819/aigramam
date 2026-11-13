@@ -19,6 +19,8 @@ export type ActionKind =
   | "search"
   | "write"
   | "bash"
+  /** A test command (vitest, jest, pytest, npm test…), recognised from the command itself. */
+  | "test"
   | "web"
   | "delegate"
   | "question"
