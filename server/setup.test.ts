@@ -6,6 +6,7 @@ import { compareVersions } from "@shared/setup";
 import { readModInstall, readShippedVersion } from "./setup/status";
 import { createSetupRouter } from "./routers/setup";
 import { Link } from "./link/link";
+import { MARKETPLACE_SOURCE } from "../client/src/app/checkList";
 
 let dir: string;
 beforeEach(() => {
@@ -60,6 +61,9 @@ describe("mod install check (read-only)", () => {
     const entry = market.plugins.find((x: { name: string }) => x.name === "ai-gramam");
     expect(entry.version).toBe(shipped);
     expect(entry.source).toBe("./plugin/ai-gramam");
+    // The GitHub source shown in Settings → Session link is this repository.
+    expect(entry.homepage).toContain(`github.com/${MARKETPLACE_SOURCE}`);
+    expect(market.name).toBe("aigramam");
   });
 
   it("compares dotted versions numerically", () => {

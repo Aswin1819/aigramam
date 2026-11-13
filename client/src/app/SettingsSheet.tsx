@@ -9,7 +9,7 @@ import Avatar from "@/components/Avatar";
 import type { TimeMode } from "./useDisplayPrefs";
 import PackUpload from "./PackUpload";
 import SetupChecks from "./SetupChecks";
-import { UPDATE_COMMANDS } from "./checkList";
+import { MARKETPLACE_SOURCE, UPDATE_COMMANDS } from "./checkList";
 
 export type SettingsTab = "link" | "alerts" | "worlds" | "characters" | "bridge" | "display" | "skills";
 
@@ -147,9 +147,11 @@ function LinkTab({ connected }: { connected: boolean }) {
         <b className="text-cream">messaged</b>, <b className="text-cream">stopped</b> and have its <b className="text-cream">permission requests approved</b> from here, and it reports exactly what it's doing.
       </p>
       <SetupChecks connected={connected} />
-      <div className="text-xs text-cream/60">Install it once (it then loads in every new Claude Code session). In a terminal:</div>
-      <CopyLine label="add marketplace" text={`claude plugin marketplace add ${folder}`} />
+      <div className="text-xs text-cream/60">Install it once (it then loads in every new Claude Code session). In a terminal, or inside Claude Code as <code>/plugin …</code>:</div>
+      <CopyLine label="add marketplace" text={`claude plugin marketplace add ${MARKETPLACE_SOURCE}`} />
       <CopyLine label="install" text="claude plugin install ai-gramam@aigramam" />
+      <div className="text-xs text-cream/60">Or, to install the mod from this copy of Ai Gramam (for example with your own changes), add the marketplace from its folder instead:</div>
+      <CopyLine label="add marketplace from this folder" text={`claude plugin marketplace add ${folder}`} />
       <div className="text-xs text-cream/60">To update it later (then restart your sessions):</div>
       {UPDATE_COMMANDS.map((c) => <CopyLine key={c} label={c} text={c} />)}
       <p className="text-xs text-cream/60">Installing the mod doesn't install or start this app: keep Ai Gramam running for sessions to link.</p>

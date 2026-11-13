@@ -70,4 +70,4 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 - **Only original art ships**, and every pack shows its author and license.
 - **Text, not only icons**, for every state and action. Labels must not overlap (see the layout pass in `WorldLabels`).
 - Server changes need Vitest specs in `server/*.test.ts`; client logic without the DOM (e.g. `styles/live/sim.ts`) gets specs next to it (`client/src/**/*.test.ts`).
-- **Git:** commit and push as **Aswin1819** only (configured in this repo's local git config). Never use the aswin-alfredx account. `origin` = Aswin1819 private repo, `upstream` = the original repo. Work on feature branches.
+- **Git:** commit and push as **Aswin1819** only (configured in this repo's local git config), never with another GitHub account. `origin` = github.com/Aswin1819/aigramam. Work on feature branches.

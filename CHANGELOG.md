@@ -4,6 +4,12 @@ The app and the mod have separate version numbers. The app's version is in `pack
 
 ## Unreleased
 
+### Ready to share
+- Install from GitHub: `claude plugin marketplace add Aswin1819/aigramam`, then `claude plugin install ai-gramam@aigramam`. The README, INSTALL and Settings → Session link show it first; installing from a local folder is still there as an alternative.
+- A fresh `pnpm install` finishes without warnings about skipped build scripts. esbuild and Tailwind ship ready-made binaries.
+- No more "failed to connect to websocket" console error in dev mode (hot reload is fully off: reload the page for client changes).
+- Removed personal paths from the docs and tests.
+
 ### App
 - **Setup checks** (Settings → Session link, and on Workspace → Focus when nothing is showing) check four things separately: whether the server is reachable, whether Claude Code has sessions, whether the mod is installed or out of date, and how many sessions are linked.
 - When the server can't be reached, the page now says so instead of "no sessions".

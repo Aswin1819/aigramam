@@ -47,8 +47,8 @@ describe("queue helpers", () => {
   });
 
   it("finds by every word, in name or folder", () => {
-    const items = [{ label: "Fix login", sub: "kurippu" }, { label: "Add tests", sub: "aigramam" }];
-    expect(paletteMatches(items, "fix kur").map((x) => x.label)).toEqual(["Fix login"]);
+    const items = [{ label: "Fix login", sub: "shop" }, { label: "Add tests", sub: "aigramam" }];
+    expect(paletteMatches(items, "fix sho").map((x) => x.label)).toEqual(["Fix login"]);
     expect(paletteMatches(items, "  ")).toHaveLength(2);
     expect(paletteMatches(items, "nothing")).toHaveLength(0);
   });

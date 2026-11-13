@@ -42,7 +42,7 @@ client/src/hooks/useHeroSocket.ts ── React state (heroes[], mode live/demo, 
 | Types | `Hero` is defined twice: in `server/routers/agents.ts` and in `client/src/hooks/useHeroSocket.ts` | They can drift apart; `shared/` exists but isn't used for this. |
 
 ### Problems in the current pipeline (they matter for Phase 1)
-1. **Project names are wrong.** `decodeProjectPath` reverses the folder encoding: `C--Users-aswin-Desktop-pp` becomes `C//Users/aswin/Desktop/pp`, and `my-web-app` would become `my/web/app`. The encoding is lossy (every non-alphanumeric character turns into `-`), so it can't be reversed. Every transcript record carries the real `cwd`, so we should use that.
+1. **Project names are wrong.** `decodeProjectPath` reverses the folder encoding: `C--Users-me-Desktop-work` becomes `C//Users/me/Desktop/work`, and `my-web-app` would become `my/web/app`. The encoding is lossy (every non-alphanumeric character turns into `-`), so it can't be reversed. Every transcript record carries the real `cwd`, so we should use that.
 2. **Plain-text messages break parsing.** `message.content` is sometimes a plain string: 67 of 471 `user` records in one sample. `blocks.filter` then throws. The catch is around the whole chunk, so **every later line in that chunk is dropped**. This is the same bug I fixed in the bridge.
 3. **A line written in two pieces is lost.** If a read lands mid-write, the partial line fails to parse, the read position has already moved past it, and the line is gone.
 4. **Whole history on discovery.** The server reads the entire file from byte 0 (one transcript here is 56 MB, loaded into a single buffer) and replays all of it. That's why heroes show levels like LV93 and why startup is slow.

@@ -15,7 +15,9 @@ export interface SetupCheck {
   detail: string;
 }
 
-export const UPDATE_COMMANDS = ["claude plugin marketplace update aigramam", "claude plugin update ai-gramam@aigramam"];
+/** Where the mod's marketplace lives (this repository on GitHub). */
+export const MARKETPLACE_SOURCE = "Aswin1819/aigramam";
+export const UPDATE_COMMANDS =["claude plugin marketplace update aigramam", "claude plugin update ai-gramam@aigramam"];
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
