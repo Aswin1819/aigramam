@@ -35,7 +35,7 @@ export function activityOf(a: Pick<SubagentView, "status" | "action">): Companio
   if (a.status === "waiting") return "wait";
   const k = a.action?.kind ?? "think";
   if (k === "read" || k === "search" || k === "web") return "errand";
-  if (k === "write" || k === "bash" || k === "tool") return "busy";
+  if (k === "write" || k === "bash" || k === "test" || k === "tool") return "busy";
   if (k === "question" || k === "waiting") return "wait";
   if (k === "error") return "error";
   return "pace";

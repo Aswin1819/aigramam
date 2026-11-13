@@ -115,6 +115,7 @@
     "search": { "anim": "read", "fx": "signal" },
     "write": { "anim": "write" },
     "bash": { "anim": "bash", "fx": "sparks" },
+    "test": { "anim": "bash", "fx": "signal" },
     "tool": { "anim": "bash" },
     "web": { "anim": "read", "fx": "signal" },
     "delegate": { "anim": "idle" },

@@ -112,7 +112,7 @@ export function demoChat(sessionId: string, now = Date.now()): import("@shared/m
       t("assistant", "Found it. `validateToken` compares `exp` (seconds) with `Date.now()` (milliseconds), so every token looks expired.\n\nThe fix is a one-liner:\n\n```ts\nreturn payload.exp * 1000 > Date.now()\n```\n\nShall I apply it and run the tests?", 8),
       t("user", "Yes, go ahead.", 7),
       t("tool", "Editing login.ts", 6.8, "✏️"),
-      t("tool", "Running npm test", 6.5, "💻"),
+      t("tool", "Running tests: npm test", 6.5, "🧪"),
       t("assistant", "Done. **All 42 tests pass**, including a new one for tokens that expire in the next minute.", 6),
     ];
   }

@@ -52,6 +52,13 @@ afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 const fileOf = () => path.join(tmp, "C--work-demo", `${ID}.jsonl`);
 
 describe("transcript summary", () => {
+  it("files a session under its latest folder, as the live view does", () => {
+    const s = new TranscriptSummary();
+    s.add(prompt(0, "start here"));
+    s.add(J({ ...base(1, { cwd: "C:\\work\\demo\\api" }), type: "user", uuid: "u-cd", message: { role: "user", content: "now in api" } }));
+    expect(s.cwd).toBe("C:\\work\\demo\\api");
+  });
+
   it("counts prompts, tools, errors, files and usage from what was recorded", () => {
     const s = new TranscriptSummary();
     for (const l of SESSION) s.add(l);

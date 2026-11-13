@@ -204,7 +204,7 @@ A typical night lamp glow (from Kerala):
 
 `scenes` maps a session's state to a character animation and an effect. Any scene you leave out uses `{ "anim": "idle", "fx": "none" }`.
 
-How the state is chosen: waiting for an answer → `question`; waiting for an approval or its turn → `waiting`; finished → `done`; error → `error`; idle → `idle`; working → the current action: `read`, `search`, `write`, `bash`, `web`, `delegate`, `tool` or `think` (`think` when there's no action).
+How the state is chosen: waiting for an answer → `question`; waiting for an approval or its turn → `waiting`; finished → `done`; error → `error`; idle → `idle`; working → the current action: `read`, `search`, `write`, `bash`, `test` (a test command such as `vitest`, `pytest` or `npm test`; worlds without a `test` scene use `bash`), `web`, `delegate`, `tool` or `think` (`think` when there's no action). While a session works through quick tool calls, a villager keeps each activity pose for at least 1.5 s so the village stays calm; waiting, questions, errors and finishing show at once.
 
 | Field | Type and limits | Default | Notes |
 |---|---|---|---|
@@ -298,6 +298,7 @@ Folder `C:\Users\<you>\.ai-gramam\worlds\my-village\` with `assets\ground.png` (
   "scenes": {
     "write": { "anim": "write" },
     "bash": { "anim": "bash", "fx": "sparks" },
+    "test": { "anim": "bash", "fx": "signal" },
     "think": { "anim": "idle", "fx": "steam" },
     "waiting": { "anim": "wait" },
     "question": { "anim": "wait" },

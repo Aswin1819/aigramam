@@ -10,6 +10,7 @@ import type { DecorDef, LightingDef, SceneKind, WorldInfo } from "@shared/world"
 import type { CharacterAssignments, CharacterInfo } from "@shared/character";
 import { hashString, placeProjects, standSpots, type Placement } from "@shared/placement";
 import { pickPlace, type PlaceRect } from "@/styles/live/placeHit";
+import { calmKind, sceneKindFallback, type Held } from "./calm";
 import { isUrgent } from "@/lib/status";
 import { pickCharacter } from "./characters";
 
@@ -31,7 +32,7 @@ const COMP_SPEED = 95;
 const COMP_ARRIVE_S = 0.45;
 const COMP_CHEER_S = 0.9;
 const ERRAND_PROP: Partial<Record<SceneKind, string>> = { read: "📜", search: "🔍", web: "🌐" };
-const BUSY_PROP: Partial<Record<SceneKind, string>> = { write: "✏️", bash: "⚙️", tool: "⚙️" };
+const BUSY_PROP: Partial<Record<SceneKind, string>> = { write: "✏️", bash: "⚙️", test: "🧪", tool: "⚙️" };
 const ANIM_FALLBACK: Partial<Record<Anim, Anim>> = { bash: "write", wait: "idle", write: "idle", read: "idle", celebrate: "idle", error: "idle" };
 
 type CompMode = "arrive" | "slot" | "out" | "errand" | "back" | "leave";
@@ -86,6 +87,8 @@ interface Character {
   phase: "entering" | "alive" | "leaving";
   alpha: number;
   lastStatus?: string;
+  /** The pose shown and since when (kept calm through quick tool calls). */
+  held?: Held;
   celebrateUntil: number;
   companions: Map<string, Companion>;
   seed: number;
@@ -545,8 +548,14 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ── Characters ─────────────────────────────────────────────────────────────
-  private sceneFor(s: SessionView): { anim: Anim; fx: Fx; offsetX: number; offsetY: number } {
-    const kind = (s.status === "waiting" ? (s.waitingReason === "question" ? "question" : "waiting") : s.status === "finished" ? "done" : s.status === "error" ? "error" : s.status === "idle" ? "idle" : s.action?.kind ?? "think") as SceneKind;
+  /** The scene for a session's state; with its villager, quick switches between activities are held (see calm.ts). */
+  private sceneFor(s: SessionView, c?: Character): { anim: Anim; fx: Fx; offsetX: number; offsetY: number } {
+    const raw = (s.status === "waiting" ? (s.waitingReason === "question" ? "question" : "waiting") : s.status === "finished" ? "done" : s.status === "error" ? "error" : s.status === "idle" ? "idle" : s.action?.kind ?? "think") as SceneKind;
+    let kind = sceneKindFallback(raw, (k) => !!this.world.def.scenes[k]);
+    if (c) {
+      c.held = calmKind(c.held ?? null, kind, Date.now());
+      kind = c.held.kind;
+    }
     const sc = this.world.def.scenes[kind];
     return { anim: (sc?.anim ?? "idle") as Anim, fx: (sc?.fx ?? "none") as Fx, offsetX: sc?.offsetX ?? 0, offsetY: sc?.offsetY ?? 0 };
   }
@@ -592,7 +601,7 @@ export class WorldScene extends Phaser.Scene {
       const p = this.placements.get(pid)!;
       const spots = standSpots(p, list.length);
       list.sort((a, b) => a.id.localeCompare(b.id)).forEach((s, i) => {
-        const sc = this.sceneFor(s);
+        const sc = this.sceneFor(s, this.chars.get(s.id));
         out.set(s.id, { x: spots[i].x + sc.offsetX, y: spots[i].y + sc.offsetY, locationId: p.locationId });
       });
     }
@@ -825,7 +834,7 @@ export class WorldScene extends Phaser.Scene {
     else if (comp.mode === "leave") anim = "celebrate";
     else if (comp.mode === "errand") anim = "read";
     else if (comp.mode === "slot") {
-      anim = kind === "write" || kind === "tool" ? "write" : kind === "bash" ? "bash"
+      anim = kind === "write" || kind === "tool" ? "write" : kind === "bash" || kind === "test" ? "bash"
         : kind === "waiting" || kind === "question" ? "wait" : kind === "error" ? "error"
         : errandKind && reduced ? "read" : "idle";
     }
@@ -989,7 +998,7 @@ export class WorldScene extends Phaser.Scene {
         this.positions.delete(id);
         continue;
       }
-      const sc = s ? this.sceneFor(s) : { anim: "walk" as Anim, fx: "none" as Fx };
+      const sc = s ? this.sceneFor(s, c) : { anim: "walk" as Anim, fx: "none" as Fx };
       const anim: Anim = moving ? "walk" : now < c.celebrateUntil ? "celebrate" : sc.anim;
       this.playAnim(c, anim);
       if (!c.pack && !this.reduced) c.sprite.y += Math.sin(this.t * 3) * 0.5; // fallback figure breathes a little

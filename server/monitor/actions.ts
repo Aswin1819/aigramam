@@ -29,6 +29,14 @@ function hostOf(url: string): string {
   }
 }
 
+/** Common test runners, matched on the command itself (never guessed from a description). */
+const TEST_COMMAND = /^(\w+=\S*\s+)*(npx\s+(-y\s+)?|(\S*[/\\])?)(vitest|jest|pytest|mocha|phpunit|rspec|playwright\s+test|cypress\s+run|go\s+test|cargo\s+(nextest\s+run|test)|dotnet\s+test|mvnw?\s+(\S+\s+){0,4}test|gradlew?\s+(\S+\s+){0,4}test|python\d?(\.\d+)?\s+-m\s+(pytest|unittest)|(npm|pnpm|yarn|bun)(@[\d.]+)?(\s+run)?\s+test(:\S+)?|invoke-pester)(\s|$)/i;
+
+/** True when any command in a chain (a && b; c | d) starts with a known test runner. */
+export function isTestCommand(command: string): boolean {
+  return command.split(/&&|\|\||[;|\n]/).some((part) => TEST_COMMAND.test(part.trim().replace(/^\(\s*/, "")));
+}
+
 function make(kind: ActionKind, emoji: string, label: string, tool: string | undefined, at: number): Action {
   return { kind, emoji, label, tool, startedAt: at };
 }
@@ -73,6 +81,7 @@ export function describeTool(name: string, rawInput: unknown, at = Date.now()): 
       const d = str(input, "description");
       const c = str(input, "command");
       const what = d || c;
+      if (c && isTestCommand(c)) return make("test", "🧪", d ? `Running ${clip(d)}` : `Running tests: ${clip(c, 40)}`, n, at);
       return make("bash", "💻", what ? `Running ${clip(what)}` : "Running a command", n, at);
     }
     case "WebSearch": {

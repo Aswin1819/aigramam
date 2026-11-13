@@ -19,6 +19,7 @@ import { playChime } from "@/lib/chime";
 import { desktopNotify } from "@/lib/desktopNotify";
 import TopBar from "@/app/TopBar";
 import SessionDock from "@/app/SessionDock";
+import NoticeBoard from "@/app/NoticeBoard";
 import DetailDrawer from "@/app/DetailDrawer";
 import SettingsSheet, { type SettingsTab } from "@/app/SettingsSheet";
 import BrandMark from "@/app/BrandMark";
@@ -294,6 +295,18 @@ export default function Home() {
         />
       )}
 
+      {prefs.view === "world" && !selected && !projectDrawer && sessions.length > 0 && (
+        <NoticeBoard
+          sessions={sessions}
+          projects={projects}
+          now={now}
+          open={prefs.boardOpen}
+          onToggle={() => update({ boardOpen: !prefs.boardOpen })}
+          onSelect={select}
+          onHover={setHoveredId}
+        />
+      )}
+
       <AnimatePresence>
         {selected && (
           <DetailDrawer
@@ -345,8 +358,8 @@ export default function Home() {
             exit={{ opacity: 0, y: 20 }}
             className="glass pointer-events-auto absolute bottom-6 left-1/2 z-20 w-[min(440px,90vw)] -translate-x-1/2 rounded-2xl p-4 text-center"
           >
-            <div className="font-display text-base font-semibold">The village is quiet</div>
-            <p className="mt-1 text-sm text-cream/65">Start Claude Code in any folder and a villager walks in within a few seconds.</p>
+            <div className="font-display text-base font-semibold">{connected ? "The village is quiet" : "Can't reach the Ai Gramam server"}</div>
+            <p className="mt-1 text-sm text-cream/65">{connected ? "Start Claude Code in any folder and a villager walks in within a few seconds." : "Reconnecting… Villagers can't be shown until it's back; this doesn't mean no sessions are running."}</p>
             <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
           </motion.div>
         )}
