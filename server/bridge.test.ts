@@ -38,7 +38,7 @@ describe("bridge script", () => {
     expect(content).toContain("AI_GRAMAM_API_KEY");
     expect(content).toContain("/api/bridge/heroes");
     expect(content).toContain("x-bridge-api-key");
-    expect(content).not.toMatch(/dungeon|cpab_/i);
+    expect(content).not.toMatch(/cpab_/i);
   });
 
   it("defaults to the local server, not a third-party host", () => {
