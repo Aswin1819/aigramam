@@ -91,6 +91,8 @@ export class LiveSim {
   private placeKeeper = new PlaceKeeper();
   private stationKeeper = new StationKeeper();
   private names = new Map<string, string>();
+  /** Station props' fade (key "place|station"). */
+  private propFade = new Map<string, { x: number; y: number; placeId: string; station: Station; alpha: number; used: boolean }>();
 
   frame(dt: number, input: SimInput): LiveFrame {
     this.t += dt;
@@ -138,6 +140,13 @@ export class LiveSim {
       const stations = list.map((s) => ({ id: s.id, startedAt: s.startedAt, station: this.stationKeeper.stationOf(s.id, wantedStation(s), nowMs) }));
       const stationOf = new Map(stations.map((x) => [x.id, x.station] as const));
       const index = stationIndexes(stations);
+      for (const st of new Set(stations.map((x) => x.station))) {
+        const at = stationSpot(plot, st, 0);
+        const key = `${place.id}|${st}`;
+        const pf = this.propFade.get(key) ?? { ...at, placeId: place.id, station: st, alpha: 0, used: true };
+        Object.assign(pf, at, { used: true });
+        this.propFade.set(key, pf);
+      }
       list.forEach((s) => {
         live.add(s.id);
         const status = liveStatus(s);
@@ -212,6 +221,15 @@ export class LiveSim {
     });
     for (const id of [...this.walkers.keys()]) if (!live.has(id)) this.walkers.delete(id);
     this.stationKeeper.prune(live);
+    // Props fade in over ~0.4 s while used, out over ~1 s after.
+    const stationsOut: LiveFrame["stations"] = [];
+    for (const [key, pf] of this.propFade) {
+      pf.alpha = input.reducedMotion ? (pf.used ? 1 : 0) : Math.max(0, Math.min(1, pf.alpha + (pf.used ? dt * 2.5 : -dt)));
+      if (!pf.used && pf.alpha <= 0) this.propFade.delete(key);
+      else stationsOut.push({ placeId: pf.placeId, station: pf.station, x: pf.x, y: pf.y, alpha: pf.alpha });
+      pf.used = false;
+    }
+    stationsOut.sort((a, b) => a.y - b.y || a.x - b.x);
     this.companions.prune(live);
 
     this.layoutLabels(villagers, dt);
@@ -234,6 +252,7 @@ export class LiveSim {
       worldW,
       worldH: WORLD_H,
       places,
+      stations: stationsOut,
       villagers,
       palms,
       farPalms,

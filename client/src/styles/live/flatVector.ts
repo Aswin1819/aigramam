@@ -2,6 +2,7 @@ import { BODY, hash, rng, skeleton } from "../scene";
 import { asVillagerFrame } from "./reference";
 import { blrPlace, blrScene, blrSky, blrSteamSpots, companionFigure, companionHandover, companionLabel, companionTether } from "./flatVectorKit";
 import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 
 /**
  * 6 · Flat Vector, live village version. A clean explainer illustration at
@@ -1083,6 +1084,7 @@ export const flatVectorLive: LiveStyle = {
 
     }
 
+    drawStations(ctx, f, view, PROP_LOOKS.flat);
     // 11. Villagers and their subagent companions back-to-front (by feet y),
     //     tethers and hand-over bursts underneath, then tags (selected/hovered last).
     drawList.length = 0;

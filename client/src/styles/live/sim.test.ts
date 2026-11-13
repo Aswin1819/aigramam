@@ -72,6 +72,16 @@ describe("LiveSim", () => {
     expect(xs.size).toBe(1);
   });
 
+  it("shows a station's prop while it's used, fading out after", () => {
+    const sim = new LiveSim();
+    const reading = input([session("w", "p", { status: "working", action: { kind: "read", emoji: "📖", label: "Reading a.ts", startedAt: 1 } })], [project("p", "app")]);
+    const f = run(sim, reading, 2);
+    expect(f.stations.map((s) => [s.placeId, s.station])).toEqual([["p", "study"]]);
+    expect(f.stations[0]!.alpha).toBe(1);
+    const gone = run(sim, input([], [project("p", "app")]), 2);
+    expect(gone.stations).toEqual([]);
+  });
+
   it("keeps each project's place when another project stops", () => {
     const sim = new LiveSim();
     const projects = [project("p1", "alpha"), project("p2", "beta"), project("p3", "gamma")];

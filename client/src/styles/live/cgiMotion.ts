@@ -15,6 +15,7 @@ import {
   getSignSprite, getTiles, glow, headTop, holoPanel, palmSprite, rgbOf, rgba, treeSprite, VEH_SCALE, vehicleSprite,
 } from "./cgiMotionKit";
 import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { PROP_LOOKS, drawStations } from "./stationKit";
 
 const FAR_PARALLAX = 0.35;
 
@@ -563,6 +564,7 @@ export const cgiMotionLive: LiveStyle = {
       ctx.restore();
     }
 
+    drawStations(ctx, f, view, PROP_LOOKS.cgi);
     // Villagers in view, and their subagent companions (first 4 each; companions cull on their own x).
     const vis = f.villagers.filter((v) => v.alpha > 0.01 && inView(v.x, 50));
     const reflect = vis.length <= 18; // keep the cost bounded in crowds

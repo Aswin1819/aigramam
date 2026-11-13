@@ -80,7 +80,7 @@ export default function NoticeBoard(p: Props) {
                     </li>
                   ))}
                 </ul>
-                {sec.more > 0 && <p className="mt-1 px-1 text-[11px] text-cream/55">and {sec.more} more (see Workspace → Overview)</p>}
+                {sec.more > 0 && <p className="mt-1 px-1 text-[11px] text-cream/55">and {sec.more} more (see Workspace → Focus)</p>}
               </section>
             ))}
           </motion.div>

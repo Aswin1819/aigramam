@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with **Settings → Session link** in the app. It checks each part separately and says which one is the problem. The Overview shows the same checks when no session is visible.
+Start with **Settings → Session link** in the app. It checks each part separately and says which one is the problem. Workspace → Focus shows the same checks when no session is visible.
 
 ## "Can't reach the Ai Gramam server"
 

@@ -15,7 +15,7 @@ interface Prefs {
   artStyle: string;
   /** Sound cues when a session needs you (approval, question) or finishes its turn. */
   sound: boolean;
-  /** World: the village. Workspace: the Overview dashboard of projects and agents. */
+  /** World: the village. Workspace: the Focus queue, projects, agents, terminals and history. */
   view: AppView;
   /** The Workspace page last opened. */
   workspacePage: WorkspacePage;

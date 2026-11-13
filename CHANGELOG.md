@@ -5,16 +5,16 @@ The app and the mod have separate version numbers. The app's version is in `pack
 ## Unreleased
 
 ### App
-- **Setup checks** (Settings → Session link, and on the Overview when nothing is showing) check four things separately: whether the server is reachable, whether Claude Code has sessions, whether the mod is installed or out of date, and how many sessions are linked.
+- **Setup checks** (Settings → Session link, and on Workspace → Focus when nothing is showing) check four things separately: whether the server is reachable, whether Claude Code has sessions, whether the mod is installed or out of date, and how many sessions are linked.
 - When the server can't be reached, the page now says so instead of "no sessions".
 - Install, troubleshooting and security docs, and this changelog.
 
 ### Village
-- **Notice board** (world view, top right, can be folded): pins approvals, questions, errors, your turn and recently finished sessions, from the same groups as the Overview. Clicking a notice opens that villager.
+- **Notice board** (world view, top right, can be folded): pins approvals, questions, errors, your turn and recently finished sessions, from the same groups as Workspace. Clicking a notice opens that villager.
 - **Running tests:** a test command (vitest, jest, pytest, `npm test`, `go test`…) shows as its own activity with its own effect. It's recognised only from the command itself.
 - **Calmer villagers:** through quick tool calls a villager keeps each pose for at least 1.5 s. Waiting, questions, errors and finishing still show at once.
 - **Inside a building** (and on Workspace → Projects): the project's Git state (branch, upstream, changed files, last commit) and its recent sessions from History.
-- The top bar says "needs you" only for approvals and questions, and "your turn" for sessions waiting for your next message, as the Overview does.
+- The top bar says "needs you" only for approvals and questions, and "your turn" for sessions waiting for your next message, as Workspace does.
 - History files a session under its latest folder, as the live view does, so both list it under the same project.
 
 ### Village, easier to read
@@ -24,8 +24,14 @@ The app and the mod have separate version numbers. The app's version is in `pack
   - Kerala props: a palm-leaf book stand, a grass mat, a hearth with an uruli, a post box, a bell post and a verandah seat.
   - Bengaluru props: a bookshelf, a hot desk, a server rack, an STD booth, a reception bell and waiting chairs.
 - **One lamp per session** shows its state at a glance, day or night.
-- **Art styles:** villagers stand at their stations instead of wandering, and labels start with the activity's icon.
+- **Art styles:** villagers stand at their stations instead of wandering, labels start with the activity's icon, and the station props show in each style's own look.
 - **"How to read the village":** shown once, then available from the notice board.
+
+### Workspace
+- **Focus** replaces the Overview as Workspace's first page. The village sits along the top as a strip, with each project's board in its yard colour. Below it is a queue of every session, ordered needs you, your turn, errors, no recent activity, working, then resting.
+  - The chosen session's conversation sits beside the queue. You can reply, stop, approve or answer from there, and Approve and Deny also sit on the queue row.
+  - Move through the queue with ↑ ↓ or j k. Ctrl+K finds any session or project.
+  - Picking a session from the top bar or a notification focuses it in the queue. **Details** opens the full drawer (changes, subagents, character, terminal).
 
 ### Mod 0.3.0
 - The status line says why a session isn't linked: `app not running`, `not set up`, or `key not accepted`.

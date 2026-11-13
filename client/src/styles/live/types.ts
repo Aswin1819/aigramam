@@ -133,6 +133,17 @@ export function placeThemeOf(world: { id: string; name?: string } | null | undef
   return /bengaluru|bangalore/.test(key) ? "bengaluru" : "kerala";
 }
 
+/** A station's prop in a place's yard (shared/stations.ts), shown while a villager uses it. */
+export interface LiveStation {
+  placeId: string;
+  station: "study" | "desk" | "works" | "gate" | "porch" | "bench";
+  /** Where the prop stands (feet line, world units). */
+  x: number;
+  y: number;
+  /** 0..1: fades in while the station is used, out after. */
+  alpha: number;
+}
+
 export interface LiveFrame {
   /** Seconds since the view started (quantised when the style sets fps). */
   t: number;
@@ -142,6 +153,8 @@ export interface LiveFrame {
   worldW: number;
   worldH: number;
   places: LivePlace[];
+  /** Station props in use (or fading), back to front by y: draw them before the villagers (stationKit.ts). */
+  stations: LiveStation[];
   /** Villagers sorted back-to-front (by y): draw in this order. */
   villagers: LiveVillager[];
   /** Decorative palms (world x, base y, height, lean), placed between places. */
