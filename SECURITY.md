@@ -35,8 +35,8 @@ What the browser sends back to a session:
 
 ## Terminals and opening programs
 
-- **Terminals** start PowerShell only when you click. They start only in the folder of a project the app already shows, with your own permissions, up to 8 at once. Every shell stops when you close it or the app. The app never types into a terminal: only what you type is sent.
-- **Opening a folder** in VS Code, Cursor or File Explorer starts that program directly with the folder as its only argument, never through a shell.
+- **Terminals** start a shell (PowerShell on Windows, your own `$SHELL` on macOS and Linux) only when you click. They start only in the folder of a project the app already shows, with your own permissions, up to 8 at once. Every shell stops when you close it or the app. The app never types into a terminal: only what you type is sent.
+- **Opening a folder** in VS Code, Cursor or the file manager (File Explorer, Finder through `open`, or `xdg-open` on Linux) starts that program directly with the folder as its only argument, never through a shell.
 - **"Start Claude"** runs `claude` in a terminal you can see.
 
 ## Reporting a problem

@@ -36,9 +36,9 @@ Everything runs on your machine: the server listens on `127.0.0.1` only, makes n
 
 Installing the mod doesn't install or start the app. Full steps, updates and removal: **[docs/INSTALL.md](docs/INSTALL.md)**.
 
-## Quick start (Windows)
+## Quick start
 
-Requirements: Node.js 18+, Git and Claude Code.
+Requirements: Node.js 18+, Git and Claude Code. Windows, macOS or Linux (the same commands work in PowerShell, Terminal or any shell).
 
 **1. The app:**
 
@@ -82,7 +82,7 @@ Sessions that were already running link after a restart. **Settings → Session 
 
 ## Terminals
 
-**Workspace → Terminals** (or **Open terminal here** on a project) starts PowerShell in that project's folder, in the browser. It runs on this computer with your permissions, only when you click, and only in folders of projects Ai Gramam already shows; up to 8 at once. Closing a terminal stops its shell. Terminals you opened yourself aren't shown or controlled here.
+**Workspace → Terminals** (or **Open terminal here** on a project) starts a shell in that project's folder, in the browser: PowerShell on Windows, your own shell (`$SHELL`) on macOS and Linux. On Linux, build the terminal library once first: `node scripts/build-terminal.mjs` (needs `python3`, `make` and a C++ compiler). It runs on this computer with your permissions, only when you click, and only in folders of projects Ai Gramam already shows; up to 8 at once. Closing a terminal stops its shell. Terminals you opened yourself aren't shown or controlled here.
 
 ## Exact approval alerts without the mod (optional)
 
@@ -122,7 +122,8 @@ To show sessions from another computer, run `bridge/ai-gramam-bridge.mjs` there.
 
 ## Known limitations
 
-- Built and tested on Windows 11. Other systems are untested; terminals start `powershell.exe`.
+- Built and used daily on Windows 11. macOS and Linux pass the automated checks (CI runs the tests, a real shell and the app on each), but haven't been tried by hand yet: please [report anything odd](https://github.com/Aswin1819/aigramam/issues/new/choose).
+- On Linux, terminals need a one-time build (`node scripts/build-terminal.mjs`); everything else works without it.
 - Without the mod, permission prompts can only be guessed from transcripts (install the mod, or the optional hooks, for exact alerts).
 - Plan approvals, and permission requests another plugin answers first, stay in the terminal.
 - History only reaches back as far as Claude Code keeps transcripts (30 days by default), and approvals aren't recorded in transcripts.

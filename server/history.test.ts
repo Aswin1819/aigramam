@@ -11,8 +11,10 @@ const ID = "11111111-2222-3333-4444-555555555555";
 const T0 = Date.parse("2026-11-10T09:00:00Z");
 const at = (min: number) => new Date(T0 + min * 60_000).toISOString();
 const J = (o: object) => JSON.stringify(o);
+/** A project folder that's an absolute path on this system (a Windows path reads as relative on macOS and Linux). */
+const DEMO = process.platform === "win32" ? "C:\\work\\demo" : "/work/demo";
 
-const base = (min: number, extra: object = {}) => ({ sessionId: ID, cwd: "C:\\work\\demo", gitBranch: "main", timestamp: at(min), ...extra });
+const base = (min: number, extra: object = {}) => ({ sessionId: ID, cwd: DEMO, gitBranch: "main", timestamp: at(min), ...extra });
 const prompt = (min: number, text: string) => J({ ...base(min), type: "user", uuid: `u${min}`, message: { role: "user", content: text } });
 const toolUse = (min: number, msgId: string, id: string, name: string, input: object, usage?: object) =>
   J({ ...base(min), type: "assistant", uuid: `a${min}${id}`, message: { id: msgId, model: "claude-opus-5-5", role: "assistant", content: [{ type: "tool_use", id, name, input }], usage } });
@@ -27,8 +29,8 @@ const SESSION = [
   J({ type: "ai-title", sessionId: ID, aiTitle: "Fix the login page" }),
   prompt(0, "Please fix the login page"),
   // One API response split into two records that repeat its usage: counted once.
-  toolUse(1, "msg1", "t1", "Read", { file_path: "C:\\work\\demo\\login.ts" }, usage),
-  toolUse(1, "msg1", "t2", "Edit", { file_path: "C:\\work\\demo\\login.ts" }, usage),
+  toolUse(1, "msg1", "t1", "Read", { file_path: path.join(DEMO, "login.ts") }, usage),
+  toolUse(1, "msg1", "t2", "Edit", { file_path: path.join(DEMO, "login.ts") }, usage),
   result(2, "t1"),
   result(2, "t2", true, "String not found"),
   J({ type: "api-request-blob", sessionId: ID, message: { huge: "x".repeat(5000) } }),
@@ -55,8 +57,8 @@ describe("transcript summary", () => {
   it("files a session under its latest folder, as the live view does", () => {
     const s = new TranscriptSummary();
     s.add(prompt(0, "start here"));
-    s.add(J({ ...base(1, { cwd: "C:\\work\\demo\\api" }), type: "user", uuid: "u-cd", message: { role: "user", content: "now in api" } }));
-    expect(s.cwd).toBe("C:\\work\\demo\\api");
+    s.add(J({ ...base(1, { cwd: path.join(DEMO, "api") }), type: "user", uuid: "u-cd", message: { role: "user", content: "now in api" } }));
+    expect(s.cwd).toBe(path.join(DEMO, "api"));
   });
 
   it("counts prompts, tools, errors, files and usage from what was recorded", () => {

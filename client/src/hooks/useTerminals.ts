@@ -12,13 +12,15 @@ interface Options {
 }
 
 /**
- * Managed terminals (PowerShell started by Ai Gramam in a project folder) over
+ * Managed terminals (a shell started by Ai Gramam in a project folder) over
  * the app's socket: the list, which one is shown, and per-terminal output
  * listeners for the xterm views. Nothing here ever sends input on its own;
  * `input` is only called with the person's keystrokes and pastes.
  */
 export function useTerminals({ onTerminal, sendTerminal }: Options) {
   const [terminals, setTerminals] = useState<TerminalInfo[]>([]);
+  /** What a new terminal starts, from the server ("PowerShell", "zsh"…); "Shell" until it says. */
+  const [shellName, setShellName] = useState("Shell");
   const [activeId, setActiveId] = useState<string | null>(null);
   /** The last error from the server (a failed create, a closed terminal). */
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export function useTerminals({ onTerminal, sendTerminal }: Options) {
           case "term-list":
             listRef.current = msg.payload.terminals;
             setTerminals(msg.payload.terminals);
+            if (msg.payload.shellName) setShellName(msg.payload.shellName);
             return;
           case "term-created": {
             const { requestId, ok, id, error } = msg.payload;
@@ -57,7 +60,7 @@ export function useTerminals({ onTerminal, sendTerminal }: Options) {
   );
 
   /**
-   * Start PowerShell in a project's folder (only from an explicit click); with
+   * Start the shell in a project's folder (only from an explicit click); with
    * start "claude" it runs Claude Code there and stays open after it exits.
    */
   const create = useCallback(
@@ -117,7 +120,7 @@ export function useTerminals({ onTerminal, sendTerminal }: Options) {
 
   const clearError = useCallback(() => setError(null), []);
 
-  return { terminals, activeId, setActiveId, error, clearError, errors, create, attach, detach, input, resize, close, onOutput };
+  return { terminals, shellName, activeId, setActiveId, error, clearError, errors, create, attach, detach, input, resize, close, onOutput };
 }
 
 export type TerminalsApi = ReturnType<typeof useTerminals>;

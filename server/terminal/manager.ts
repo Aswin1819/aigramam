@@ -1,5 +1,6 @@
 /**
- * Runs managed terminals: PowerShell sessions started in a known project
+ * Runs managed terminals: shells (PowerShell on Windows, the person's own shell
+ * on macOS and Linux, see shell.ts) started in a known project
  * folder when the person clicks "New terminal". Output streams to the
  * browser tabs that have the terminal open; the last part is kept so a
  * reopened tab sees what happened.
@@ -8,8 +9,8 @@
  * - only project folders Ai Gramam already shows (never a path from the browser);
  * - only on the person's request (the browser sends term-create from a click);
  * - nothing is ever typed into a terminal except what the browser sends from the keyboard;
- *   "Start Claude Code" passes `claude` as PowerShell's start command (`-NoExit -Command claude`),
- *   only after checking the CLI is on PATH; nothing is typed;
+ *   "Start Claude Code" passes `claude` as the shell's start command (shellArgs), only after
+ *   checking the CLI is on PATH; nothing is typed;
  * - every shell is stopped when it's closed or the server stops.
  */
 import crypto from "crypto";
@@ -18,6 +19,7 @@ import type { ProjectView } from "@shared/model";
 import { CLAUDE_CLI_MISSING, TERMINAL_LIMITS as L, type TerminalInfo } from "@shared/terminal";
 import type { RegistryEntry } from "../monitor/registry";
 import { findOnPath, listChildProcesses, matchSessions, type ProcessLister } from "./links";
+import { chooseShell, shellArgs, shellLabel } from "./shell";
 
 /** The part of a node-pty process the manager uses (so tests can pass a fake). */
 export interface PtyLike {
@@ -50,9 +52,9 @@ export interface TerminalManagerOptions {
   onList: (list: TerminalInfo[]) => void;
   shell?: string;
   flushMs?: number;
-  /** Is a command on PATH? (where.exe by default; tests pass a fake). */
+  /** Is a command on PATH? (where.exe / which by default; tests pass a fake). */
   findCli?: (name: string) => Promise<boolean>;
-  /** Children and grandchildren of the given pids (Win32_Process by default). */
+  /** Children and grandchildren of the given pids (Win32_Process or ps by default). */
   listProcesses?: ProcessLister;
   /** Claude Code's session registry, read when linking sessions to terminals. */
   registry?: () => RegistryEntry[];
@@ -108,8 +110,13 @@ export class TerminalManager {
   private sessionTerminal = new Map<string, string>();
 
   constructor(private readonly opts: TerminalManagerOptions) {
-    this.shell = opts.shell ?? "powershell.exe";
+    this.shell = opts.shell ?? chooseShell();
     this.flushMs = opts.flushMs ?? 16;
+  }
+
+  /** The shell's name for the UI ("PowerShell", "zsh"…). */
+  get shellName(): string {
+    return shellLabel(this.shell);
   }
 
   list(): TerminalInfo[] {
@@ -129,7 +136,7 @@ export class TerminalManager {
   }
 
   /**
-   * Start PowerShell in a known project's folder; with start "claude", PowerShell
+   * Start the shell in a known project's folder; with start "claude", the shell
    * runs Claude Code and stays open after it exits. Any other `start` is refused.
    */
   async create(projectId: string, cols: unknown, rows: unknown, start?: unknown): Promise<CreateResult> {
@@ -149,10 +156,12 @@ export class TerminalManager {
     const r = clamp(rows, L.minRows, L.maxRows, 30);
     let pty: PtyLike;
     try {
-      const args = withClaude ? ["-NoLogo", "-NoExit", "-Command", "claude"] : ["-NoLogo"];
+      const args = shellArgs(this.shell, withClaude);
       pty = this.opts.spawn(this.shell, args, { cwd: project.root, cols: c, rows: r, env: terminalEnv() });
     } catch (e) {
-      return { ok: false, error: `Couldn't start ${this.shell}: ${e instanceof Error ? e.message : String(e)}` };
+      const msg = e instanceof Error ? e.message : String(e);
+      // A missing terminal library explains itself (ptyUnavailableMessage); anything else names the shell.
+      return { ok: false, error: msg.startsWith("Terminals aren't available") ? msg : `Couldn't start ${shellLabel(this.shell)}: ${msg}` };
     }
     const id = crypto.randomUUID();
     const t: Term = {

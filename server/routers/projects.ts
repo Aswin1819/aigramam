@@ -1,5 +1,5 @@
 /**
- * Project shortcuts: open a project folder in File Explorer or an editor.
+ * Project shortcuts: open a project folder in the file manager or an editor.
  * The folder always comes from the live project list, never from the browser.
  */
 import { TRPCError } from "@trpc/server";

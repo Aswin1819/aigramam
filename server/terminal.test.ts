@@ -2,12 +2,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import * as pty from "node-pty";
+import { createRequire } from "module";
 import { CLAUDE_CLI_MISSING, TERMINAL_LIMITS, type TerminalInfo } from "@shared/terminal";
 import type { SessionView } from "@shared/model";
 import type { RegistryEntry } from "./monitor/registry";
 import { TerminalManager, terminalEnv, type PtyLike, type Spawn, type TerminalManagerOptions } from "./terminal/manager";
 import { attachTerminalIds, matchSessions, parseProcessJson, type ProcInfo } from "./terminal/links";
+import { chooseShell, shellArgs } from "./terminal/shell";
+
+/** node-pty only for the real-shell test (on Linux its native part may not be built). */
+const loadNodePty = () => createRequire(import.meta.url)("node-pty") as typeof import("node-pty");
 
 let tmp: string;
 beforeEach(() => {
@@ -54,7 +58,7 @@ describe("managed terminals", () => {
     expect(made).toHaveLength(0);
     const r = await m.create("p1", 80, 24);
     expect(r.ok).toBe(true);
-    expect(made[0]).toMatchObject({ shell: "powershell.exe", cwd: tmp, cols: 80, rows: 24 });
+    expect(made[0]).toMatchObject({ shell: chooseShell(), cwd: tmp, cols: 80, rows: 24 });
 
     const gone = new TerminalManager({ spawn: fakeSpawn().spawn, projects: () => [{ id: "x", name: "x", root: path.join(tmp, "missing") }], onOutput: () => {}, onList: () => {} });
     expect(await gone.create("x", 80, 24)).toMatchObject({ ok: false, error: expect.stringContaining("no longer exists") });
@@ -122,7 +126,7 @@ describe("managed terminals", () => {
     let done: () => void = () => {};
     const exited = new Promise<void>((r) => (done = r));
     const m = new TerminalManager({
-      spawn: (shell, args, o) => pty.spawn(shell, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string>, useConpty: true }),
+      spawn: (shell, args, o) => loadNodePty().spawn(shell, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string>, useConpty: true }),
       projects: () => [{ id: "p", name: "p", root: tmp }],
       onOutput: (_id, d) => outputs.push(d),
       onList: (l) => l[0]?.status === "exited" && done(),
@@ -143,13 +147,13 @@ const reg = (pid: number, sessionId: string, alive = true): RegistryEntry => ({ 
 const proc = (pid: number, ppid: number, name = "x.exe"): ProcInfo => ({ pid, ppid, name });
 
 describe("Start Claude Code in a managed terminal", () => {
-  it("runs `claude` as PowerShell's start command and keeps the shell open", async () => {
+  it("runs `claude` as the shell's start command and keeps the shell open", async () => {
     const asked: string[] = [];
     const { m, made } = setup({ findCli: async (n) => (asked.push(n), true) });
     const r = await m.create("p1", 80, 24, "claude");
     expect(r.ok).toBe(true);
     expect(asked).toEqual(["claude"]);
-    expect(made[0]!.args).toEqual(["-NoLogo", "-NoExit", "-Command", "claude"]);
+    expect(made[0]!.args).toEqual(shellArgs(chooseShell(), true));
     expect(made[0]!.writes).toEqual([]); // nothing typed
     expect(m.list()[0]).toMatchObject({ started: "claude", sessionIds: [] });
     // The CLI check is cached.
@@ -157,7 +161,7 @@ describe("Start Claude Code in a managed terminal", () => {
     expect(asked).toHaveLength(1);
     // A plain terminal is unchanged and doesn't check the CLI.
     await m.create("p1", 80, 24);
-    expect(made[2]!.args).toEqual(["-NoLogo"]);
+    expect(made[2]!.args).toEqual(shellArgs(chooseShell(), false));
     expect(m.list()[2]!.started).toBeUndefined();
     expect(asked).toHaveLength(1);
   });

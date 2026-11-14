@@ -3,7 +3,7 @@
  * process tree: a session counts as "in" a terminal only when the pid in
  * Claude Code's session registry (~/.claude/sessions/<pid>.json) is a child or
  * grandchild of that terminal's shell (grandchild covers `claude.cmd`, which
- * runs claude.exe through cmd.exe). No guessing from folders or timing.
+ * runs claude.exe through cmd.exe on Windows). No guessing from folders or timing.
  */
 import { execFile } from "child_process";
 import type { RegistryEntry } from "../monitor/registry";
@@ -84,12 +84,46 @@ export function parseProcessJson(text: string): ProcInfo[] {
 }
 
 /**
- * Windows: one PowerShell call (no shell, numbers only in the script) that
- * returns the children of the given pids and their children.
+ * macOS and Linux: `ps -A -o pid=,ppid=,comm=` lines → processes. Lines that
+ * don't start with two numbers are skipped; the name is the rest of the line.
+ */
+export function parsePsOutput(text: string): ProcInfo[] {
+  const out: ProcInfo[] = [];
+  for (const line of text.split("\n")) {
+    const m = /^\s*(\d+)\s+(\d+)\s*(.*?)\s*$/.exec(line);
+    if (!m) continue;
+    const pid = Number(m[1]);
+    if (pid > 0) out.push({ pid, ppid: Number(m[2]), name: m[3].trim().split("/").pop() ?? "" });
+  }
+  return out;
+}
+
+/** The children of the given pids and their children (MAX_DEPTH levels), from a full process list. */
+export function descendantsOf(parentPids: number[], all: ProcInfo[]): ProcInfo[] {
+  const out: ProcInfo[] = [];
+  let level = new Set(parentPids);
+  for (let depth = 0; depth < MAX_DEPTH && level.size; depth++) {
+    const found = all.filter((p) => level.has(p.ppid) && !out.includes(p));
+    out.push(...found);
+    level = new Set(found.map((p) => p.pid));
+  }
+  return out;
+}
+
+/**
+ * The children and grandchildren of the given pids. Windows: one PowerShell
+ * call (no shell, numbers only in the script). macOS and Linux: one `ps` call.
  */
 export const listChildProcesses: ProcessLister = (parentPids) => {
   const pids = parentPids.filter((p) => Number.isInteger(p) && p > 0);
-  if (!pids.length || process.platform !== "win32") return Promise.resolve([]);
+  if (!pids.length) return Promise.resolve([]);
+  if (process.platform !== "win32") {
+    return new Promise((resolve) => {
+      execFile("ps", ["-A", "-o", "pid=,ppid=,comm="], { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+        resolve(err ? [] : descendantsOf(pids, parsePsOutput(String(stdout))));
+      });
+    });
+  }
   const script =
     `$p=@(${pids.join(",")});` +
     "$a=@(Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,Name);" +

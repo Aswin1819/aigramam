@@ -13,7 +13,7 @@ interface Props {
   now: number;
   selectedSessionId: string | null;
   onSelectSession: (id: string) => void;
-  /** "Open terminal here" / "Start Claude here": start PowerShell (optionally running Claude Code) in this project's folder (Workspace → Terminals). */
+  /** "Open terminal here" / "Start Claude here": start a shell (optionally running Claude Code) in this project's folder (Workspace → Terminals). */
   onOpenTerminal?: (projectId: string, start?: TerminalStart) => void;
   /** Why a terminal can't start right now (the button is disabled with this text). */
   terminalBlockedReason?: string | null;
@@ -56,7 +56,7 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
             <button
               onClick={() => onOpenTerminal(pr.project.id)}
               disabled={!!terminalBlockedReason}
-              title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root}`}
+              title={terminalBlockedReason ?? `Open a terminal in ${pr.project.root}`}
               className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
             >
               <TerminalSquare size={14} className="text-brass" /> Open terminal here
@@ -64,7 +64,7 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
             <button
               onClick={() => onOpenTerminal(pr.project.id, "claude")}
               disabled={!!terminalBlockedReason}
-              title={terminalBlockedReason ?? `Start PowerShell in ${pr.project.root} and run Claude Code (claude) in it`}
+              title={terminalBlockedReason ?? `Open a terminal in ${pr.project.root} and run Claude Code (claude) in it`}
               className="flex items-center gap-1.5 rounded-xl border border-brass/50 bg-brass/10 px-2.5 py-1 text-[12.5px] font-semibold text-cream hover:bg-brass/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-cream/40"
             >
               <Bot size={14} className="text-brass" /> Start Claude here

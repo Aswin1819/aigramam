@@ -24,19 +24,21 @@ afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 const T0 = Date.parse("2026-11-12T10:00:00.000Z");
 const iso = (ms: number) => new Date(T0 + ms).toISOString();
 const SID = "11111111-2222-4333-8444-555555555555";
+/** A project folder that's an absolute path on this system (a Windows path reads as relative on macOS and Linux). */
+const CHAYA = process.platform === "win32" ? "C:\\work\\chaya-app" : "/work/chaya-app";
 
 const rec = {
-  meta: (ms: number, extra: object = {}) => ({ type: "attachment", cwd: "C:\\work\\chaya-app", gitBranch: "main", sessionId: SID, timestamp: iso(ms), ...extra }),
+  meta: (ms: number, extra: object = {}) => ({ type: "attachment", cwd: CHAYA, gitBranch: "main", sessionId: SID, timestamp: iso(ms), ...extra }),
   toolUse: (ms: number, id: string, name: string, input: object = {}) => ({
-    type: "assistant", cwd: "C:\\work\\chaya-app", gitBranch: "feat/x", sessionId: SID, timestamp: iso(ms),
+    type: "assistant", cwd: CHAYA, gitBranch: "feat/x", sessionId: SID, timestamp: iso(ms),
     message: { content: [{ type: "tool_use", id, name, input }] },
   }),
   toolResult: (ms: number, id: string, extra: object = {}) => ({
-    type: "user", cwd: "C:\\work\\chaya-app", sessionId: SID, timestamp: iso(ms),
+    type: "user", cwd: CHAYA, sessionId: SID, timestamp: iso(ms),
     message: { content: [{ type: "tool_result", tool_use_id: id }] }, ...extra,
   }),
-  prompt: (ms: number, text = "hello") => ({ type: "user", cwd: "C:\\work\\chaya-app", sessionId: SID, timestamp: iso(ms), message: { content: text } }),
-  turnEnd: (ms: number) => ({ type: "system", subtype: "turn_duration", cwd: "C:\\work\\chaya-app", sessionId: SID, timestamp: iso(ms), durationMs: 1000 }),
+  prompt: (ms: number, text = "hello") => ({ type: "user", cwd: CHAYA, sessionId: SID, timestamp: iso(ms), message: { content: text } }),
+  turnEnd: (ms: number) => ({ type: "system", subtype: "turn_duration", cwd: CHAYA, sessionId: SID, timestamp: iso(ms), durationMs: 1000 }),
 };
 
 // ── actions ──────────────────────────────────────────────────────────────────
@@ -205,7 +207,7 @@ describe("SessionStore", () => {
 
   it("uses hooks for exact permission prompts, cleared when the tool finishes", () => {
     const s = new SessionStore();
-    const base = { session_id: SID, cwd: "C:\\work\\chaya-app" };
+    const base = { session_id: SID, cwd: CHAYA };
     s.applyHook({ ...base, hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "rm -rf build" }, tool_use_id: "h1" }, T0);
     s.applyHook({ ...base, hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "rm -rf build" } }, T0 + 100);
     let v = s.snapshot(T0 + 200).sessions[0];
@@ -413,14 +415,14 @@ describe("Monitor", () => {
     const at = (ms: number) => new Date(now + ms).toISOString();
     const lines = [
       { type: "custom-title", customTitle: "Chaya login fix", sessionId: SID },
-      { type: "user", cwd: "C:\\work\\chaya-app", gitBranch: "fix/login", sessionId: SID, timestamp: at(-3000), message: { content: "fix login" } },
-      { type: "assistant", cwd: "C:\\work\\chaya-app", gitBranch: "fix/login", sessionId: SID, timestamp: at(-2000), message: { content: [{ type: "tool_use", id: "ag", name: "Agent", input: { subagent_type: "Explore", description: "Find auth" } }] } },
+      { type: "user", cwd: CHAYA, gitBranch: "fix/login", sessionId: SID, timestamp: at(-3000), message: { content: "fix login" } },
+      { type: "assistant", cwd: CHAYA, gitBranch: "fix/login", sessionId: SID, timestamp: at(-2000), message: { content: [{ type: "tool_use", id: "ag", name: "Agent", input: { subagent_type: "Explore", description: "Find auth" } }] } },
     ];
     fs.writeFileSync(path.join(proj, `${SID}.jsonl`), lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
     fs.writeFileSync(path.join(subDir, "agent-abc123.meta.json"), JSON.stringify({ agentType: "Explore", description: "Find auth", toolUseId: "ag" }));
     fs.writeFileSync(
       path.join(subDir, "agent-abc123.jsonl"),
-      JSON.stringify({ type: "assistant", agentId: "abc123", isSidechain: true, sessionId: SID, cwd: "C:\\work\\chaya-app", timestamp: at(-1000), message: { content: [{ type: "tool_use", id: "g1", name: "Grep", input: { pattern: "token" } }] } }) + "\n",
+      JSON.stringify({ type: "assistant", agentId: "abc123", isSidechain: true, sessionId: SID, cwd: CHAYA, timestamp: at(-1000), message: { content: [{ type: "tool_use", id: "g1", name: "Grep", input: { pattern: "token" } }] } }) + "\n",
     );
     // An old transcript must be ignored.
     const old = path.join(proj, "99999999-2222-4333-8444-555555555555.jsonl");
@@ -433,13 +435,13 @@ describe("Monitor", () => {
     const snap = m.store.snapshot();
     expect(snap.sessions).toHaveLength(1);
     const s = snap.sessions[0];
-    expect(s).toMatchObject({ title: "Chaya login fix", gitBranch: "fix/login", cwd: "C:\\work\\chaya-app" });
+    expect(s).toMatchObject({ title: "Chaya login fix", gitBranch: "fix/login", cwd: CHAYA });
     expect(s.action?.kind).toBe("delegate");
     expect(s.subagents).toEqual([expect.objectContaining({ id: "abc123", agentType: "Explore", description: "Find auth", status: "working" })]);
     expect(s.subagents[0].action?.label).toBe('Searching "token"');
 
     // New lines appended later are picked up.
-    fs.appendFileSync(path.join(proj, `${SID}.jsonl`), JSON.stringify({ type: "system", subtype: "turn_duration", sessionId: SID, cwd: "C:\\work\\chaya-app", timestamp: at(0) }) + "\n");
+    fs.appendFileSync(path.join(proj, `${SID}.jsonl`), JSON.stringify({ type: "system", subtype: "turn_duration", sessionId: SID, cwd: CHAYA, timestamp: at(0) }) + "\n");
     m.pollTailers();
     expect(m.store.snapshot().sessions[0]).toMatchObject({ status: "waiting", waitingReason: "turn_end" });
   });

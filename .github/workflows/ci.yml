@@ -10,9 +10,16 @@ permissions:
 
 jobs:
   check:
-    name: Types, tests and build (Windows)
-    runs-on: windows-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: Windows }
+          - { os: macos-latest, name: macOS }
+          - { os: ubuntu-latest, name: Linux }
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -21,6 +28,24 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The one-time step the app tells Linux users to run: builds node-pty there (no ready-made Linux
+      # binary), and on Windows and macOS checks the ready-made one loads.
+      - name: Terminal library
+        run: node scripts/build-terminal.mjs
       - run: pnpm check
       - run: pnpm test
+        env:
+          # Also start a real shell through node-pty on this system.
+          AIG_PTY_SMOKE: "1"
       - run: pnpm build
+      - name: Start the app and load the page
+        shell: bash
+        run: |
+          node dist/index.js --production > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4317/ -o page.html; then break; fi
+            sleep 1
+          done
+          kill %1 || true
+          grep -q '<div id="root">' page.html || { echo "The page didn't load"; cat server.log; exit 1; }
+          echo "Served the page:"; head -c 300 page.html; echo
