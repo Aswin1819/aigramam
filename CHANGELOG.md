@@ -2,9 +2,13 @@
 
 The app and the mod have separate version numbers. The app's version is in `package.json`. The mod's is in `plugin/ai-gramam/.claude-plugin/plugin.json`, and the same version must appear in `.claude-plugin/marketplace.json` and in the mod's `VERSION` constant (a test checks this).
 
-## Unreleased
+## 1.0.0 (2026-11-13)
+
+First public release. The mod in this release is v0.3.0.
 
 ### Ready to share
+- README screenshots and an animated village, all taken from the built-in demo (`node scripts/readme-shots.mjs`).
+- CI on GitHub: every pull request and push to `main` runs the type check, the tests and the build on Windows.
 - Install from GitHub: `claude plugin marketplace add Aswin1819/aigramam`, then `claude plugin install ai-gramam@aigramam`. The README, INSTALL and Settings → Session link show it first; installing from a local folder is still there as an alternative.
 - A fresh `pnpm install` finishes without warnings about skipped build scripts. esbuild and Tailwind ship ready-made binaries.
 - No more "failed to connect to websocket" console error in dev mode (hot reload is fully off: reload the page for client changes).
