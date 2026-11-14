@@ -20,7 +20,7 @@ interface Props {
 }
 
 /**
- * Terminals: PowerShell that Ai Gramam starts in a project folder when the
+ * Terminals: a shell (PowerShell on Windows, your own shell elsewhere) that Ai Gramam starts in a project folder when the
  * person clicks (optionally running Claude Code), shown here. Terminals the
  * person opened themselves are not (and can't be) shown.
  */
@@ -102,7 +102,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
             disabled={!!blocked || busy}
             aria-haspopup="menu"
             aria-expanded={picker}
-            title={blocked ?? "Start PowerShell (or Claude Code) in a project's folder"}
+            title={blocked ?? `Start ${api.shellName} (or Claude Code) in a project's folder`}
             className="flex items-center gap-1.5 rounded-xl bg-brass px-3 py-1.5 text-[12.5px] font-semibold text-ink hover:bg-brass/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-cream/40"
           >
             <Plus size={14} /> {busy ? "Starting…" : "New terminal"} <ChevronDown size={13} />
@@ -116,10 +116,10 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
                     <div className="truncate text-[13px] font-semibold text-cream">{pr.name}</div>
                     <div className="truncate font-mono text-[11px] text-cream/50">{pr.root}</div>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      <button role="menuitem" onClick={() => start(pr.id)} title={`Start PowerShell in ${pr.root}`} className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[12px] text-cream/85 hover:bg-white/10">
-                        <TerminalSquare size={12} className="text-brass" /> PowerShell
+                      <button role="menuitem" onClick={() => start(pr.id)} title={`Start ${api.shellName} in ${pr.root}`} className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[12px] text-cream/85 hover:bg-white/10">
+                        <TerminalSquare size={12} className="text-brass" /> {api.shellName}
                       </button>
-                      <button role="menuitem" onClick={() => start(pr.id, "claude")} title={`Start PowerShell in ${pr.root} and run Claude Code (claude) in it`} className="flex items-center gap-1 rounded-md border border-brass/40 bg-brass/10 px-2 py-0.5 text-[12px] font-semibold text-cream hover:bg-brass/20">
+                      <button role="menuitem" onClick={() => start(pr.id, "claude")} title={`Start ${api.shellName} in ${pr.root} and run Claude Code (claude) in it`} className="flex items-center gap-1 rounded-md border border-brass/40 bg-brass/10 px-2 py-0.5 text-[12px] font-semibold text-cream hover:bg-brass/20">
                         <Bot size={12} className="text-brass" /> Start Claude Code
                       </button>
                     </div>
@@ -159,10 +159,10 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
               <TerminalSquare size={26} className="mx-auto mb-2 text-brass/80" />
               <div className="font-display text-[16px] font-semibold text-cream">No terminals open</div>
               <p className="mt-1.5 text-[13px] text-cream/65">
-                PowerShell started by Ai Gramam in a project folder, optionally running Claude Code. It runs on this computer with your permissions. Terminals you opened yourself aren't shown here.
+                {api.shellName} started by Ai Gramam in a project folder, optionally running Claude Code. It runs on this computer with your permissions. Terminals you opened yourself aren't shown here.
               </p>
               <p className="mt-2 text-[12px] text-cream/45">
-                Choose <b className="text-cream/70">New terminal</b>, a project, then <b className="text-cream/70">PowerShell</b> or <b className="text-cream/70">Start Claude Code</b>. Up to {TERMINAL_LIMITS.maxOpen} can be open; each keeps its recent output until you close it.
+                Choose <b className="text-cream/70">New terminal</b>, a project, then <b className="text-cream/70">{api.shellName}</b> or <b className="text-cream/70">Start Claude Code</b>. Up to {TERMINAL_LIMITS.maxOpen} can be open; each keeps its recent output until you close it.
               </p>
             </div>
           </div>

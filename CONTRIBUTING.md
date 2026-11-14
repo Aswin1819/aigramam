@@ -32,7 +32,7 @@ npx pnpm@10.4.1 test    # Vitest
 npx pnpm@10.4.1 build   # production build
 ```
 
-CI runs the same on Windows for every pull request.
+CI runs the same on Windows, macOS and Linux for every pull request. On Linux, run `npx pnpm@10.4.1 rebuild node-pty` once after installing to use terminals.
 
 - **Tests:** server changes need specs in `server/*.test.ts`. Client logic that doesn't need the DOM gets a `*.test.ts` next to it.
 - **The mod** (`plugin/ai-gramam`): check it with `claude plugin validate plugin/ai-gramam` and `claude plugin test plugin/ai-gramam`. When you bump its version, change it in `plugin.json`, `.claude-plugin/marketplace.json` and `VERSION` in `hooks/register.ts` together. Try installs with `CLAUDE_CONFIG_DIR` pointing at an empty folder, never your real `~/.claude`.

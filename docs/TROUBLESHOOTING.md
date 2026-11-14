@@ -52,6 +52,12 @@ claude plugin update ai-gramam@aigramam
 
 Then restart your sessions.
 
+## "Terminals aren't available: the terminal library (node-pty) couldn't load"
+
+On **Linux**, node-pty has to be built once on your computer. In the aigramam folder run `npx pnpm@10.4.1 rebuild node-pty` (it needs `python3`, `make` and a C++ compiler: `sudo apt install build-essential python3` on Debian or Ubuntu), then restart Ai Gramam. On Windows and macOS it comes ready-made: reinstall the packages (`npx -y pnpm@10.4.1 install`) and restart.
+
+The rest of the app works without terminals.
+
 ## A status says "No recent activity"
 
 The session is working, but nothing was recorded for a while. It may be thinking, running a long command, or stalled. Hover the status (or open the session) to see what it's based on. Ai Gramam never calls a session "stuck" without evidence.

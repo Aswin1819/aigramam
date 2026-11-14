@@ -110,7 +110,7 @@ export default function Home() {
     [selectedProjectId, projects, sessions],
   );
 
-  /** "Open terminal here" / "Start Claude here": start PowerShell (optionally running Claude Code) in the project's folder and show it in Workspace → Terminals. */
+  /** "Open terminal here" / "Start Claude here": start a shell (optionally running Claude Code) in the project's folder and show it in Workspace → Terminals. */
   const createTerminal = terminals.create;
   const openTerminal = useCallback(
     (projectId: string, start?: TerminalStart) => {

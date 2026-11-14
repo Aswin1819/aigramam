@@ -13,7 +13,14 @@ Installing the mod does **not** install or start the app, and the app works with
 
 - **Node.js 18 or newer.** pnpm doesn't need to be installed (`npx` fetches pnpm 10.4.1).
 - **Claude Code**, already used at least once on this computer (it creates `~/.claude`). The mod was tested with Claude Code 2.1.323. It uses Claude Code's hooks-module plugin API, so older versions without that API won't load it.
-- **Windows 11** is what Ai Gramam is built and tested on. Other systems are untested: watching sessions should work, but managed terminals start `powershell.exe`, so they need PowerShell installed.
+- **Windows 11** is what Ai Gramam is built and used on daily. **macOS and Linux** pass the automated checks (CI runs the tests, a real shell and the app on each) but haven't been tried by hand yet. Terminals start PowerShell on Windows and your own shell (`$SHELL`) on macOS and Linux.
+- **Linux only:** the terminal library (node-pty) has no ready-made Linux binary. To use **Workspace → Terminals**, build it once after installing (needs `python3`, `make` and a C++ compiler, e.g. `sudo apt install build-essential python3`):
+
+  ```sh
+  npx pnpm@10.4.1 rebuild node-pty
+  ```
+
+  Without it, everything else works and Terminals say how to fix it.
 - A current Chrome, Edge or Firefox.
 
 ## 1. Install and start the app

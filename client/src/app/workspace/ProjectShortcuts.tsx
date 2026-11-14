@@ -5,15 +5,18 @@ import { trpc } from "@/lib/trpc";
 const APPS = [
   { id: "vscode", label: "VS Code", Icon: Code2 },
   { id: "cursor", label: "Cursor", Icon: MousePointer2 },
-  { id: "explorer", label: "File Explorer", Icon: FolderOpen },
+  { id: "explorer", label: "File manager", Icon: FolderOpen },
 ] as const;
 
-/** Open a project's folder in an editor or File Explorer (on this computer, from a click). */
+/** Open a project's folder in an editor or the file manager (on this computer, from a click). */
 export default function ProjectShortcuts({ projectId, demo }: { projectId: string; demo?: boolean }) {
   const apps = trpc.projects.apps.useQuery(undefined, { staleTime: 60_000, enabled: !demo });
+  // The file manager's name comes from the server: File Explorer, Finder or Files.
+  const labelOf = (id: string, fallback: string) => (id === "explorer" ? (apps.data?.fileManagerLabel ?? fallback) : fallback);
   const open = trpc.projects.open.useMutation({
     onSuccess: (r, v) => {
-      const label = APPS.find((a) => a.id === v.app)?.label ?? v.app;
+      const app = APPS.find((a) => a.id === v.app);
+      const label = app ? labelOf(app.id, app.label) : v.app;
       if (r.ok) toast.success(`Opened in ${label}`);
       else toast.error(r.error);
     },
@@ -24,7 +27,8 @@ export default function ProjectShortcuts({ projectId, demo }: { projectId: strin
     <div className="mt-3">
       <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Open folder in</div>
       <div className="flex flex-wrap gap-1.5">
-        {APPS.map(({ id, label, Icon }) => {
+        {APPS.map(({ id, label: fallback, Icon }) => {
+          const label = labelOf(id, fallback);
           const missing = apps.data ? !apps.data[id] : false;
           const disabled = demo || missing || open.isPending;
           const why = demo ? "Switch to Live to open real folders" : missing ? `${label} isn't installed on this computer` : `Open this project's folder in ${label}`;

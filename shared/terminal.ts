@@ -1,5 +1,6 @@
 /**
- * Managed terminals: PowerShell sessions Ai Gramam starts in a project folder
+ * Managed terminals: shells (PowerShell on Windows, the person's own shell on
+ * macOS and Linux) that Ai Gramam starts in a project folder
  * when the person asks (roadmap Phase 2). They run on this computer through
  * the server and are shown in the browser; they are not the terminals the
  * person opened themselves, which Ai Gramam can't attach to.
@@ -19,14 +20,14 @@ export interface TerminalInfo {
   projectName: string;
   /** The folder it started in (a known project's folder). */
   cwd: string;
-  /** e.g. "powershell.exe" */
+  /** The shell program, e.g. "powershell.exe" or "/bin/zsh". */
   shell: string;
   pid: number;
   createdAt: number;
   status: TerminalStatus;
   exitCode?: number;
   exitedAt?: number;
-  /** Set when the terminal was opened with "Start Claude Code" (PowerShell runs `claude`, then stays open). */
+  /** Set when the terminal was opened with "Start Claude Code" (the shell runs `claude`, then stays open). */
   started?: TerminalStart;
   /**
    * Claude Code sessions running inside this terminal right now: their process
@@ -62,7 +63,8 @@ export type TerminalClientMessage =
 
 /** Server → browser. */
 export type TerminalServerMessage =
-  | { type: "term-list"; payload: { terminals: TerminalInfo[] } }
+  /** `shellName`: what a new terminal starts ("PowerShell", "zsh"…). */
+  | { type: "term-list"; payload: { terminals: TerminalInfo[]; shellName?: string } }
   | { type: "term-created"; payload: { requestId: string; ok: boolean; id?: string; error?: string } }
   /** Output since attaching; `replay` marks the scrollback sent on attach. */
   | { type: "term-output"; payload: { id: string; data: string; replay?: boolean } }

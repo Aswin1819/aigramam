@@ -3,17 +3,30 @@
  * create one from a click, attach to see output, type, resize and close.
  * Demo tabs can't use terminals (the demo never acts on this computer).
  */
+import { createRequire } from "module";
 import os from "os";
 import path from "path";
 import { WebSocket } from "ws";
-import * as pty from "node-pty";
+import type * as NodePty from "node-pty";
 import type { ProjectView } from "@shared/model";
 import type { TerminalServerMessage } from "@shared/terminal";
 import { readRegistry } from "../monitor/registry";
 import { TerminalManager, type Spawn } from "./manager";
 
-const spawnPty: Spawn = (shell, args, o) =>
-  pty.spawn(shell, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string>, useConpty: true });
+import { loadPty } from "./pty";
+
+const require = createRequire(import.meta.url);
+let pty: typeof NodePty | null = null;
+
+/**
+ * node-pty is loaded on the first terminal, not at startup: if its native part
+ * is missing (Linux needs a one-time build), only terminals are unavailable and
+ * they say how to fix it; the rest of the app runs.
+ */
+const spawnPty: Spawn = (shell, args, o) => {
+  pty ??= loadPty(() => require("node-pty") as typeof NodePty, require.resolve);
+  return pty.spawn(shell, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string>, useConpty: true });
+};
 
 let manager: TerminalManager | null = null;
 /** Which tabs have each terminal open (they get its output). */
@@ -40,7 +53,7 @@ export function initTerminals(projects: () => ProjectView[], claudeDir = path.jo
     },
     onList: (terminals) => {
       for (const id of [...subscribers.keys()]) if (!terminals.some((t) => t.id === id)) subscribers.delete(id);
-      for (const ws of clients) send(ws, { type: "term-list", payload: { terminals } });
+      for (const ws of clients) send(ws, { type: "term-list", payload: { terminals, shellName: manager!.shellName } });
     },
   });
   manager.startLinking();
@@ -57,7 +70,7 @@ export function terminalForSession(sessionId: string): string | undefined {
 
 export function terminalClientConnected(ws: WebSocket) {
   clients.add(ws);
-  if (manager) send(ws, { type: "term-list", payload: { terminals: manager.list() } });
+  if (manager) send(ws, { type: "term-list", payload: { terminals: manager.list(), shellName: manager.shellName } });
 }
 
 export function terminalClientClosed(ws: WebSocket) {
