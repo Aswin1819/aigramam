@@ -5,18 +5,18 @@
  * node-pty ships ready-made binaries for Windows and macOS. On Linux it is
  * built once on the computer (pnpm skips its build script by default, see
  * `pnpm.ignoredBuiltDependencies`), so a fresh Linux install has terminals
- * off until `npx pnpm@10.4.1 rebuild node-pty` has run.
+ * off until `node scripts/build-terminal.mjs` has run.
  */
 import fs from "fs";
 import path from "path";
 
-export const PTY_REBUILD_COMMAND = "npx pnpm@10.4.1 rebuild node-pty";
+export const PTY_BUILD_COMMAND = "node scripts/build-terminal.mjs";
 
 /** The error shown when node-pty can't be loaded. */
 export function ptyUnavailableMessage(platform: NodeJS.Platform, detail: string): string {
   const fix =
     platform === "linux"
-      ? `On Linux, build it once in the aigramam folder with \`${PTY_REBUILD_COMMAND}\` (needs python3, make and a C++ compiler, e.g. \`sudo apt install build-essential python3\`), then restart Ai Gramam.`
+      ? `On Linux, build it once in the aigramam folder with \`${PTY_BUILD_COMMAND}\` (needs python3, make and a C++ compiler, e.g. \`sudo apt install build-essential python3\`), then restart Ai Gramam.`
       : `Reinstall the app's packages (\`npx -y pnpm@10.4.1 install\`), then restart Ai Gramam.`;
   return `Terminals aren't available: the terminal library (node-pty) couldn't load. ${fix} Details: ${detail}`;
 }

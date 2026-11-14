@@ -5,7 +5,7 @@ import { createRequire } from "module";
 import { afterEach, describe, expect, it } from "vitest";
 import { chooseShell, shellArgs, shellLabel } from "./terminal/shell";
 import { descendantsOf, parsePsOutput } from "./terminal/links";
-import { ensureSpawnHelperExecutable, loadPty, ptyUnavailableMessage, PTY_REBUILD_COMMAND } from "./terminal/pty";
+import { ensureSpawnHelperExecutable, loadPty, ptyUnavailableMessage, PTY_BUILD_COMMAND } from "./terminal/pty";
 
 describe("which shell a terminal starts", () => {
   const has = (...files: string[]) => (p: string) => files.includes(p);
@@ -60,9 +60,9 @@ describe("terminal library (node-pty)", () => {
   });
 
   it("explains how to fix a missing native part, with the Linux build command", () => {
-    expect(ptyUnavailableMessage("linux", "no pty.node")).toContain(PTY_REBUILD_COMMAND);
+    expect(ptyUnavailableMessage("linux", "no pty.node")).toContain(PTY_BUILD_COMMAND);
     expect(ptyUnavailableMessage("linux", "no pty.node")).toMatch(/^Terminals aren't available/);
-    expect(ptyUnavailableMessage("darwin", "x")).not.toContain("rebuild");
+    expect(ptyUnavailableMessage("darwin", "x")).not.toContain("build-terminal");
     expect(() =>
       loadPty(
         () => {
@@ -71,7 +71,7 @@ describe("terminal library (node-pty)", () => {
         () => "/x/node_modules/node-pty/lib/index.js",
         "linux",
       ),
-    ).toThrow(/rebuild node-pty.*Details: Cannot find module '..\/build\/Release\/pty.node'$/s);
+    ).toThrow(/build-terminal.mjs.*Details: Cannot find module '..\/build\/Release\/pty.node'$/s);
   });
 
   it.skipIf(process.platform === "win32")("makes spawn-helper executable (macOS and Linux)", () => {

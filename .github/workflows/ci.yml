@@ -28,10 +28,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # node-pty has no ready-made Linux binary: this is the one-time build the app tells Linux users to run.
-      - name: Build the terminal library (Linux)
-        if: runner.os == 'Linux'
-        run: npx pnpm@10.4.1 rebuild node-pty
+      # The one-time step the app tells Linux users to run: builds node-pty there (no ready-made Linux
+      # binary), and on Windows and macOS checks the ready-made one loads.
+      - name: Terminal library
+        run: node scripts/build-terminal.mjs
       - run: pnpm check
       - run: pnpm test
         env:

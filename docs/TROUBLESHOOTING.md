@@ -54,7 +54,7 @@ Then restart your sessions.
 
 ## "Terminals aren't available: the terminal library (node-pty) couldn't load"
 
-On **Linux**, node-pty has to be built once on your computer. In the aigramam folder run `npx pnpm@10.4.1 rebuild node-pty` (it needs `python3`, `make` and a C++ compiler: `sudo apt install build-essential python3` on Debian or Ubuntu), then restart Ai Gramam. On Windows and macOS it comes ready-made: reinstall the packages (`npx -y pnpm@10.4.1 install`) and restart.
+On **Linux**, node-pty has to be built once on your computer. In the aigramam folder run `node scripts/build-terminal.mjs` (it needs `python3`, `make` and a C++ compiler: `sudo apt install build-essential python3` on Debian or Ubuntu), then restart Ai Gramam. On Windows and macOS it comes ready-made: reinstall the packages (`npx -y pnpm@10.4.1 install`) and restart.
 
 The rest of the app works without terminals.
 

@@ -6,7 +6,7 @@ The app and the mod have separate version numbers. The app's version is in `pack
 
 ### macOS and Linux
 - **Terminals** start your own shell (`$SHELL`, else zsh on macOS and bash on Linux) instead of PowerShell. "Start Claude Code" runs `claude` in it and keeps the shell open afterwards. The buttons show the shell's name.
-- **Linux:** the terminal library is built once with `npx pnpm@10.4.1 rebuild node-pty`. Until then, only terminals are off, and they say how to fix it. Before, a missing terminal library would stop the whole server.
+- **Linux:** the terminal library is built once with `node scripts/build-terminal.mjs`. Until then, only terminals are off, and they say how to fix it. Before, a missing terminal library would stop the whole server.
 - **Open folder in** uses Finder on macOS and the desktop's file manager (`xdg-open`) on Linux, and finds VS Code and Cursor there too.
 - Sessions started in a terminal are matched to it with `ps` on macOS and Linux (exact process-tree match, as on Windows).
 - CI runs the type check, tests, a real shell and the built app on Windows, macOS and Linux.

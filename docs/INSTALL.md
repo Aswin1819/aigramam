@@ -17,7 +17,7 @@ Installing the mod does **not** install or start the app, and the app works with
 - **Linux only:** the terminal library (node-pty) has no ready-made Linux binary. To use **Workspace → Terminals**, build it once after installing (needs `python3`, `make` and a C++ compiler, e.g. `sudo apt install build-essential python3`):
 
   ```sh
-  npx pnpm@10.4.1 rebuild node-pty
+  node scripts/build-terminal.mjs
   ```
 
   Without it, everything else works and Terminals say how to fix it.
