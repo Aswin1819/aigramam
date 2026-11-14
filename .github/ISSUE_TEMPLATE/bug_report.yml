@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in Ai Gramam or its mod doesn't work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check [Troubleshooting](https://github.com/Aswin1819/aigramam/blob/main/docs/TROUBLESHOOTING.md) first.
+        **Don't paste transcripts, keys or private paths.** Ai Gramam's local key (in `~/.ai-gramam`) must never be shared. Security problems: see [SECURITY.md](https://github.com/Aswin1819/aigramam/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the app with `npx pnpm@10.4.1 dev`
+        2. Start Claude Code in a project
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part
+      options:
+        - The village (world view)
+        - Workspace (Focus, Projects, Agents, Terminals, History)
+        - The mod (messaging, stop, approvals, questions)
+        - Install or setup
+        - Worlds or character packs
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Settings → Session link
+      description: Copy the lines it shows (server, Claude Code, mod, linked). They say which part needs attention.
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2 / macOS 15 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "`node -v`, `claude --version`, the app version (CHANGELOG or release) and the mod version (Settings → Session link)."
+      placeholder: Node 22.11, Claude Code 2.1.x, app 1.0.0, mod 0.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options: [Chrome, Edge, Firefox, Safari, Other]
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors
+      description: The server's terminal output and the browser console, if anything is red. Remove anything private first.
+      render: text

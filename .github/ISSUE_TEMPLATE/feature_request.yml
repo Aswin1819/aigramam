@@ -1,0 +1,26 @@
+name: Feature request
+description: An idea for Ai Gramam, a world, a character or the mod.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would it help with
+      description: What you're trying to do, or what's hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How it could work. Sketches and screenshots are welcome.
+    validations:
+      required: true
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Fits the project
+      description: Ai Gramam stays local and shows only real data.
+      options:
+        - label: It works without sending anything off this computer.
+          required: true
