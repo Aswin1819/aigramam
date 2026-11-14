@@ -2,7 +2,9 @@
 
 The app and the mod have separate version numbers. The app's version is in `package.json`. The mod's is in `plugin/ai-gramam/.claude-plugin/plugin.json`, and the same version must appear in `.claude-plugin/marketplace.json` and in the mod's `VERSION` constant (a test checks this).
 
-## Unreleased
+## 1.1.0 (2026-11-14)
+
+macOS and Linux support. The mod is unchanged (v0.3.0).
 
 ### macOS and Linux
 - **Terminals** start your own shell (`$SHELL`, else zsh on macOS and bash on Linux) instead of PowerShell. "Start Claude Code" runs `claude` in it and keeps the shell open afterwards. The buttons show the shell's name.
