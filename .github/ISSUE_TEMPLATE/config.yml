@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup problems
+    url: https://github.com/Aswin1819/aigramam/blob/main/docs/TROUBLESHOOTING.md
+    about: Most "nothing shows" or "not linked" problems are answered here.
+  - name: Security problem
+    url: https://github.com/Aswin1819/aigramam/blob/main/SECURITY.md
+    about: Please report security problems privately, not in a public issue.

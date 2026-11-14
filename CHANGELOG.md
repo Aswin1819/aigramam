@@ -2,6 +2,11 @@
 
 The app and the mod have separate version numbers. The app's version is in `package.json`. The mod's is in `plugin/ai-gramam/.claude-plugin/plugin.json`, and the same version must appear in `.claude-plugin/marketplace.json` and in the mod's `VERSION` constant (a test checks this).
 
+## Unreleased
+
+### Project
+- Issue templates (bug report, feature request), a pull request checklist and a contributing guide (`CONTRIBUTING.md`).
+
 ## 1.0.0 (2026-11-13)
 
 First public release. The mod in this release is v0.3.0.

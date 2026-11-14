@@ -131,7 +131,7 @@ To show sessions from another computer, run `bridge/ai-gramam-bridge.mjs` there.
 
 ## Docs
 
-[Install](docs/INSTALL.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Security and your data](SECURITY.md) · [Changelog](CHANGELOG.md) · [Worlds](docs/WORLDS.md) · [Characters](docs/PACKS.md) · [Art styles](docs/ART-STYLES.md)
+[Install](docs/INSTALL.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Security and your data](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Worlds](docs/WORLDS.md) · [Characters](docs/PACKS.md) · [Art styles](docs/ART-STYLES.md)
 
 ## License
 
