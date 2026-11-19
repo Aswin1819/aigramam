@@ -9,7 +9,7 @@
  */
 import crypto from "crypto";
 import express, { type Request, type Response, type Router } from "express";
-import { isLocalRequest } from "../_core/security";
+import { keyMatches, isLocalRequest } from "../_core/security";
 import type { LinkQuestion } from "@shared/model";
 import type { HookPayload } from "../monitor/store";
 
@@ -23,6 +23,8 @@ const MAX_WAIT_MS = 30_000;
 /** Pending approvals nobody answered are dropped after this. */
 const APPROVAL_TTL_MS = 5 * 60_000;
 const MAX_MESSAGE = 8_000;
+/** A mod that stopped checking in, with nothing left in its inbox, is forgotten after this. */
+const FORGET_SESSION_MS = 10 * 60_000;
 const MAX_QUEUE = 20;
 const MAX_ANSWER = 2_000;
 
@@ -94,12 +96,6 @@ interface LinkedSession {
   lastSeen: number;
   inbox: LinkCommand[];
   version?: string;
-}
-
-function keyMatches(given: unknown, expected: string): boolean {
-  const a = Buffer.from(typeof given === "string" ? given : "");
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 const isSessionId = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9-]{8,80}$/.test(v);
@@ -242,7 +238,7 @@ export class Link {
 
   prune(now = Date.now()) {
     for (const a of this.approvals.values()) if (now - a.createdAt > APPROVAL_TTL_MS) this.closeApproval(a.id);
-    for (const [id, s] of this.sessions) if (now - s.lastSeen > 10 * 60_000 && s.inbox.length === 0) this.sessions.delete(id);
+    for (const [id, s] of this.sessions) if (now - s.lastSeen > FORGET_SESSION_MS && s.inbox.length === 0) this.sessions.delete(id);
   }
 
   // ── HTTP API for the mod ───────────────────────────────────────────────────

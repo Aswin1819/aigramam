@@ -25,6 +25,7 @@ The app and the mod have separate version numbers. The app's version is in `pack
 - A failed start now exits with the error instead of leaving a process that serves nothing.
 - Fixed a file handle leak in pack image checks, a closed tab that could stay subscribed to a terminal it opened, and a chat history that was marked as loaded before it was read.
 - Each API now reads its own request body, after its access check. Removed two unused config endpoints.
+- When the port can't be used, the message says why: in use by another program, or reserved (for example by Hyper-V or WSL on Windows), with how to check. The bridge never overwrites a `config.json` it can't read; it reports it instead.
 
 ## 1.1.0 (2026-11-14)
 

@@ -12,7 +12,7 @@ import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { isLocalRequest } from "./_core/security";
+import { keyMatches, isLocalRequest } from "./_core/security";
 import { DATA_DIR } from "./_core/paths";
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
@@ -22,11 +22,20 @@ interface Config {
   claudeDir?: string;
 }
 
+/** The config file, {} when it doesn't exist yet. Throws when it exists but can't be read, so it's never overwritten. */
 function loadConfig(dir = DATA_DIR): Config {
+  const file = path.join(dir, "config.json");
+  let text: string;
   try {
-    return JSON.parse(fs.readFileSync(path.join(dir, "config.json"), "utf-8"));
+    text = fs.readFileSync(file, "utf-8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw e;
+  }
+  try {
+    return JSON.parse(text) as Config;
   } catch {
-    return {};
+    throw new Error(`${file} isn't valid JSON. Fix it or delete it (a new bridge key is then created).`);
   }
 }
 
@@ -46,13 +55,17 @@ export function getOrCreateApiKey(dir = DATA_DIR): string {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
+/** Read once per run (the key only changes when the file is edited by hand, which needs a restart). */
+let bridgeKey: string | undefined;
+
 function requireBridgeKey(req: Request, res: Response, next: () => void) {
-  const key = req.headers["x-bridge-api-key"] as string | undefined;
-  const validKey = getOrCreateApiKey();
-  const given = Buffer.from(typeof key === "string" ? key : "");
-  const expected = Buffer.from(validKey);
-  const ok = given.length === expected.length && crypto.timingSafeEqual(given, expected);
-  if (!ok) {
+  try {
+    bridgeKey ??= getOrCreateApiKey();
+  } catch (e) {
+    res.status(503).json({ error: e instanceof Error ? e.message : "The bridge key can't be read" });
+    return;
+  }
+  if (!keyMatches(req.headers["x-bridge-api-key"], bridgeKey)) {
     res.status(401).json({ error: "Invalid or missing bridge API key" });
     return;
   }
@@ -74,7 +87,13 @@ export function createBridgeRouter(
    * Returns bridge connection status and API key info
    */
   router.get("/status", (_req: Request, res: Response) => {
-    const config = loadConfig();
+    let config: Config;
+    try {
+      config = loadConfig();
+    } catch (e) {
+      res.status(503).json({ ok: false, error: e instanceof Error ? e.message : "config.json can't be read" });
+      return;
+    }
     res.json({
       ok: true,
       hasApiKey: !!config.bridgeApiKey,

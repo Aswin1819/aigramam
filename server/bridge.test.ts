@@ -51,4 +51,11 @@ describe("bridge script", () => {
     const served = fs.readFileSync(path.join(ROOT, "client", "public", "bridge", "ai-gramam-bridge.mjs"), "utf-8");
     expect(served).toBe(fs.readFileSync(SCRIPT, "utf-8"));
   });
+  it("never overwrites a config.json it can't read", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gramam-badcfg-"));
+    fs.writeFileSync(path.join(dir, "config.json"), "{ not json");
+    expect(() => getOrCreateApiKey(dir)).toThrow(/isn't valid JSON/);
+    expect(fs.readFileSync(path.join(dir, "config.json"), "utf-8")).toBe("{ not json");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 /**
  * Local-only security guards.
  *
@@ -42,6 +43,13 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/** Constant-time comparison of a key from a request header with the expected key. */
+export function keyMatches(given: unknown, expected: string): boolean {
+  const a = Buffer.from(typeof given === "string" ? given : "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 export function isLoopbackAddress(addr: string | undefined): boolean {

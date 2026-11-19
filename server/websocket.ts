@@ -5,6 +5,7 @@
  * gets which snapshot. Demo mode is per browser tab: a tab in demo mode gets
  * simulated sessions and no live data.
  */
+import type { Server as HttpServer } from "http";
 import type { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { handleTerminalMessage, initTerminals, terminalClientClosed, terminalClientConnected, terminalForSession } from "./terminal/socket";
@@ -221,9 +222,9 @@ export function setHooksInstalled(installed: boolean) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
-export function initializeWebSocket(server: unknown) {
+export function initializeWebSocket(server: HttpServer) {
   wss = new WebSocketServer({
-    server: server as any,
+    server,
     path: "/api/ws/agents",
     // Block other websites (and DNS-rebinding hosts) from connecting
     verifyClient: (info: { origin: string; req: IncomingMessage }) => verifyWsClient(info),

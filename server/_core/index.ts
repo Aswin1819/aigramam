@@ -14,7 +14,7 @@ import { createHooksRouter, getOrCreateHookKey, HooksInstaller, HOOK_PATH } from
 import { characterManager, worldManager, characterAssignments } from "../worlds";
 import { broadcastWorlds, setWorldsSource } from "../websocket";
 import { createPackUploadRouter } from "../packs/upload";
-import { configuredPort, isPortAvailable, portBusyMessage } from "./port";
+import { configuredPort, portErrorMessage, probePort } from "./port";
 
 async function startServer() {
   const app = express();
@@ -69,9 +69,10 @@ async function startServer() {
     console.error(`Ai Gramam couldn't start: PORT="${process.env.PORT}" isn't a valid port number.`);
     process.exit(1);
   }
-  // A busy port means the mod and hooks can't reach this server: say so and stop rather than move ports.
-  if (!(await isPortAvailable(port, BIND_HOST))) {
-    console.error(portBusyMessage(port));
+  // A port that can't be used means the mod and hooks can't reach this server: say why and stop rather than move ports.
+  const portError = await probePort(port, BIND_HOST);
+  if (portError) {
+    console.error(portErrorMessage(port, portError));
     process.exit(1);
   }
   runtime.port = port;
@@ -81,6 +82,11 @@ async function startServer() {
   refreshHooksStatus();
   setInterval(refreshHooksStatus, 10_000);
 
+  // Something may take the port between the probe and here: explain it the same way instead of a raw stack.
+  server.once("error", (e: NodeJS.ErrnoException) => {
+    console.error(portErrorMessage(port, e.code ?? "UNKNOWN"));
+    process.exit(1);
+  });
   server.listen(port, BIND_HOST, () => {
     console.log(`Server running on http://localhost:${port}/ (bound to ${BIND_HOST})`);
   });

@@ -13,7 +13,7 @@ import { parseLine } from "./parser";
 import { describeTool } from "./actions";
 import type { ChatItem } from "@shared/model";
 import { readRegistry } from "./registry";
-import { SessionStore, interruptNoteId } from "./store";
+import { SessionStore, TIMING, interruptNoteId } from "./store";
 import { FileTailer, scanLinesContaining } from "./tailer";
 
 export interface MonitorOptions {
@@ -31,7 +31,7 @@ interface Tracked {
 }
 
 const NL = String.fromCharCode(10);
-const SESSION_FILE_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+import { SESSION_FILE_RE } from "./sessionFiles";
 const AGENT_FILE_RE = /^agent-([A-Za-z0-9_-]+)\.jsonl$/;
 
 export class Monitor {
@@ -210,7 +210,7 @@ export class Monitor {
       const file = path.join(dir, f);
       if (this.tracked.has(file)) continue;
       // Only subagents that are (or were very recently) running.
-      if (now - this.mtime(file) > 3 * 60_000) continue;
+      if (now - this.mtime(file) > TIMING.subagentSilentMs) continue;
       const agentId = m[1];
       this.readSubagentMeta(path.join(dir, `agent-${agentId}.meta.json`), sessionId, agentId);
       this.tracked.set(file, { tailer: new FileTailer(file), sessionId, agentId });
