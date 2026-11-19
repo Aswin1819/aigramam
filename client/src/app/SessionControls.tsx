@@ -2,12 +2,12 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Link2Off, Send, Square } from "lucide-react";
 import type { SessionView } from "@shared/model";
-import type { CommandOutcome } from "@/hooks/useLiveSessions";
+import type { Command } from "@/hooks/useLiveSessions";
 
 interface Props {
   session: SessionView;
   demo: boolean;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   onSetupLink: () => void;
 }
 

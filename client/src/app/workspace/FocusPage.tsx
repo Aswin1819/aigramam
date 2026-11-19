@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link2, PanelRightOpen, Search, Unplug, Zap } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
-import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
+import type { AppMode, Command } from "@/hooks/useLiveSessions";
 import { useModal } from "@/hooks/useModal";
 import ChatPanel from "../ChatPanel";
 import RequestCard from "../RequestCard";
@@ -16,8 +16,8 @@ import SessionControls from "../SessionControls";
 import SetupChecks from "../SetupChecks";
 import { emptyVillageText, GROUP_TITLE, byAttention, controlOf, paletteMatches, plainStatus, step } from "./focus";
 import VillageStrip, { Face, StatusLine, TONE_TEXT, characterOf, type Cast } from "./VillageStrip";
+import type { SettingsTab } from "@/app/SettingsSheet";
 
-type Command = (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
 
 interface Props {
   sessions: SessionView[];
@@ -36,7 +36,7 @@ interface Props {
   onOpenDetails: (id: string) => void;
   onOpenProject: (projectId: string) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
-  onSettings: (tab?: string) => void;
+  onSettings: (tab?: SettingsTab) => void;
 }
 
 export default function FocusPage(p: Props) {

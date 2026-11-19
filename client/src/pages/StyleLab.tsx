@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Maximize2, Pause, Play, Sta
 import { STYLES } from "@/styles/registry";
 import { H, W, frameAt, stepTime } from "@/styles/scene";
 import type { StyleProto } from "@/styles/types";
+import { useCopy } from "@/hooks/useCopy";
 
 /**
  * Style lab: every style prototype drawing the same village scene, so they
@@ -96,7 +97,7 @@ export default function StyleLab() {
     return i >= 0 ? i : null;
   });
   const [paused, setPaused] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopy();
 
   useEffect(() => save(PICKS_KEY, picks), [picks]);
   useEffect(() => save(NOTES_KEY, notes), [notes]);
@@ -120,13 +121,7 @@ export default function StyleLab() {
     STYLES.filter((s) => picks.includes(s.id) || notes[s.id]?.trim())
       .map((s) => `${picks.includes(s.id) ? "★" : "·"} ${s.n}. ${s.name}${notes[s.id]?.trim() ? `: ${notes[s.id]!.trim()}` : ""}`)
       .join("\n");
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(summary() || "No picks yet");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  };
+  const copy = () => copyText(summary() || "No picks yet");
 
   const current = open === null ? null : STYLES[open];
   return (

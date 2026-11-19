@@ -59,7 +59,7 @@ async function startServer() {
   app.use("/api/bridge", express.json({ limit: "10mb" }), createBridgeRouter(onHeroUpdate, onHeroNew, onHeroesBatch, onHeroClear));
   // development mode uses Vite, production mode uses static files
   if (!isProduction) {
-    await setupVite(app, server);
+    await setupVite(app);
   } else {
     serveStatic(app);
   }

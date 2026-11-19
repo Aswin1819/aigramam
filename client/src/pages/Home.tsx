@@ -230,7 +230,7 @@ export default function Home() {
             selectedProjectId={selectedProjectId}
             onSelectProject={setSelectedProjectId}
             onDecide={decide}
-            onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+            onSettings={(tab) => setSettings(tab ?? "link")}
             terminals={terminals}
             onOpenTerminal={openTerminal}
             cast={{ world, cast, assignments }}
@@ -308,7 +308,7 @@ export default function Home() {
           view={prefs.view}
           onView={(view) => update({ view })}
           onSelect={select}
-          onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+          onSettings={(tab) => setSettings(tab ?? "link")}
           onDecide={decide}
           now={now}
         />

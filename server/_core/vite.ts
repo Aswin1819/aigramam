@@ -1,13 +1,12 @@
 import express, { type Express } from "express";
 import fs from "fs";
-import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
 import { isProduction } from "./runtime";
 
-export async function setupVite(app: Express, server: Server) {
+export async function setupVite(app: Express) {
   const serverOptions = {
     middlewareMode: true,
     // No hot reload: reload the page for client changes. (A half-configured HMR

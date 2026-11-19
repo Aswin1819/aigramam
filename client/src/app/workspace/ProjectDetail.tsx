@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Bot, Check, Copy, FolderGit2, GitBranch, TerminalSquare, Users } from "lucide-react";
 import type { TerminalStart } from "@shared/terminal";
 import type { SessionView } from "@shared/model";
@@ -7,6 +6,7 @@ import { attentionOf, type ProjectSummary } from "./attention";
 import SessionRow from "./SessionRow";
 import ProjectShortcuts from "./ProjectShortcuts";
 import { ProjectGit, ProjectRecent } from "./ProjectInterior";
+import { useCopy } from "@/hooks/useCopy";
 
 interface Props {
   summary: ProjectSummary;
@@ -25,17 +25,11 @@ interface Props {
  * the Projects page and when a building is clicked in the village.
  */
 export default function ProjectDetail({ summary: pr, now, selectedSessionId, onSelectSession, onOpenTerminal, terminalBlockedReason }: Props) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopy();
   const demo = pr.sessions.length > 0 && pr.sessions.every((x) => x.source === "demo");
   const a = attentionOf(pr.sessions, now);
   const ordered: SessionView[] = [...a.needsYou, ...a.yourTurn, ...a.errors, ...a.quiet, ...a.working, ...a.recentlyDone, ...a.idle];
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(pr.project.root);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  };
+  const copy = () => copyText(pr.project.root);
 
   return (
     <div>

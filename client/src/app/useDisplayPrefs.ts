@@ -2,6 +2,14 @@ import { useEffect, useCallback, useState } from "react";
 
 export type TimeMode = "auto" | "dawn" | "day" | "dusk" | "night";
 export const TIME_HOURS: Record<Exclude<TimeMode, "auto">, number> = { dawn: 6.4, day: 11, dusk: 18.3, night: 22 };
+/** The time-of-day choices, in menu order, with their labels (the top bar adds icons). */
+export const TIME_CHOICES: Array<{ id: TimeMode; label: string }> = [
+  { id: "auto", label: "Follow my clock" },
+  { id: "dawn", label: "Dawn" },
+  { id: "day", label: "Day" },
+  { id: "dusk", label: "Dusk" },
+  { id: "night", label: "Night" },
+];
 
 interface Prefs {
   reducedMotion: boolean;

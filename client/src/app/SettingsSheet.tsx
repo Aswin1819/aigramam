@@ -11,6 +11,8 @@ import type { TimeMode } from "./useDisplayPrefs";
 import PackUpload from "./PackUpload";
 import SetupChecks from "./SetupChecks";
 import { MARKETPLACE_SOURCE, UPDATE_COMMANDS } from "./checkList";
+import { useCopy } from "@/hooks/useCopy";
+import { TIME_CHOICES } from "./useDisplayPrefs";
 
 export type SettingsTab = "link" | "alerts" | "worlds" | "characters" | "bridge" | "display" | "skills";
 
@@ -59,12 +61,12 @@ function Errors({ errors }: { errors: Array<{ folder: string; source: string; me
 }
 
 function CopyLine({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
+  const { copied: done, copy } = useCopy();
   return (
     <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 p-2">
       <code className="min-w-0 flex-1 break-all font-mono text-[11px] text-cream/85">{text}</code>
       <button
-        onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); } catch {} }}
+        onClick={() => copy(text)}
         className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-cream/70 hover:bg-white/10"
         aria-label={`Copy ${label}`}
       >
@@ -283,9 +285,9 @@ export default function SettingsSheet(p: Props) {
                   <div className="rounded-2xl border border-white/10 p-3">
                     <div className="mb-2 font-semibold">Time of day</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {(["auto", "dawn", "day", "dusk", "night"] as const).map((t) => (
-                        <button key={t} onClick={() => p.onTime(t)} className={`rounded-xl px-3 py-1.5 text-xs capitalize ${p.time === t ? "bg-brass font-semibold text-ink" : "bg-white/5 hover:bg-white/10"}`}>
-                          {t === "auto" ? "Follow my clock" : t}
+                      {TIME_CHOICES.map(({ id, label }) => (
+                        <button key={id} onClick={() => p.onTime(id)} aria-pressed={p.time === id} className={`rounded-xl px-3 py-1.5 text-xs ${p.time === id ? "bg-brass font-semibold text-ink" : "bg-white/5 hover:bg-white/10"}`}>
+                          {label}
                         </button>
                       ))}
                     </div>

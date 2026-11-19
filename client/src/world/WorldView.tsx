@@ -9,7 +9,6 @@ import WorldLabels from "./WorldLabels";
 export interface WorldHandle {
   focus: (sessionId: string) => void;
   resetView: () => void;
-  startRain: (seconds: number) => void;
 }
 
 interface Props {
@@ -47,7 +46,6 @@ const WorldView = forwardRef<WorldHandle, Props>(function WorldView(props, ref) 
   useImperativeHandle(ref, () => ({
     focus: (id) => sceneRef.current?.focus(id),
     resetView: () => sceneRef.current?.resetView(),
-    startRain: (s) => sceneRef.current?.startRain(s),
   }));
 
   useEffect(() => {

@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import BrandMark from "./BrandMark";
 import { ART_STYLES } from "@/styles/live/registry";
-import type { AppView, TimeMode } from "./useDisplayPrefs";
+import { TIME_CHOICES, type AppView, type TimeMode } from "./useDisplayPrefs";
+import type { SettingsTab } from "@/app/SettingsSheet";
 
 interface Props {
   sessions: SessionView[];
@@ -31,18 +32,13 @@ interface Props {
   view: AppView;
   onView: (v: AppView) => void;
   onSelect: (id: string) => void;
-  onSettings: (tab?: string) => void;
+  onSettings: (tab?: SettingsTab) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   now: number;
 }
 
-const TIME_OPTIONS: Array<{ id: TimeMode; label: string; Icon: typeof Sun }> = [
-  { id: "auto", label: "Follow my clock", Icon: Clock3 },
-  { id: "dawn", label: "Dawn", Icon: Sunrise },
-  { id: "day", label: "Day", Icon: Sun },
-  { id: "dusk", label: "Dusk", Icon: Sunset },
-  { id: "night", label: "Night", Icon: Moon },
-];
+const TIME_ICONS: Record<TimeMode, typeof Sun> = { auto: Clock3, dawn: Sunrise, day: Sun, dusk: Sunset, night: Moon };
+const TIME_OPTIONS = TIME_CHOICES.map((c) => ({ ...c, Icon: TIME_ICONS[c.id] }));
 
 export default function TopBar(p: Props) {
   const waiting = p.sessions.filter((s) => s.status === "waiting").sort(waitingOrder);

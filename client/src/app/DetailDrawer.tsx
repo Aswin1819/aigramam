@@ -5,7 +5,7 @@ import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { CharacterInfo } from "@shared/character";
 import Avatar from "@/components/Avatar";
 import { STATUS_META, clockTime, elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
-import type { CommandOutcome } from "@/hooks/useLiveSessions";
+import type { Command } from "@/hooks/useLiveSessions";
 import SessionControls from "./SessionControls";
 import ChatPanel from "./ChatPanel";
 import SubagentsPanel from "./SubagentsPanel";
@@ -28,7 +28,7 @@ interface Props {
   onSetupAlerts: () => void;
   onSetupLink: () => void;
   demo: boolean;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   /** Show a managed terminal (Workspace → Terminals) by id. */
   onOpenTerminal?: (terminalId: string) => void;
 }

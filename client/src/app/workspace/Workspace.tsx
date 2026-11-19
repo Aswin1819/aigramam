@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { motion } from "motion/react";
 import { Crosshair, FolderGit2, History, Map as MapIcon, TerminalSquare, Users } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
-import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
+import type { AppMode, Command } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
 import type { WorkspacePage } from "../useDisplayPrefs";
 import FocusPage from "./FocusPage";
@@ -15,6 +15,7 @@ import HistoryPage from "./HistoryPage";
 import type { TerminalsApi } from "@/hooks/useTerminals";
 import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
+import type { SettingsTab } from "@/app/SettingsSheet";
 
 // three.js is only loaded when the Map is opened.
 const Map3DPage = lazy(() => import("./map3d/Map3DPage"));
@@ -33,7 +34,7 @@ interface Props {
   selectedProjectId: string | null;
   onSelectProject: (id: string | null) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
-  onSettings: (tab?: string) => void;
+  onSettings: (tab?: SettingsTab) => void;
   /** Managed terminals (kept in Home so the list survives switching views). */
   terminals: TerminalsApi;
   /** Start a terminal in a project's folder (optionally running Claude Code) and show it on the Terminals page. */
@@ -41,7 +42,7 @@ interface Props {
   /** Focus page: characters for the faces, the streamed conversation, commands, and the focused session. */
   cast: Cast;
   chat: { sessionId: string; items: ChatItem[] } | null;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   focusId: string | null;
   onFocus: (id: string | null) => void;
   onOpenDetails: (id: string) => void;

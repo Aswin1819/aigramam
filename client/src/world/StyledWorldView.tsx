@@ -84,7 +84,6 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
       follow.current = null;
       target.current = { x: target.current.x, y: 0, z: fitZ(lastFrame.current?.worldW ?? 640) };
     },
-    startRain: () => {},
   }));
 
   useEffect(() => {
