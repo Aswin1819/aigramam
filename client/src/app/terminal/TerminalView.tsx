@@ -80,6 +80,12 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
     // Ctrl+V / Ctrl+Shift+V paste and Ctrl+C with a selection copy go to the browser
     // (xterm then reads the paste event and sends it through onData).
     term.attachCustomKeyEventHandler((e) => {
+      // Ctrl+] leaves the terminal (Tab and Esc belong to the shell): focus goes back to this terminal's tab.
+      if (e.type === "keydown" && e.ctrlKey && !e.altKey && e.key === "]") {
+        term.blur();
+        document.querySelector<HTMLElement>('[role="tablist"][aria-label="Open terminals"] [role="tab"][aria-selected="true"]')?.focus();
+        return false;
+      }
       if (e.type !== "keydown" || !e.ctrlKey || e.altKey) return true;
       const k = e.key.toLowerCase();
       if (k === "v") return false;
@@ -171,7 +177,7 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
           <FolderOpen size={12} className="shrink-0" />
           <span className="truncate">{info.cwd}</span>
         </span>
-        <span className="text-cream/45">{info.started === "claude" ? `${info.shell} · claude` : info.shell}</span>
+        <span className="text-cream/60">{info.started === "claude" ? `${info.shell} · claude` : info.shell}</span>
         <span className={`flex items-center gap-1 ${running ? "text-work" : info.exitCode ? "text-urgent" : "text-cream/60"}`}>
           <span className={`h-2 w-2 rounded-full ${running ? "bg-work" : info.exitCode ? "bg-urgent" : "bg-idle"}`} />
           {terminalStatusText(info)}
@@ -194,6 +200,9 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
             <Loader2 size={12} className="animate-spin" /> Starting Claude…
           </span>
         )}
+        <span className="text-[11px] text-cream/60">
+          <kbd className="kbd">Ctrl</kbd> + <kbd className="kbd">]</kbd> leaves the terminal
+        </span>
         <span className="ml-auto flex items-center gap-1">
           <button onClick={() => termRef.current?.clear()} className="flex items-center gap-1 rounded-lg px-2 py-1 text-cream/70 hover:bg-white/10 hover:text-cream" title="Clear the screen here (the shell isn't affected)">
             <Eraser size={13} /> Clear

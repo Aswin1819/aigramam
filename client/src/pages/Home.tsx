@@ -133,7 +133,9 @@ export default function Home() {
   // Esc closes the drawer / resets the camera.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !settings && !skillsOpen) close();
+      // Esc typed in a terminal is for the shell (it interrupts Claude), not for closing panels.
+      const inTerminal = e.target instanceof HTMLElement && !!e.target.closest(".xterm");
+      if (e.key === "Escape" && !settings && !skillsOpen && !inTerminal) close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
