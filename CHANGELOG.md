@@ -19,6 +19,7 @@ The app and the mod have separate version numbers. The app's version is in `pack
 - "Reduce motion" in Settings now stills every animation (including the bell, bubbles and pulses), and until you choose it the app follows your system setting as it changes.
 - Settings and the Ctrl+K finder close with Esc, keep Tab inside, and give focus back to where it was. The village guide closes with Esc.
 - Text boxes and filters show a focus ring.
+- Tab bars (Workspace pages, session details, terminals) work like standard tabs: ←/→, Home and End move between them, Tab enters the content, and each tab is linked to its panel. The Focus queue is a list of buttons (the selected one is marked current) with Approve/Deny beside it, not inside it. ↑/↓/j/k in Focus no longer act while a dialog or menu is open, in a terminal, or when ↑/↓ scroll the chat. The chat is a log, so screen readers announce new messages only.
 - Labels of villagers outside the view no longer pile up at the screen edge. Picking another art style clears an error from the previous one. Switching to Live no longer pops toasts and sounds for requests that were already open.
 - The chat no longer re-measures every message each second, and message text is rendered once.
 

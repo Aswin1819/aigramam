@@ -130,11 +130,12 @@ export default function ChatPanel({ session: s, character, items, request, foote
         }}
         className="relative min-h-0 flex-1 overflow-y-auto px-3 py-3"
         aria-label={`Conversation with ${s.title}`}
-        aria-live="polite"
+        role="log"
+        aria-relevant="additions"
       >
-        {items === null && <p className="py-6 text-center text-[12px] text-cream/45">Loading the conversation…</p>}
+        {items === null && <p className="py-6 text-center text-[12px] text-cream/60">Loading the conversation…</p>}
         {items !== null && items.length === 0 && (
-          <p className="py-6 text-center text-[12px] leading-relaxed text-cream/45">
+          <p className="py-6 text-center text-[12px] leading-relaxed text-cream/60">
             No messages seen yet.
             <br />
             New messages show up here as they happen.

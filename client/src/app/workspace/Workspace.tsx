@@ -16,6 +16,7 @@ import type { TerminalsApi } from "@/hooks/useTerminals";
 import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
 import type { SettingsTab } from "@/app/SettingsSheet";
+import { useTabs } from "@/hooks/useTabs";
 
 // three.js is only loaded when the Map is opened.
 const Map3DPage = lazy(() => import("./map3d/Map3DPage"));
@@ -58,17 +59,19 @@ const PAGES: Array<[WorkspacePage, string, typeof Crosshair]> = [
   ["terminals", "Terminals", TerminalSquare],
   ["history", "History", History],
 ];
+const PAGE_IDS = PAGES.map(([id]) => id);
 
 /** Workspace Mode: the practical side of Ai Gramam, on the same live data as the village. */
 export default function Workspace(p: Props) {
   const urgent = p.sessions.filter(isUrgent).length;
   const liveTerminals = p.mode === "demo" ? 0 : p.terminals.terminals.length;
+  const tabs = useTabs(PAGE_IDS, p.page, p.onPage);
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(ellipse_at_top,#173129,#0b1411_60%)] pb-6 pt-[76px]">
       <div className={`mx-auto px-4 ${p.page === "map" ? "max-w-[1680px]" : "max-w-[1280px]"}`}>
-        <nav className="mb-3 flex gap-1" role="tablist" aria-label="Workspace pages">
+        <nav className="mb-3 flex gap-1" {...tabs.list} aria-label="Workspace pages">
           {PAGES.map(([id, label, Icon]) => (
-            <button key={id} role="tab" aria-selected={p.page === id} onClick={() => p.onPage(id)} className="relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]">
+            <button key={id} {...tabs.tab(id)} onClick={() => p.onPage(id)} className="relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]">
               {p.page === id && <motion.span layoutId="workspace-tab" className="absolute inset-0 -z-0 rounded-xl bg-white/10 ring-1 ring-white/10" />}
               <Icon size={15} className={`relative ${p.page === id ? "text-brass" : "text-cream/50"}`} />
               <span className={`relative ${p.page === id ? "font-semibold text-cream" : "text-cream/65"}`}>{label}</span>
@@ -77,6 +80,8 @@ export default function Workspace(p: Props) {
             </button>
           ))}
         </nav>
+
+        <div {...tabs.panel}>
 
         {p.page === "overview" && (
           <FocusPage
@@ -140,6 +145,7 @@ export default function Workspace(p: Props) {
         {p.page === "agents" && (
           <AgentsPage connected={p.mode !== "live" || p.connected} sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}
+        </div>
       </div>
     </div>
   );

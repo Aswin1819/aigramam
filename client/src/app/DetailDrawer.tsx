@@ -12,6 +12,7 @@ import SubagentsPanel from "./SubagentsPanel";
 import ChangesPanel from "./ChangesPanel";
 import RequestCard from "./RequestCard";
 import CharacterPicker from "./CharacterPicker";
+import { useTabs } from "@/hooks/useTabs";
 
 interface Props {
   session: SessionView;
@@ -40,6 +41,7 @@ const TABS: ReadonlyArray<readonly [DrawerTab, string, typeof MessageSquare]> = 
   ["changes", "Changes", GitCompare],
   ["details", "Details", ListTree],
 ];
+const TAB_IDS = TABS.map(([id]) => id);
 
 function Meta({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
@@ -54,6 +56,7 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 /** Slide-in panel for one session: its conversation (Chat) and everything else (Details). */
 export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command, onOpenTerminal }: Props) {
   const [tab, setTab] = useState<DrawerTab>("chat");
+  const tabs = useTabs(TAB_IDS, tab, setTab);
   const runningSubagents = s.subagents.filter((a) => a.status !== "finished").length;
   const color = statusColor(s);
   const urgent = isUrgent(s);
@@ -94,9 +97,9 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
             <button onClick={onFocus} className="grid h-7 w-7 place-items-center rounded-lg text-cream/60 hover:bg-white/10 hover:text-cream" aria-label="Find in the world" title="Find in the world"><Crosshair size={15} /></button>
           </div>
         </div>
-        <div className="relative mt-2 flex gap-1" role="tablist">
+        <div className="relative mt-2 flex gap-1" {...tabs.list} aria-label="Session details">
           {TABS.map(([id, label, Icon]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className="relative flex items-center gap-1.5 px-3 py-2 text-[12.5px]">
+            <button key={id} {...tabs.tab(id)} onClick={() => setTab(id)} className="relative flex items-center gap-1.5 px-3 py-2 text-[12.5px]">
               {tab === id && <motion.span layoutId="drawer-tab" className="absolute inset-x-1 bottom-0 h-[2px] rounded-full bg-brass" />}
               <Icon size={14} className={tab === id ? "text-brass" : "text-cream/45"} />
               <span className={tab === id ? "font-semibold text-cream" : "text-cream/60"}>{label}</span>
@@ -106,6 +109,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
         </div>
       </div>
 
+      <div {...tabs.panel} className="flex min-h-0 flex-1 flex-col">
       <AnimatePresence mode="wait" initial={false}>
         {tab === "chat" ? (
           <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="flex min-h-0 flex-1 flex-col">
@@ -199,6 +203,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.aside>
   );
 }

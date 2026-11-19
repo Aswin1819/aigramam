@@ -7,6 +7,7 @@ import type { TerminalsApi } from "@/hooks/useTerminals";
 import TerminalView from "../terminal/TerminalView";
 import { resolveActive, terminalBlockedReason, terminalStatusText } from "../terminal/terminalState";
 import { projectSummaries } from "./attention";
+import { useTabs } from "@/hooks/useTabs";
 
 interface Props {
   api: TerminalsApi;
@@ -34,6 +35,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
   // Demo tabs never see the live terminal list.
   const terminals = mode === "demo" ? [] : api.terminals;
   const active = resolveActive(terminals, api.activeId);
+  const tabs = useTabs(terminals.map((x) => x.id), active?.id ?? "", (id) => api.setActiveId(id));
   const blocked = terminalBlockedReason(mode, connected, terminals.length) ?? (withSessions.length ? null : "No project has an open Claude Code session, so there's no folder to start in.");
 
   useEffect(() => {
@@ -62,13 +64,13 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
   return (
     <div className="flex min-h-[360px] flex-col gap-2" style={{ height: "calc(100vh - 152px)" }}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="flex min-w-0 flex-1 flex-wrap gap-1" role="tablist" aria-label="Open terminals">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1" {...tabs.list} aria-label="Open terminals">
           {terminals.map((t) => {
             const on = t.id === active?.id;
             const dot = t.status === "running" ? "bg-work" : t.exitCode ? "bg-urgent" : "bg-idle";
             return (
               <div key={t.id} className={`flex items-center rounded-xl border text-[12.5px] ${on ? "border-brass/60 bg-brass/10" : "border-white/8 bg-black/20 hover:bg-white/5"}`}>
-                <button role="tab" aria-selected={on} onClick={() => api.setActiveId(t.id)} className="flex max-w-[220px] items-center gap-1.5 py-1 pl-2.5 pr-1" title={`${t.projectName} · ${t.cwd} · ${terminalStatusText(t)}`}>
+                <button {...tabs.tab(t.id)} onClick={() => api.setActiveId(t.id)} className="flex max-w-[220px] items-center gap-1.5 py-1 pl-2.5 pr-1" title={`${t.projectName} · ${t.cwd} · ${terminalStatusText(t)}`}>
                   <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} aria-hidden />
                   <span className={`truncate ${on ? "font-semibold text-cream" : "text-cream/75"}`}>{t.projectName}</span>
                   {(t.started === "claude" || t.sessionIds?.length > 0) && (
@@ -141,7 +143,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
         </div>
       )}
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1" {...(active ? tabs.panel : {})}>
         {active ? (
           <TerminalView
             key={active.id}

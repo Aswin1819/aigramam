@@ -60,7 +60,13 @@ export default function FocusPage(p: Props) {
       }
       const t = e.target;
       const typing = t instanceof HTMLElement && (/input|textarea|select/i.test(t.tagName) || t.isContentEditable);
-      if (typing || palette || e.altKey || e.ctrlKey || e.metaKey) return;
+      // Leave keys to whatever already handled them, to open dialogs and menus, the terminal, and the chat
+      // (↑/↓ scroll it); j/k still move the queue from the chat.
+      const elsewhere =
+        e.defaultPrevented ||
+        !!document.querySelector('[role="dialog"][aria-modal="true"], [role="menu"]') ||
+        (t instanceof HTMLElement && (!!t.closest(".xterm") || (e.key.startsWith("Arrow") && !!t.closest('[role="log"], [aria-live]'))));
+      if (typing || elsewhere || palette || e.altKey || e.ctrlKey || e.metaKey) return;
       if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); onFocus(step(queue, current?.id ?? null, 1)); }
       if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); onFocus(step(queue, current?.id ?? null, -1)); }
     };
@@ -114,7 +120,7 @@ export default function FocusPage(p: Props) {
             <button onClick={() => setPalette(true)} className="m-2 flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-left text-[13px] text-cream/55 hover:bg-white/5">
               <Search size={14} /> Find a session or project <kbd className="ml-auto rounded bg-white/10 px-1.5 text-[11px]">Ctrl K</kbd>
             </button>
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" role="listbox" aria-label="Sessions, most in need of you first">
+            <ul className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" aria-label="Sessions, most in need of you first">
               {queue.map((s) => {
                 const tone = plainStatus(s, p.now).tone;
                 const head = GROUP_TITLE[tone];
@@ -123,32 +129,30 @@ export default function FocusPage(p: Props) {
                 const on = current?.id === s.id;
                 const ask = s.link?.approval;
                 return (
-                  <div key={s.id}>
+                  <li key={s.id}>
                     {showHead && <div className={`px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] ${TONE_TEXT[tone]}`}>{head}</div>}
                     <div
                       id={`focus-row-${s.id}`}
-                      role="option"
-                      aria-selected={on}
-                      tabIndex={-1}
-                      onClick={() => p.onFocus(s.id)}
-                      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl p-2 text-left ${on ? "bg-brass/15 ring-1 ring-brass/60" : "hover:bg-white/5"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-xl p-2 ${on ? "bg-brass/15 ring-1 ring-brass/60" : "hover:bg-white/5"}`}
                     >
+                      <button onClick={() => p.onFocus(s.id)} aria-current={on ? "true" : undefined} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg text-left">
                       <Face c={p.cast} s={s} now={p.now} size={38} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-semibold text-cream">{s.title}</span>
                         <span className="block truncate text-[11.5px] text-cream/55">{projectName(s)} · {plainStatus(s, p.now).detail}</span>
                       </span>
+                      </button>
                       {ask && !ask.questions && !demo && (
-                        <span className="flex shrink-0 flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                        <span className="flex shrink-0 flex-col gap-1">
                           <button onClick={() => p.onDecide(ask.id, "allow")} className="rounded-md bg-work px-2 py-0.5 text-[11px] font-semibold text-ink hover:brightness-110">Approve</button>
                           <button onClick={() => p.onDecide(ask.id, "deny")} className="rounded-md border border-white/20 px-2 py-0.5 text-[11px] text-cream hover:bg-white/10">Deny</button>
                         </span>
                       )}
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
             <p className="border-t border-white/8 px-3 py-1.5 text-[11px] text-cream/60">↑ ↓ or j k to move · Ctrl K to find</p>
           </div>
 
