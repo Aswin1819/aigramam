@@ -44,7 +44,7 @@ export default function SessionDock(p: Props) {
           <Users size={15} className="text-brass" />
           <span className="text-sm font-semibold text-cream">Sessions</span>
           <span className="chip bg-white/8 text-cream/70">{p.sessions.length}</span>
-          {p.projects.length > 0 && <span className="text-[11px] text-cream/50">in {groups.length} project{groups.length === 1 ? "" : "s"}</span>}
+          {p.projects.length > 0 && <span className="text-[11px] text-cream/60">in {groups.length} project{groups.length === 1 ? "" : "s"}</span>}
         </span>
         <motion.span animate={{ rotate: p.open ? 0 : 180 }}><ChevronDown size={16} className="text-cream/60" /></motion.span>
       </button>
@@ -62,7 +62,7 @@ export default function SessionDock(p: Props) {
             {p.sessions.length === 0 && <p className="whitespace-pre-line px-4 py-5 text-center text-xs leading-relaxed text-cream/55">{p.emptyHint}</p>}
             {groups.map(({ proj, list }) => (
               <section key={proj.id} aria-label={`Project ${proj.name}`} className="pb-1">
-                <h3 className="sticky top-0 z-10 flex items-center justify-between bg-[#12211d]/95 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90 backdrop-blur" title={proj.root}>
+                <h3 className="sticky top-0 z-10 flex items-center justify-between bg-[#12211d]/95 px-3.5 py-1.5 section-title backdrop-blur" title={proj.root}>
                   <span className="truncate">{proj.name}</span>
                   <span className="text-cream/40">{list.length}</span>
                 </h3>
@@ -90,14 +90,14 @@ export default function SessionDock(p: Props) {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <span className="truncate text-[13px] font-semibold text-cream">{s.title}</span>
-                            <span className="shrink-0 text-[10.5px] tabular-nums text-cream/45">{elapsed(s.statusSince, p.now)}</span>
+                            <span className="shrink-0 text-[10.5px] tabular-nums text-cream/60">{elapsed(s.statusSince, p.now)}</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-[11.5px]">
                             <span className="shrink-0 font-semibold" style={{ color }}>{statusText(s)}</span>
                             {s.action && <span className="truncate text-cream/65">· {s.action.label}</span>}
                           </div>
                           {(s.gitBranch || s.subagents.some((a) => a.status !== "finished") || s.maybeNeedsApproval) && (
-                            <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-cream/50">
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-cream/60">
                               {s.gitBranch && <span className="flex min-w-0 items-center gap-0.5 truncate"><GitBranch size={11} />{s.gitBranch}</span>}
                               {s.subagents.some((a) => a.status !== "finished") && <span className="text-sky-300">🤝 {s.subagents.filter((a) => a.status !== "finished").length}</span>}
                               {s.maybeNeedsApproval && <span className="text-wait">⏳ may need approval</span>}

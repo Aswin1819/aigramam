@@ -28,7 +28,7 @@ export default function CharacterPicker({ projectName, cast, chosenId, onChoose 
 
   return (
     <div>
-      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Character</h3>
+      <h3 className="mb-1 section-title">Character</h3>
       <p className="mb-2 text-[11.5px] text-cream/55">
         Every session in <span className="text-cream/85">{projectName}</span> appears as this character, in every world and art style.
       </p>
@@ -50,7 +50,7 @@ export default function CharacterPicker({ projectName, cast, chosenId, onChoose 
           ),
         )}
       </div>
-      {cast.length === 0 && <p className="text-[11.5px] text-cream/50">No character packs are installed.</p>}
+      {cast.length === 0 && <p className="text-[11.5px] text-cream/60">No character packs are installed.</p>}
     </div>
   );
 }

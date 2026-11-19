@@ -77,7 +77,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
                     </span>
                   )}
                   <span className="sr-only">{terminalStatusText(t)}</span>
-                  {t.status === "exited" && <span className="shrink-0 text-[11px] text-cream/45">exited</span>}
+                  {t.status === "exited" && <span className="shrink-0 text-[11px] text-cream/60">exited</span>}
                 </button>
                 <button
                   onClick={() => {
@@ -95,7 +95,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
           })}
         </div>
 
-        <span className="text-[11px] text-cream/45">{terminals.length} of {TERMINAL_LIMITS.maxOpen} open</span>
+        <span className="text-[11px] text-cream/60">{terminals.length} of {TERMINAL_LIMITS.maxOpen} open</span>
         <div ref={pickerRef} className="relative">
           <button
             onClick={() => setPicker((v) => !v)}
@@ -109,12 +109,12 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
           </button>
           {picker && (
             <div role="menu" aria-label="Choose a project folder" className="glass-strong absolute right-0 top-[calc(100%+6px)] z-30 w-[380px] max-w-[calc(100vw-32px)] rounded-xl p-1.5">
-              <p className="px-2 pb-1 pt-0.5 text-[11px] text-cream/50">Start in the folder of:</p>
+              <p className="px-2 pb-1 pt-0.5 text-[11px] text-cream/60">Start in the folder of:</p>
               <div className="max-h-[300px] overflow-y-auto">
                 {withSessions.map((pr) => (
                   <div key={pr.id} className="rounded-lg px-2 py-1.5 hover:bg-white/5">
                     <div className="truncate text-[13px] font-semibold text-cream">{pr.name}</div>
-                    <div className="truncate font-mono text-[11px] text-cream/50">{pr.root}</div>
+                    <div className="truncate font-mono text-[11px] text-cream/60">{pr.root}</div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <button role="menuitem" onClick={() => start(pr.id)} title={`Start ${api.shellName} in ${pr.root}`} className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 px-2 py-0.5 text-[12px] text-cream/85 hover:bg-white/10">
                         <TerminalSquare size={12} className="text-brass" /> {api.shellName}

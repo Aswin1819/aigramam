@@ -114,7 +114,7 @@ function AlertsTab({ lastHookAt }: { lastHookAt?: number }) {
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {(["before", "after"] as const).map((k) => (
                 <div key={k}>
-                  <div className="mb-1 text-[11px] text-cream/50">{k === "before" ? "Now" : "After"}</div>
+                  <div className="mb-1 text-[11px] text-cream/60">{k === "before" ? "Now" : "After"}</div>
                   <pre className="max-h-56 overflow-auto rounded-xl bg-black/40 p-2 font-mono text-[10px] text-cream/80">{preview.data![k] || "(file doesn't exist yet)"}</pre>
                 </div>
               ))}
@@ -261,7 +261,7 @@ export default function SettingsSheet(p: Props) {
                           <div className="font-semibold">{c.name}</div>
                           <div className="text-xs capitalize text-brass/90">{c.role}</div>
                           <div className="text-xs text-cream/55">by {c.author} · {c.license}</div>
-                          <div className="text-[11px] text-cream/40">{c.source === "builtin" ? "built in" : "your folder"}</div>
+                          <div className="text-[11px] text-cream/60">{c.source === "builtin" ? "built in" : "your folder"}</div>
                         </div>
                       </div>
                     ))}

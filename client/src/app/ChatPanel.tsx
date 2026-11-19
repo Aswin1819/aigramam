@@ -70,12 +70,12 @@ function ToolLine({ t, working }: { t: ChatItem; working: boolean }) {
               <pre className={`max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-black/30 p-2 font-mono text-[10.5px] leading-snug ${t.isError ? "border-red-400/40 text-red-200/90" : "border-white/10 text-cream/70"}`}>
                 {t.output}
               </pre>
-              {t.outputClipped && <div className="text-[10px] text-cream/40">Output clipped to the last {t.output.length.toLocaleString()} characters</div>}
+              {t.outputClipped && <div className="text-[10px] text-cream/60">Output clipped to the last {t.output.length.toLocaleString()} characters</div>}
             </>
           ) : ended ? (
-            <div className="text-[10.5px] italic text-cream/40">No output captured</div>
+            <div className="text-[10.5px] italic text-cream/60">No output captured</div>
           ) : null}
-          <div className="text-[10px] text-cream/35">
+          <div className="text-[10px] text-cream/60">
             Started {clockTime(t.at)}
             {ended ? ` · ended ${clockTime(t.endedAt!)} · took ${duration(t.endedAt! - t.at)}` : running ? " · still running" : " · no result recorded"}
           </div>
@@ -91,7 +91,7 @@ function ToolGroup({ items, working }: { items: ChatItem[]; working: boolean }) 
   return (
     <div className="my-1 ml-9 space-y-0.5 border-l border-white/10 pl-3">
       {!open && items.length > 3 && (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-cream/45 hover:text-cream/75">
+        <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-cream/60 hover:text-cream/75">
           <ChevronRight size={12} /> {items.length - 2} earlier steps
         </button>
       )}
@@ -141,7 +141,7 @@ export default function ChatPanel({ session: s, character, items, request, foote
           </p>
         )}
         {items !== null && items.length > 0 && (
-          <p className="mb-2 text-center text-[10.5px] text-cream/30">Showing the latest {count} messages and steps from this session</p>
+          <p className="mb-2 text-center text-[10.5px] text-cream/60">Showing the latest {count} messages and steps from this session</p>
         )}
         <AnimatePresence initial={false}>
           {rows.map((row) =>
@@ -194,7 +194,7 @@ export default function ChatPanel({ session: s, character, items, request, foote
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             onClick={() => setAtBottom(true)}
-            className="mx-auto -mt-10 mb-2 flex items-center gap-1 rounded-full border border-white/15 bg-[#13221e]/95 px-3 py-1 text-[11.5px] text-cream shadow-lg"
+            className="mx-auto -mt-10 mb-2 flex items-center gap-1 rounded-full border border-white/15 bg-card/95 px-3 py-1 text-[11.5px] text-cream shadow-lg"
           >
             <ArrowDown size={13} /> Jump to latest
           </motion.button>

@@ -28,7 +28,7 @@ export default function NoticeBoard(p: Props) {
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="pointer-events-auto absolute right-3 top-[68px] z-20 w-[300px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-[#6b4a22] bg-[linear-gradient(160deg,#4a331a,#36240f)] text-cream shadow-[0_10px_30px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,220,160,0.15)]"
+      className="pointer-events-auto absolute right-3 top-[68px] z-20 w-[300px] max-w-[calc(100vw-24px)] overflow-hidden woodboard rounded-2xl text-cream"
       aria-label="Village notice board"
     >
       <button onClick={p.onToggle} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-white/5" aria-expanded={p.open}>

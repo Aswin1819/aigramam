@@ -28,7 +28,7 @@ export default function ProjectDrawer({ summary, now, selectedSessionId, onSelec
       aria-label="Project details"
     >
       <div className="flex items-center gap-1 border-b border-white/8 px-3 py-2">
-        <span className="flex-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Project</span>
+        <span className="flex-1 section-title">Project</span>
         <button onClick={onOpenInWorkspace} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] text-cream/70 hover:bg-white/10 hover:text-cream" title="Open in Workspace → Projects">
           <LayoutDashboard size={14} /> Open in Workspace
         </button>

@@ -65,7 +65,7 @@ export default function SessionControls({ session: s, demo, command, onSetupLink
           className="w-full resize-none bg-transparent px-1.5 py-1 text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35"
         />
         <div className="flex items-center gap-2">
-          <span className="px-1 text-[10.5px] text-cream/40">
+          <span className="px-1 text-[10.5px] text-cream/60">
             {s.link?.queued ? `${s.link.queued} waiting to send` : "Ctrl+Enter to send · sent as your own message"}
           </span>
           <span className="ml-auto" />

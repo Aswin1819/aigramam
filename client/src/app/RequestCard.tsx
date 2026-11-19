@@ -141,7 +141,7 @@ function QuestionForm({ questions, since, now, busy, onAnswer, onSkip }: FormPro
                   className="rounded-xl border border-white/12 bg-black/25 px-2.5 py-1.5 text-[12px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35 focus:border-wait/60"
                 />
               </div>
-              {q.multiSelect && <p className="mt-1 text-[10.5px] text-cream/40">Pick any that apply.</p>}
+              {q.multiSelect && <p className="mt-1 text-[10.5px] text-cream/60">Pick any that apply.</p>}
             </fieldset>
           );
         })}

@@ -30,7 +30,7 @@ export default function VillageLegend({ world, onClose }: { world: WorldInfo | n
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16 }}
-      className="pointer-events-auto absolute bottom-20 left-1/2 z-30 w-[min(640px,94vw)] -translate-x-1/2 rounded-2xl border border-[#6b4a22] bg-[linear-gradient(160deg,#3d2a15,#2a1c0d)] p-4 text-cream shadow-2xl"
+      className="pointer-events-auto absolute bottom-20 left-1/2 z-30 w-[min(640px,94vw)] -translate-x-1/2 woodboard rounded-2xl p-4 text-cream"
     >
       <button onClick={onClose} className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-lg text-cream/60 hover:bg-white/10" aria-label="Close"><X size={15} /></button>
       <h2 className="font-display text-[16px] font-bold">How to read the village</h2>

@@ -33,7 +33,7 @@ export default function ProjectsPage(p: Props) {
           <Search size={14} className="text-cream/45" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects, folders, branches…" aria-label="Search projects" className="w-full bg-transparent text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35" />
         </label>
-        <p className="mb-2 mt-2 text-[11px] text-cream/45">{list.length} of {all.length} projects with an open session</p>
+        <p className="mb-2 mt-2 text-[11px] text-cream/60">{list.length} of {all.length} projects with an open session</p>
         <div className="space-y-1.5">
           {list.map((pr) => (
             <button
@@ -47,7 +47,7 @@ export default function ProjectsPage(p: Props) {
                 {pr.needsYou > 0 && <span className="chip bg-urgent text-ink">{pr.needsYou} needs you</span>}
                 {pr.errors > 0 && <span className="chip bg-urgent/20 text-urgent">{pr.errors} error</span>}
               </div>
-              <div className="mt-0.5 flex gap-3 text-[11px] text-cream/50">
+              <div className="mt-0.5 flex gap-3 text-[11px] text-cream/60">
                 <span>{pr.sessions.length} session{pr.sessions.length > 1 ? "s" : ""}</span>
                 {pr.working > 0 && <span className="text-work">{pr.working} working</span>}
                 <span className="ml-auto">{elapsed(pr.lastActivityAt, p.now)} ago</span>

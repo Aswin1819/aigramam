@@ -25,7 +25,7 @@ export default function ProjectShortcuts({ projectId, demo }: { projectId: strin
 
   return (
     <div className="mt-3">
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Open folder in</div>
+      <div className="mb-1.5 section-title">Open folder in</div>
       <div className="flex flex-wrap gap-1.5">
         {APPS.map(({ id, label: fallback, Icon }) => {
           const label = labelOf(id, fallback);
@@ -41,7 +41,7 @@ export default function ProjectShortcuts({ projectId, demo }: { projectId: strin
               className="flex items-center gap-1.5 rounded-lg border border-white/12 px-2.5 py-1 text-[12px] text-cream/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Icon size={13} /> {label}
-              {missing && <span className="text-[10.5px] text-cream/45">(not installed)</span>}
+              {missing && <span className="text-[10.5px] text-cream/60">(not installed)</span>}
             </button>
           );
         })}

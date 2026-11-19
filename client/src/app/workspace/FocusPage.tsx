@@ -149,7 +149,7 @@ export default function FocusPage(p: Props) {
                 );
               })}
             </div>
-            <p className="border-t border-white/8 px-3 py-1.5 text-[11px] text-cream/45">↑ ↓ or j k to move · Ctrl K to find</p>
+            <p className="border-t border-white/8 px-3 py-1.5 text-[11px] text-cream/60">↑ ↓ or j k to move · Ctrl K to find</p>
           </div>
 
           <div className="glass flex min-h-0 flex-col overflow-hidden rounded-2xl">
@@ -215,7 +215,7 @@ function Palette({ sessions, projects, projectName, onFocus, onProject, onClose 
   };
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={dialog} role="dialog" aria-modal="true" aria-label="Find a session or project" className="w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/15 bg-[#13221e] shadow-2xl">
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label="Find a session or project" className="w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/15 bg-card shadow-2xl">
         <input
           autoFocus
           value={q}
@@ -236,7 +236,7 @@ function Palette({ sessions, projects, projectName, onFocus, onProject, onClose 
                 <span className="w-14 shrink-0 text-[10.5px] uppercase tracking-wider text-brass">{x.kind}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] text-cream">{x.label}</span>
-                  <span className="block truncate text-[11.5px] text-cream/50">{x.sub}</span>
+                  <span className="block truncate text-[11.5px] text-cream/60">{x.sub}</span>
                 </span>
               </button>
             </li>

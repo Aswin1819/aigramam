@@ -126,7 +126,7 @@ function HistoryLive(p: Props) {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_440px]">
         <section className="glass rounded-2xl p-2" aria-label="Sessions">
-          <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">
+          <div className="px-2 pb-1.5 pt-1 section-title">
             Sessions <span className="tabular-nums text-cream/45">{sessions.length}</span>
           </div>
           <div className="space-y-1">
@@ -155,9 +155,9 @@ function DailySummary({ days, now }: { days: ReturnType<typeof dailyTotals>; now
   const maxActive = Math.max(1, ...days.map((d) => d.activeMs));
   return (
     <section className="glass overflow-x-auto rounded-2xl p-3" aria-label="Daily summary">
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Daily summary</div>
+      <div className="mb-1.5 section-title">Daily summary</div>
       <table className="w-full min-w-[620px] text-left text-[12.5px]">
-        <thead className="text-[11px] text-cream/50">
+        <thead className="text-[11px] text-cream/60">
           <tr>
             <th className="py-1 font-medium">Day</th>
             <th className="py-1 text-right font-medium">Sessions</th>
@@ -189,7 +189,7 @@ function DailySummary({ days, now }: { days: ReturnType<typeof dailyTotals>; now
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-[11px] text-cream/45">Active time counts the gaps between recorded events that were at most 5 minutes apart, so long silent waits aren&apos;t included. A session that spans several days counts on each.</p>
+      <p className="mt-2 text-[11px] text-cream/60">Active time counts the gaps between recorded events that were at most 5 minutes apart, so long silent waits aren&apos;t included. A session that spans several days counts on each.</p>
     </section>
   );
 }
@@ -222,7 +222,7 @@ function HistoryRow({ s, selected, onSelect }: { s: HistorySession; selected: bo
 function Fact({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div title={hint}>
-      <div className="text-[10.5px] uppercase tracking-[0.1em] text-cream/45">{label}</div>
+      <div className="text-[10.5px] uppercase tracking-[0.1em] text-cream/60">{label}</div>
       <div className="text-[13px] tabular-nums text-cream">{value}</div>
     </div>
   );
@@ -256,19 +256,19 @@ function SessionHistoryDetail({ s, live, onOpenLive }: { s: HistorySession; live
         </div>
         {s.usage ? (
           <div className="mt-3 rounded-xl bg-black/20 p-2.5 text-[12px] text-cream/75">
-            <div className="text-[10.5px] uppercase tracking-[0.1em] text-cream/45">Tokens reported by the API</div>
+            <div className="text-[10.5px] uppercase tracking-[0.1em] text-cream/60">Tokens reported by the API</div>
             <div className="mt-1 grid grid-cols-2 gap-x-3 tabular-nums">
               <span>Input {tokens(s.usage.input)}</span>
               <span>Output {tokens(s.usage.output)}</span>
               <span>Cache read {tokens(s.usage.cacheRead)}</span>
               <span>Cache write {tokens(s.usage.cacheWrite)}</span>
             </div>
-            <div className="mt-1 text-[11px] text-cream/45">
+            <div className="mt-1 text-[11px] text-cream/60">
               From {s.usage.responses} responses in the main conversation{s.subagents ? "; subagents' own usage isn't included" : ""}.{s.models.length ? ` Model: ${s.models.join(", ")}.` : ""} No cost is shown: it depends on your plan.
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-[11.5px] text-cream/45">This transcript has no token figures.</p>
+          <p className="mt-3 text-[11.5px] text-cream/60">This transcript has no token figures.</p>
         )}
         {s.topTools.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -288,9 +288,9 @@ function SessionHistoryDetail({ s, live, onOpenLive }: { s: HistorySession; live
       <div className="p-3" aria-label="Recorded timeline">
         {tl.isLoading && <p className="flex items-center gap-2 text-[12px] text-cream/60"><Loader2 size={14} className="animate-spin" /> Reading the transcript…</p>}
         {tl.error && <p className="text-[12px] text-urgent">Couldn&apos;t read the timeline: {tl.error.message}</p>}
-        {tl.data && tl.data.omitted > 0 && <p className="mb-2 text-[11px] text-cream/45">{tl.data.omitted} earlier events aren&apos;t shown; this is the start and the latest {tl.data.events.length - 1}.</p>}
+        {tl.data && tl.data.omitted > 0 && <p className="mb-2 text-[11px] text-cream/60">{tl.data.omitted} earlier events aren&apos;t shown; this is the start and the latest {tl.data.events.length - 1}.</p>}
         <Timeline events={events} />
-        {tl.data && <p className="mt-3 text-[11px] text-cream/40">Approval requests aren&apos;t written to transcripts, so they don&apos;t appear here.</p>}
+        {tl.data && <p className="mt-3 text-[11px] text-cream/60">Approval requests aren&apos;t written to transcripts, so they don&apos;t appear here.</p>}
       </div>
     </section>
   );
@@ -321,13 +321,13 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
         const { Icon, color } = KIND_META[e.kind];
         return (
           <li key={i}>
-            {header && <div className="mb-1 mt-2 text-[11px] font-semibold text-cream/50 first:mt-0">{new Date(e.at).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</div>}
+            {header && <div className="mb-1 mt-2 text-[11px] font-semibold text-cream/60 first:mt-0">{new Date(e.at).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</div>}
             <div className="flex gap-2 rounded-lg px-1 py-0.5 text-[12px]">
               <span className="w-[62px] shrink-0 whitespace-nowrap pt-px tabular-nums text-cream/40">{new Date(e.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
               <Icon size={13} className={`mt-0.5 shrink-0 ${color}`} aria-hidden />
               <div className="min-w-0 flex-1">
                 <span className={e.kind === "tool" ? "text-cream/70" : "text-cream"}>{e.text}</span>
-                {e.detail && <div className="truncate font-mono text-[11px] text-cream/45" title={e.detail}>{e.detail}</div>}
+                {e.detail && <div className="truncate font-mono text-[11px] text-cream/60" title={e.detail}>{e.detail}</div>}
               </div>
             </div>
           </li>

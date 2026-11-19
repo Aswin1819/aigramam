@@ -66,7 +66,7 @@ export default function ChangesPanel({ projectId, projectName }: Props) {
   return (
     <div className="text-[13px] text-cream">
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">
+        <h3 className="min-w-0 flex-1 truncate section-title">
           Changes{projectName ? ` · ${projectName}` : ""}
         </h3>
         <button
@@ -77,7 +77,7 @@ export default function ChangesPanel({ projectId, projectName }: Props) {
           <RefreshCw size={12} className={status.isFetching ? "animate-spin" : ""} /> Refresh
         </button>
       </div>
-      <p className="mb-3 text-[11px] text-cream/45">
+      <p className="mb-3 text-[11px] text-cream/60">
         Read-only. Shows the project folder's Git state, not only what this session changed (several sessions can share a folder).
       </p>
 
@@ -156,7 +156,7 @@ function RepoSummary({ data }: { data: { toplevel: string; branch: string | null
           <span className="text-cream/45">No commits yet</span>
         )}
       </div>
-      <div className="truncate font-mono text-[10.5px] text-cream/35" title="Repository folder">{data.toplevel}</div>
+      <div className="truncate font-mono text-[10.5px] text-cream/60" title="Repository folder">{data.toplevel}</div>
     </div>
   );
 }

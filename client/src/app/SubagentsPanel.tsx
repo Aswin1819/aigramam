@@ -25,7 +25,7 @@ export default function SubagentsPanel({ session: s, now }: Props) {
   const running = list.filter((a) => a.status !== "finished").length;
   return (
     <div className="p-4">
-      <p className="mb-2 text-[11.5px] text-cream/50">{running} running · {list.length - running} finished (only subagents seen while Ai Gramam was open)</p>
+      <p className="mb-2 text-[11.5px] text-cream/60">{running} running · {list.length - running} finished (only subagents seen while Ai Gramam was open)</p>
       <ul className="space-y-2">
         {list.map((a) => {
           const meta = STATUS_META[a.status];
@@ -40,7 +40,7 @@ export default function SubagentsPanel({ session: s, now }: Props) {
               {a.action && a.status !== "finished" && (
                 <div className="mt-1 text-[12.5px] text-cream/90"><span aria-hidden>{a.action.emoji}</span> {a.action.label}</div>
               )}
-              <div className="mt-1 flex flex-wrap gap-x-3 text-[10.5px] text-cream/40">
+              <div className="mt-1 flex flex-wrap gap-x-3 text-[10.5px] text-cream/60">
                 <span>started {clockTime(a.startedAt)}</span>
                 {end ? <span>ran {elapsed(a.startedAt, end)}</span> : <span>running for {elapsed(a.startedAt, now)}</span>}
                 {!end && <span>last activity {elapsed(a.lastActivityAt, now)} ago</span>}

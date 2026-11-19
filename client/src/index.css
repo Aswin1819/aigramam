@@ -153,6 +153,16 @@
   .kbd {
     @apply rounded border border-white/15 bg-white/5 px-1 font-mono text-[10px] text-cream/70;
   }
+  /** Small brass heading above a section of a panel (Activity, Sessions, Open folder in…). */
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90;
+  }
+  /** Wooden panel in the village (notice board, the guide): dark wood with a brass-brown edge. */
+  .woodboard {
+    border: 1px solid #6b4a22;
+    background: linear-gradient(160deg, #4a331a, #2a1c0d);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 220, 160, 0.15);
+  }
   /** Brass signboard over a project's location. */
   .signboard {
     background: linear-gradient(180deg, #3a2a17, #251a0e);

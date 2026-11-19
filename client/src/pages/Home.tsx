@@ -450,7 +450,7 @@ export default function Home() {
         </AnimatePresence>
         {skillsOpen && <SkillsManager onClose={() => setSkillsOpen(false)} projects={trackedProjects ?? []} />}
 
-        <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-[#13221e]/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
+        <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-card/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
       </div>
     </MotionConfig>
   );

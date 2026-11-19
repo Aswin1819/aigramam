@@ -45,7 +45,7 @@ export function ProjectRecent({ projectId, demo, liveIds, onSelectSession }: { p
   const scanning = list.data?.scanning;
   return (
     <section className="mt-4" aria-label="Recent history">
-      <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90"><History size={12} /> Recent history</h3>
+      <h3 className="mb-1.5 flex items-center gap-1.5 section-title"><History size={12} /> Recent history</h3>
       {list.isLoading || (scanning && sessions.length === 0) ? (
         <p className="text-[12px] text-cream/50">Reading transcripts{scanning ? ` (${scanning.done} of ${scanning.total})` : ""}…</p>
       ) : sessions.length === 0 ? (
@@ -60,7 +60,7 @@ export function ProjectRecent({ projectId, demo, liveIds, onSelectSession }: { p
                 <span className="block text-[11.5px] text-cream/60">
                   {dateTime(s.lastActivityAt)} · {plural(s.prompts, "message")} · {plural(s.toolCalls, "tool call")} · active {duration(s.activeMs)}
                 </span>
-                <span className="block text-[11px] text-cream/45">{live ? "Running now: open it" : LAST_EVENT_LABEL[s.lastEvent]}</span>
+                <span className="block text-[11px] text-cream/60">{live ? "Running now: open it" : LAST_EVENT_LABEL[s.lastEvent]}</span>
               </>
             );
             return (
@@ -75,7 +75,7 @@ export function ProjectRecent({ projectId, demo, liveIds, onSelectSession }: { p
           })}
         </ul>
       )}
-      <p className="mt-1.5 text-[11px] text-cream/40">From transcripts still on this computer; see Workspace → History for everything.</p>
+      <p className="mt-1.5 text-[11px] text-cream/60">From transcripts still on this computer; see Workspace → History for everything.</p>
     </section>
   );
 }

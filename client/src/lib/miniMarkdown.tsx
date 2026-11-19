@@ -49,7 +49,7 @@ function MiniMarkdown({ text }: { text: string }) {
       i++;
       blocks.push(
         <pre key={key++} className="my-1.5 overflow-x-auto rounded-lg border border-white/10 bg-black/45 p-2.5 font-mono text-[11.5px] leading-relaxed text-cream/90">
-          {fence[1] && <div className="mb-1 text-[10px] uppercase tracking-wider text-cream/35">{fence[1]}</div>}
+          {fence[1] && <div className="mb-1 text-[10px] uppercase tracking-wider text-cream/60">{fence[1]}</div>}
           <code>{code.join("\n")}</code>
         </pre>,
       );
