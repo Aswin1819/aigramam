@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { motion } from "motion/react";
 import { Crosshair, FolderGit2, History, Map as MapIcon, TerminalSquare, Users } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
@@ -5,7 +6,6 @@ import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
 import type { WorkspacePage } from "../useDisplayPrefs";
 import FocusPage from "./FocusPage";
-import MapPage from "./MapPage";
 import { emptyVillageText } from "./focus";
 import type { Cast } from "./VillageStrip";
 import ProjectsPage from "./ProjectsPage";
@@ -15,6 +15,9 @@ import HistoryPage from "./HistoryPage";
 import type { TerminalsApi } from "@/hooks/useTerminals";
 import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
+
+// three.js is only loaded when the Map is opened.
+const Map3DPage = lazy(() => import("./map3d/Map3DPage"));
 
 interface Props {
   page: WorkspacePage;
@@ -97,23 +100,26 @@ export default function Workspace(p: Props) {
           />
         )}
         {p.page === "map" && (
-          <MapPage
-            sessions={p.sessions}
-            projects={p.projects}
-            now={p.now}
-            cast={p.cast}
-            demo={p.mode === "demo"}
-            reducedMotion={p.reducedMotion}
-            emptyText={emptyVillageText(p.mode === "demo", p.connected)}
-            onFocus={(id) => {
-              p.onFocus(id);
-              p.onPage("overview");
-            }}
-            onOpenProject={(id) => {
-              p.onSelectProject(id);
-              p.onPage("projects");
-            }}
-          />
+          <Suspense fallback={<p className="py-10 text-center text-[13px] text-cream/60">Loading the map…</p>}>
+            <Map3DPage
+              sessions={p.sessions}
+              projects={p.projects}
+              now={p.now}
+              cast={p.cast}
+              demo={p.mode === "demo"}
+              reducedMotion={p.reducedMotion}
+              emptyText={emptyVillageText(p.mode === "demo", p.connected)}
+              source={p.hooksInstalled ? "transcripts + hooks" : "transcripts only"}
+              onFocus={(id) => {
+                p.onFocus(id);
+                p.onPage("overview");
+              }}
+              onOpenProject={(id) => {
+                p.onSelectProject(id);
+                p.onPage("projects");
+              }}
+            />
+          </Suspense>
         )}
         {p.page === "projects" && (
           <ProjectsPage

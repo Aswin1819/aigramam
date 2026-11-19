@@ -5,6 +5,10 @@ The app and the mod have separate version numbers. The app's version is in `pack
 ## Unreleased
 
 ### Map
+- **The Map is now 3D** (three.js, works offline): an isometric operations floor in a dark palette. Each project is a raised pod with a desk, a monitor showing what the session is doing, and a seated villager per session, around the village square with its banyan. Lamps over the villagers show their state (they pulse when a session needs you), and soft shadows and a warm key light give depth.
+- Click a project's card or pod to fly to it (the session board then shows only that project); "Overview" flies back. Click a villager to open it in Focus. Drag to move, wheel or +/− to zoom.
+- Cards find a spot beside their pod that covers the least; with more than four projects they show a short summary and open fully on hover. Name tags show only when they're legible and never overlap.
+- Without WebGL the Map falls back to the 2D version below.
 - **Workspace → Map** (`?page=map`): the whole village from above, laid out like an "agents office". Each project is a raised yard around the village square with its villagers at their desks. A card beside it says in words how many villagers it has, how many are working, waiting for your turn or resting, and which branches it's on. A "needs you" button opens the oldest request in Focus. Paths from the square flow toward yards with work going on and turn red when a yard needs you.
 - A **session status** board on the right lists every session by what it needs (All, Needs you, Your turn, Working, Resting). Clicking one opens it in Focus. The board can be hidden.
 - Zoom with the buttons or the mouse wheel, drag to move, and "Fit the village" to reset. The flowing paths stop when "Reduce motion" is on.

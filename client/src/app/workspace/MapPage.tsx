@@ -7,14 +7,14 @@
  * Layout is in villageMap.ts (pure, tested); this file only draws it.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronRight, GitBranch, LocateFixed, Minus, PanelRightClose, PanelRightOpen, Plus } from "lucide-react";
+import { ChevronRight, GitBranch, LocateFixed, Minus, PanelRightOpen, Plus } from "lucide-react";
 import type { ProjectView, SessionView } from "@shared/model";
 import Avatar from "@/components/Avatar";
-import { clockTime, elapsed } from "@/lib/status";
 import { projectSummaries } from "./attention";
 import { plainStatus, type Tone } from "./focus";
 import { TONE_BG, TONE_TEXT, characterOf, type Cast } from "./VillageStrip";
-import { BOARD_FILTERS, CARD, HUB, MAP_H, MAP_W, boardCounts, boardList, layoutMap, pathTo, tileFaces, type BoardFilter, type Box, type Yard } from "./villageMap";
+import { Board, MapButton, MapHeader, PANEL_W } from "./mapParts";
+import { CARD, HUB, MAP_H, MAP_W, layoutMap, pathTo, tileFaces, type BoardFilter, type Box, type Yard } from "./villageMap";
 
 interface Props {
   sessions: SessionView[];
@@ -25,15 +25,16 @@ interface Props {
   reducedMotion: boolean;
   /** Text for an empty village (why there's nothing, and what to do). */
   emptyText: string;
+  /** "transcripts + hooks" or "transcripts only", for the header. */
+  source: string;
   onFocus: (sessionId: string) => void;
   onOpenProject: (projectId: string) => void;
 }
 
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.5;
-const PANEL_W = 340;
 /** Room kept free at the top for the map's header strip. */
-const HEADER_H = 56;
+const HEADER_H = 72;
 
 const ANIM: Record<Tone, "idle" | "wait" | "error" | "read"> = { urgent: "wait", turn: "wait", error: "error", work: "read", quiet: "idle", rest: "idle" };
 const PATH_STROKE: Record<Yard["path"], string> = { urgent: "var(--color-urgent)", work: "var(--color-work)", quiet: "rgba(255,248,231,0.22)" };
@@ -105,7 +106,9 @@ export default function MapPage(p: Props) {
         ))}
       </div>
 
-      <MapHeader total={total} projects={summaries.length} demo={p.demo} now={p.now} />
+      <div className="pointer-events-none absolute inset-x-3 top-3" style={{ right: panelOpen ? PANEL_W + 24 : 12 }}>
+        <MapHeader total={total} projects={summaries.length} needsYou={summaries.reduce((n, s) => n + s.needsYou, 0)} demo={p.demo} source={p.source} now={p.now} />
+      </div>
 
       {total === 0 && (
         <p className="absolute left-1/2 top-[18%] max-w-md -translate-x-1/2 rounded-xl bg-black/55 px-4 py-2.5 text-center text-[13.5px] text-cream/90" style={{ marginLeft: panelOpen ? -(PANEL_W + 24) / 2 : 0 }}>
@@ -124,17 +127,13 @@ export default function MapPage(p: Props) {
         <MapButton label="Fit the village" onClick={view.reset}><LocateFixed size={16} /></MapButton>
       </div>
 
-      <Board
-        open={panelOpen}
-        onToggle={() => setPanelOpen((o) => !o)}
-        sessions={p.sessions}
-        projects={p.projects}
-        now={p.now}
-        demo={p.demo}
-        filter={filter}
-        onFilter={setFilter}
-        onFocus={p.onFocus}
-      />
+      <div className="absolute bottom-3 right-3 top-3" data-no-pan>
+        {panelOpen ? (
+          <Board onHide={() => setPanelOpen(false)} sessions={p.sessions} projects={p.projects} now={p.now} demo={p.demo} filter={filter} onFilter={setFilter} onFocus={p.onFocus} />
+        ) : (
+          <MapButton label="Show session status" onClick={() => setPanelOpen(true)}><PanelRightOpen size={16} /></MapButton>
+        )}
+      </div>
     </div>
   );
 }
@@ -358,100 +357,5 @@ function YardCard({ yard, now, onOpenProject, onFocus }: { yard: Yard; now: numb
         </button>
       )}
     </div>
-  );
-}
-
-function Board(p: {
-  open: boolean;
-  onToggle: () => void;
-  sessions: SessionView[];
-  projects: ProjectView[];
-  now: number;
-  demo: boolean;
-  filter: BoardFilter;
-  onFilter: (f: BoardFilter) => void;
-  onFocus: (id: string) => void;
-}) {
-  const counts = useMemo(() => boardCounts(p.sessions, p.now), [p.sessions, p.now]);
-  const list = useMemo(() => boardList(p.sessions, p.filter, p.now), [p.sessions, p.filter, p.now]);
-  const names = useMemo(() => new Map(p.projects.map((x) => [x.id, x.name])), [p.projects]);
-  if (!p.open)
-    return (
-      <div className="absolute right-3 top-3" data-no-pan>
-        <MapButton label="Show session status" onClick={p.onToggle}><PanelRightOpen size={16} /></MapButton>
-      </div>
-    );
-  return (
-    <aside className="map-panel absolute bottom-3 right-3 top-3 flex flex-col rounded-2xl" style={{ width: PANEL_W }} aria-label="Session status" data-no-pan>
-      <header className="flex items-center gap-2 border-b border-[var(--map-line)] px-3.5 py-2.5">
-        <h2 className="map-caps text-[15px] font-semibold text-cream">Session status</h2>
-        <span className="map-caps text-[12.5px] text-cream/60">{p.demo ? "demo village" : "whole village"}</span>
-        <button onClick={p.onToggle} aria-label="Hide session status" title="Hide session status" className="ml-auto rounded-lg p-1.5 text-cream/70 hover:bg-white/10 hover:text-cream">
-          <PanelRightClose size={16} />
-        </button>
-      </header>
-      <div className="flex flex-wrap gap-1.5 px-3 pt-2.5" role="group" aria-label="Show sessions">
-        {BOARD_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            onClick={() => p.onFilter(f.id)}
-            aria-pressed={p.filter === f.id}
-            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ring-1 transition-colors ${p.filter === f.id ? "bg-cream text-ink ring-cream" : "bg-transparent text-cream/75 ring-[var(--map-line)] hover:bg-white/5"} ${f.id === "needs" && counts.needs > 0 && p.filter !== f.id ? "text-urgent ring-urgent/40" : ""}`}
-          >
-            {f.label} {counts[f.id]}
-          </button>
-        ))}
-      </div>
-      <ul className="mt-2 flex-1 space-y-1.5 overflow-y-auto px-3 pb-3">
-        {list.length === 0 && <li className="px-1 py-6 text-center text-[13px] text-cream/60">Nothing here right now.</li>}
-        {list.map((s) => {
-          const st = plainStatus(s, p.now);
-          return (
-            <li key={s.id}>
-              <button
-                onClick={() => p.onFocus(s.id)}
-                className={`w-full rounded-xl px-2.5 py-2 text-left ring-1 transition-colors ${st.tone === "urgent" ? "bg-urgent/10 ring-urgent/45 hover:bg-urgent/18" : "bg-white/[0.03] ring-[var(--map-line)] hover:bg-white/[0.06]"}`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className={`chip shrink-0 ${TONE_BG[st.tone]} text-ink`}>{st.headline}</span>
-                  <span className="ml-auto shrink-0 text-[12px] text-cream/55">{elapsed(s.statusSince, p.now)}</span>
-                </span>
-                <span className="mt-1 block truncate text-[13.5px] font-semibold text-cream">{s.title}</span>
-                <span className="block truncate text-[12.5px] text-cream/65">
-                  {names.get(s.projectId) ?? "Other"} · {st.detail}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
-  );
-}
-
-/** The map's own top strip: name, where the data comes from, counts and the time (all real). */
-function MapHeader({ total, projects, demo, now }: { total: number; projects: number; demo: boolean; now: number }) {
-  return (
-    <div className="map-panel absolute left-3 top-3 flex items-center gap-3 rounded-xl px-3 py-1.5 text-[12.5px] text-cream/80" data-no-pan>
-      <span className="map-caps text-[15px] font-semibold text-cream">
-        Ai Gramam <span className="text-cream/55">· village map</span>
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className={`h-2 w-2 rounded-full ${demo ? "bg-brass" : "bg-work"}`} aria-hidden />
-        {demo ? "Demo: simulated sessions" : "Live: sessions on this computer"}
-      </span>
-      <span className="text-cream/60">
-        {total} {total === 1 ? "villager" : "villagers"} · {projects} {projects === 1 ? "project" : "projects"}
-      </span>
-      <span className="font-serif tabular-nums text-cream/85">{clockTime(now)}</span>
-    </div>
-  );
-}
-
-function MapButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} aria-label={label} title={label} className="map-panel grid h-10 w-10 place-items-center rounded-full text-cream/85 hover:text-cream">
-      {children}
-    </button>
   );
 }

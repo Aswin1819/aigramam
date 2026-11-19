@@ -182,17 +182,36 @@
 .map-flow {
   animation: map-flow 1.2s linear infinite;
 }
-/* The Map's own palette: neutral charcoal with warm hairlines, like an office floor plan at night. */
+/* 3D Map wires: dashes of 3 with gaps of 8 (period 11) flowing toward busy projects. */
+@keyframes map-wire {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+.map-wire-flow {
+  animation: map-wire 1s linear infinite;
+}
+/* The Map's own palette: a dark operations floor with warm hairlines. */
 .map-frame {
-  --map-bg: #121211;
-  --map-panel: #171716;
-  --map-line: rgba(255, 244, 220, 0.12);
-  background: radial-gradient(ellipse at 42% 42%, #1d1d1b, var(--map-bg) 72%);
+  --map-bg: #0f1013;
+  --map-panel: #1e1f24;
+  --map-line: rgba(236, 234, 227, 0.14);
+  --map-ink: #eceae3;
+  --map-grey: #a3a098;
+  background: radial-gradient(ellipse at 45% 45%, #1b1c20, var(--map-bg) 75%);
 }
 .map-panel {
-  background: color-mix(in srgb, var(--map-panel) 94%, transparent);
+  background: color-mix(in srgb, var(--map-panel) 95%, transparent);
   border: 1px solid var(--map-line);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+/* Small spaced capitals for labels on the Map (11px minimum, readable grey). */
+.map-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--map-grey);
 }
 .map-caps {
   font-family: var(--font-serif);
