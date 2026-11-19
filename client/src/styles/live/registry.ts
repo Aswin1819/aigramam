@@ -21,5 +21,15 @@ export const ART_STYLES: ArtStyleEntry[] = [
   { id: "explainer-3d", name: "Explainer 3D", blurb: "Soft pastel 3D explainer look, bouncy rounded villagers.", load: () => import("./explainer3d").then((m) => m.explainer3dLive) },
 ];
 
+/**
+ * The Office world: the village as a 3D office floor (three.js), one office
+ * per project and an employee per session. Drawn by world/office, not a LiveStyle.
+ */
+export const OFFICE_STYLE = {
+  id: "office",
+  name: "Office (3D)",
+  blurb: "An office floor: each project an office, each session an employee who walks to the desk, library, servers, lounge or front counter.",
+} as const;
+
 /** "classic" = the Phaser Kerala world. */
-export type ArtStyleId = "classic" | (typeof ART_STYLES)[number]["id"];
+export type ArtStyleId = "classic" | typeof OFFICE_STYLE.id | (typeof ART_STYLES)[number]["id"];

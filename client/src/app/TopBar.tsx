@@ -8,7 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import BrandMark from "./BrandMark";
-import { ART_STYLES } from "@/styles/live/registry";
+import { ART_STYLES, OFFICE_STYLE } from "@/styles/live/registry";
 import { TIME_CHOICES, type AppView, type TimeMode } from "./useDisplayPrefs";
 import type { SettingsTab } from "@/app/SettingsSheet";
 
@@ -161,14 +161,18 @@ export default function TopBar(p: Props) {
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Art style" title="Art style">
             <Palette size={15} className="text-brass" />
-            <span className="max-w-[8rem] truncate">{ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? "World art"}</span>
+            <span className="max-w-[8rem] truncate">{p.artStyle === OFFICE_STYLE.id ? "Office" : (ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? "World art")}</span>
             <ChevronDown size={14} className="opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
             <DropdownMenuLabel className="text-xs text-cream/60">Art style</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => p.onArtStyle("classic")} className="flex flex-col items-start gap-0 rounded-lg">
-              <span className={`text-sm font-semibold ${!ART_STYLES.some((a) => a.id === p.artStyle) ? "text-brass" : ""}`}>World art</span>
+              <span className={`text-sm font-semibold ${p.artStyle !== OFFICE_STYLE.id && !ART_STYLES.some((a) => a.id === p.artStyle) ? "text-brass" : ""}`}>World art</span>
               <span className="text-[11px] text-cream/55">The place's own illustrated art ({p.world?.name ?? "the chosen place"}).</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => p.onArtStyle(OFFICE_STYLE.id)} className="flex flex-col items-start gap-0 rounded-lg">
+              <span className={`text-sm font-semibold ${p.artStyle === OFFICE_STYLE.id ? "text-brass" : ""}`}>{OFFICE_STYLE.name}</span>
+              <span className="text-[11px] text-cream/60">{OFFICE_STYLE.blurb}</span>
             </DropdownMenuItem>
             {ART_STYLES.map((a) => (
               <DropdownMenuItem key={a.id} onClick={() => p.onArtStyle(a.id)} className="flex flex-col items-start gap-0 rounded-lg">

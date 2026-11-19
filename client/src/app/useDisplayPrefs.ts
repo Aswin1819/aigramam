@@ -32,8 +32,8 @@ interface Prefs {
 }
 
 export type AppView = "world" | "workspace";
-export type WorkspacePage = "overview" | "map" | "projects" | "agents" | "terminals" | "history";
-const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "map", "projects", "agents", "terminals", "history"];
+export type WorkspacePage = "overview" | "projects" | "agents" | "terminals" | "history";
+const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "projects", "agents", "terminals", "history"];
 
 const KEY = "ai-gramam.display";
 
@@ -54,7 +54,10 @@ function load(): Prefs {
   const systemReduced = systemReducedMotion();
   const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, boardOpen: true, legendSeen: false, artStyle: "classic", sound: true, view: "world", workspacePage: "overview", desktopNotify: false };
   try {
-    return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    const saved = { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") } as Prefs;
+    // A page that no longer exists (the old Map tab) opens Focus instead.
+    if (!WORKSPACE_PAGES.includes(saved.workspacePage)) saved.workspacePage = "overview";
+    return saved;
   } catch {
     return fallback;
   }

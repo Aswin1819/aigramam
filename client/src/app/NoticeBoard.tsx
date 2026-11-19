@@ -13,6 +13,8 @@ interface Props {
   onHover: (sessionId: string | null) => void;
   /** Opens the "how to read the village" guide. */
   onLegend?: () => void;
+  /** The Office world is shown: the guide link says "office". */
+  office?: boolean;
 }
 
 const PIN: Record<NoticeTone, string> = { urgent: "bg-urgent", error: "bg-urgent/70", wait: "bg-wait", done: "bg-work" };
@@ -54,7 +56,7 @@ export default function NoticeBoard(p: Props) {
             className="max-h-[min(52vh,460px)] overflow-y-auto border-t border-black/30 px-2.5 pb-2.5 pt-1.5"
           >
             {p.onLegend && (
-              <button onClick={p.onLegend} className="mt-1 text-[11.5px] text-brass underline underline-offset-2 hover:brightness-125">How to read the village</button>
+              <button onClick={p.onLegend} className="mt-1 text-[11.5px] text-brass underline underline-offset-2 hover:brightness-125">{p.office ? "How to read the office" : "How to read the village"}</button>
             )}
             {sections.length === 0 && <p className="px-1 py-2 text-[12px] text-cream/60">Nothing pinned: no approvals, questions or errors, and nothing finished in the last 2 hours.</p>}
             {sections.map((sec) => (

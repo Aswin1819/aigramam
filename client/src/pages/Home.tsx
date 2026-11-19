@@ -1,11 +1,11 @@
 import type { SessionView } from "@shared/model";
 import type { TerminalStart } from "@shared/terminal";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { toast, Toaster } from "sonner";
 import WorldView, { type WorldHandle } from "@/world/WorldView";
 import StyledWorldView from "@/world/StyledWorldView";
-import { ART_STYLES } from "@/styles/live/registry";
+import { ART_STYLES, OFFICE_STYLE } from "@/styles/live/registry";
 import { placeThemeOf, type LiveStyle } from "@/styles/live/types";
 import { useWorldChoice } from "@/world/useWorldChoice";
 import { assignmentsKey, pickCharacter } from "@/world/characters";
@@ -26,6 +26,9 @@ import ProjectDrawer from "@/app/ProjectDrawer";
 import { projectSummaries } from "@/app/workspace/attention";
 import { useDisplayPrefs } from "@/app/useDisplayPrefs";
 import { useAttentionAlerts } from "@/app/useAttentionAlerts";
+
+// three.js is loaded only when the Office world is chosen.
+const OfficeWorldView = lazy(() => import("@/world/office/OfficeWorldView"));
 
 export default function Home() {
   const { snapshot, worlds, characters, mode, connected, now, startDemo, startLive, command, chat, openChat, onTerminal, sendTerminal } = useLiveSessions();
@@ -188,8 +191,22 @@ export default function Home() {
             focusId={focusId}
             onFocus={setFocusId}
             onOpenDetails={setSelectedId}
-            reducedMotion={prefs.reducedMotion}
           />
+        ) : prefs.artStyle === OFFICE_STYLE.id ? (
+          <Suspense fallback={<div className="absolute inset-0 grid place-items-center bg-ink text-sm text-cream/60">Opening the office…</div>}>
+            <OfficeWorldView
+              ref={worldRef}
+              sessions={sessions}
+              projects={projects}
+              selectedId={selectedId}
+              onSelect={select}
+              reducedMotion={prefs.reducedMotion}
+              hourOverride={hourOverride}
+              onSelectProject={openProject}
+              selectedProjectId={projectDrawer ? selectedProjectId : null}
+              now={now}
+            />
+          </Suspense>
         ) : styled ? (
           <StyledWorldView
             ref={worldRef}
@@ -206,7 +223,7 @@ export default function Home() {
             onSelectProject={openProject}
             selectedProjectId={projectDrawer ? selectedProjectId : null}
           />
-        ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
+        ) : prefs.artStyle !== OFFICE_STYLE.id && !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
           <WorldView
             key={worldKey}
             ref={worldRef}
@@ -281,6 +298,7 @@ export default function Home() {
 
         {prefs.view === "world" && !selected && !projectDrawer && sessions.length > 0 && (
           <NoticeBoard
+            office={prefs.artStyle === OFFICE_STYLE.id}
             sessions={sessions}
             projects={projects}
             now={now}
@@ -297,6 +315,7 @@ export default function Home() {
             <VillageLegend
               key="legend"
               world={world}
+              office={prefs.artStyle === OFFICE_STYLE.id}
               onClose={() => {
                 setLegendOpen(false);
                 if (!prefs.legendSeen) update({ legendSeen: true });

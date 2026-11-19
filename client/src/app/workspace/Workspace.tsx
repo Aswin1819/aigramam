@@ -1,12 +1,10 @@
-import { lazy, Suspense } from "react";
 import { motion } from "motion/react";
-import { Crosshair, FolderGit2, History, Map as MapIcon, TerminalSquare, Users } from "lucide-react";
+import { Crosshair, FolderGit2, History, TerminalSquare, Users } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { AppMode, Command } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
 import type { WorkspacePage } from "../useDisplayPrefs";
 import FocusPage from "./FocusPage";
-import { emptyVillageText } from "./focus";
 import type { Cast } from "./VillageStrip";
 import ProjectsPage from "./ProjectsPage";
 import AgentsPage from "./AgentsPage";
@@ -17,9 +15,6 @@ import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
 import type { SettingsTab } from "@/app/SettingsSheet";
 import { useTabs } from "@/hooks/useTabs";
-
-// three.js is only loaded when the Map is opened.
-const Map3DPage = lazy(() => import("./map3d/Map3DPage"));
 
 interface Props {
   page: WorkspacePage;
@@ -47,13 +42,10 @@ interface Props {
   focusId: string | null;
   onFocus: (id: string | null) => void;
   onOpenDetails: (id: string) => void;
-  /** The in-app "Reduce motion" setting (the OS setting is also honoured by CSS). */
-  reducedMotion: boolean;
 }
 
 const PAGES: Array<[WorkspacePage, string, typeof Crosshair]> = [
   ["overview", "Focus", Crosshair],
-  ["map", "Map", MapIcon],
   ["projects", "Projects", FolderGit2],
   ["agents", "Agents", Users],
   ["terminals", "Terminals", TerminalSquare],
@@ -68,7 +60,7 @@ export default function Workspace(p: Props) {
   const tabs = useTabs(PAGE_IDS, p.page, p.onPage);
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(ellipse_at_top,#173129,#0b1411_60%)] pb-6 pt-[76px]">
-      <div className={`mx-auto px-4 ${p.page === "map" ? "max-w-[1680px]" : "max-w-[1280px]"}`}>
+      <div className="mx-auto max-w-[1280px] px-4">
         <nav className="mb-3 flex gap-1" {...tabs.list} aria-label="Workspace pages">
           {PAGES.map(([id, label, Icon]) => (
             <button key={id} {...tabs.tab(id)} onClick={() => p.onPage(id)} className="relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]">
@@ -104,28 +96,6 @@ export default function Workspace(p: Props) {
               p.onPage("projects");
             }}
           />
-        )}
-        {p.page === "map" && (
-          <Suspense fallback={<p className="py-10 text-center text-[13px] text-cream/60">Loading the map…</p>}>
-            <Map3DPage
-              sessions={p.sessions}
-              projects={p.projects}
-              now={p.now}
-              cast={p.cast}
-              demo={p.mode === "demo"}
-              reducedMotion={p.reducedMotion}
-              emptyText={emptyVillageText(p.mode === "demo", p.connected)}
-              source={p.hooksInstalled ? "transcripts + hooks" : "transcripts only"}
-              onFocus={(id) => {
-                p.onFocus(id);
-                p.onPage("overview");
-              }}
-              onOpenProject={(id) => {
-                p.onSelectProject(id);
-                p.onPage("projects");
-              }}
-            />
-          </Suspense>
         )}
         {p.page === "projects" && (
           <ProjectsPage

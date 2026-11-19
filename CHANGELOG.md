@@ -4,14 +4,11 @@ The app and the mod have separate version numbers. The app's version is in `pack
 
 ## Unreleased
 
-### Map
-- **The Map is now 3D** (three.js, works offline): an isometric operations floor in a dark palette. Each project is a raised pod with a desk, a monitor showing what the session is doing, and a seated villager per session, around the village square with its banyan. Lamps over the villagers show their state (they pulse when a session needs you), and soft shadows and a warm key light give depth.
-- Click a project's card or pod to fly to it (the session board then shows only that project); "Overview" flies back. Click a villager to open it in Focus. Drag to move, wheel or +/− to zoom.
-- Cards find a spot beside their pod that covers the least; with more than four projects they show a short summary and open fully on hover. Name tags show only when they're legible and never overlap.
-- Without WebGL the Map falls back to the 2D version below.
-- **Workspace → Map** (`?page=map`): the whole village from above, laid out like an "agents office". Each project is a raised yard around the village square with its villagers at their desks. A card beside it says in words how many villagers it has, how many are working, waiting for your turn or resting, and which branches it's on. A "needs you" button opens the oldest request in Focus. Paths from the square flow toward yards with work going on and turn red when a yard needs you.
-- A **session status** board on the right lists every session by what it needs (All, Needs you, Your turn, Working, Resting). Clicking one opens it in Focus. The board can be hidden.
-- Zoom with the buttons or the mouse wheel, drag to move, and "Fit the village" to reset. The flowing paths stop when "Reduce motion" is on.
+### Office world
+- **Office (3D)** is a new choice in the World view's art menu (or `?art=office`), drawn with three.js and inspired by "agents office" dashboards. The village becomes an office floor: a lobby with the banyan in the middle, and one office per project with its name on the wall, joined to the lobby by a corridor.
+- Each session is an employee with their own desk; running subagents are helpers standing beside them. Every office has the same areas, and employees walk to the one for what they're doing: their **desk** (writing code, delegating, typing at a monitor that shows the live action), the **library** (reading, searching, with a book), the **server racks** (commands, tests), the **web window** (the web), the **front counter** with its bell (needs your approval or answer: hand raised, red lamp pulsing) or the **lounge** sofa (your turn, resting, with a mug). "…" over a head means thinking; "!" an error. Movement follows the village's dwell rule, so it always means a change of activity.
+- Name tags (they open the session) and office cards with counts stay readable and never overlap; clicking an office flies to it and opens the project. Lighting follows the time of day, and windows glow at night. "Reduce motion" stops walking animations and pulses. The guide and the notice board speak of the office when it's shown.
+- The Workspace → Map tab added earlier in this release is gone; its design lives on in the Office world.
 
 ### Accessibility and polish
 - Approve and Deny in the top bar are now real buttons with words (not ✓/✕ inside another button), so they work from the keyboard and with screen readers. Only the "N need you" summary is announced, not the ticking timers.

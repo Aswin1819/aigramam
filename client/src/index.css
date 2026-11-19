@@ -196,25 +196,7 @@
   }
 }
 
-/* Workspace → Map: paths from the square flow toward yards with work going on. */
-@keyframes map-flow {
-  to {
-    stroke-dashoffset: -28;
-  }
-}
-.map-flow {
-  animation: map-flow 1.2s linear infinite;
-}
-/* 3D Map wires: dashes of 3 with gaps of 8 (period 11) flowing toward busy projects. */
-@keyframes map-wire {
-  to {
-    stroke-dashoffset: -22;
-  }
-}
-.map-wire-flow {
-  animation: map-wire 1s linear infinite;
-}
-/* The Map's own palette: a dark operations floor with warm hairlines. */
+/* The Office world's palette: a dark operations floor with warm hairlines (cards, tags, panels). */
 .map-frame {
   --map-bg: #0f1013;
   --map-panel: #1e1f24;
@@ -228,7 +210,7 @@
   border: 1px solid var(--map-line);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
 }
-/* Small spaced capitals for labels on the Map (11px minimum, readable grey). */
+/* Small spaced capitals for labels in the Office world (11px minimum, readable grey). */
 .map-label {
   font-size: 11px;
   font-weight: 600;
@@ -236,12 +218,6 @@
   text-transform: uppercase;
   color: var(--map-grey);
 }
-.map-caps {
-  font-family: var(--font-serif);
-  font-variant: small-caps;
-  letter-spacing: 0.06em;
-}
-
 /* The in-app "Reduce motion" setting (Settings), on top of the system one below. */
 .reduce-motion *,
 .reduce-motion *::before,
