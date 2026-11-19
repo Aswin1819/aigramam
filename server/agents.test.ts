@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { agentsRouter, createAgentsRouter } from "./routers/agents";
+import { frontmatterFields, agentsRouter, createAgentsRouter } from "./routers/agents";
 
 const ctx = { req: {} as never, res: {} as never };
 
@@ -87,5 +87,13 @@ describe("agents router is read-only", () => {
       await expect(caller.projectAgents({ projectPath: "relative/path" })).rejects.toThrow(/absolute/);
       await expect(caller.projectSkills({ projectPath: path.join(project, "..", "not-tracked") })).rejects.toThrow(/Not a project/);
     });
+  });
+});
+
+describe("frontmatterFields", () => {
+  it("reads single-line fields, with Windows line endings too, and gives \"\" for missing ones", () => {
+    const md = "---\r\nname: reviewer\r\ndescription: Reviews code\r\n---\r\nBody";
+    expect(frontmatterFields(md, ["name", "description", "model"])).toEqual({ name: "reviewer", description: "Reviews code", model: "" });
+    expect(frontmatterFields("no frontmatter", ["name"])).toEqual({ name: "" });
   });
 });

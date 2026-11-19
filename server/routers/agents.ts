@@ -43,18 +43,19 @@ const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
 // ─── Real Claude Code Skills File System ─────────────────────────────────────
 
 /**
- * Parse SKILL.md frontmatter to extract name and description
+ * Single-line fields from a Markdown file's YAML frontmatter (`key: value`),
+ * "" for a missing field or file without frontmatter. Enough for SKILL.md and
+ * agent files; it isn't a YAML parser.
  */
+export function frontmatterFields<K extends string>(content: string, keys: readonly K[]): Record<K, string> {
+  const fm = content.match(/^---\s*\n([\s\S]*?)\n---/)?.[1] ?? "";
+  const out = {} as Record<K, string>;
+  for (const k of keys) out[k] = fm.match(new RegExp(`^${k}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? "";
+  return out;
+}
+
 function parseSkillFrontmatter(content: string): { name: string; description: string } {
-  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!fmMatch) return { name: "", description: "" };
-  const fm = fmMatch[1];
-  const nameMatch = fm.match(/^name:\s*(.+)$/m);
-  const descMatch = fm.match(/^description:\s*(.+)$/m);
-  return {
-    name: nameMatch ? nameMatch[1].trim() : "",
-    description: descMatch ? descMatch[1].trim() : "",
-  };
+  return frontmatterFields(content, ["name", "description"]);
 }
 
 /**
@@ -110,19 +111,7 @@ export interface ClaudeAgent {
  * Parse agent .md frontmatter
  */
 function parseAgentFrontmatter(content: string): { name: string; description: string; tools: string; model: string } {
-  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!fmMatch) return { name: "", description: "", tools: "", model: "" };
-  const fm = fmMatch[1];
-  const nameMatch = fm.match(/^name:\s*(.+)$/m);
-  const descMatch = fm.match(/^description:\s*(.+)$/m);
-  const toolsMatch = fm.match(/^tools:\s*(.+)$/m);
-  const modelMatch = fm.match(/^model:\s*(.+)$/m);
-  return {
-    name: nameMatch ? nameMatch[1].trim() : "",
-    description: descMatch ? descMatch[1].trim() : "",
-    tools: toolsMatch ? toolsMatch[1].trim() : "",
-    model: modelMatch ? modelMatch[1].trim() : "",
-  };
+  return frontmatterFields(content, ["name", "description", "tools", "model"]);
 }
 
 /**
