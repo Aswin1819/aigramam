@@ -32,13 +32,13 @@ export default function AgentsPage(p: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5 focus-within:border-brass/60">
           <Search size={14} className="text-cream/45" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sessions, actions, branches, subagents…" aria-label="Search agents" className="w-full bg-transparent text-[13px] text-cream outline-none placeholder:text-cream/35" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sessions, actions, branches, subagents…" aria-label="Search agents" className="w-full bg-transparent text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35" />
         </label>
         <select
           value={projectId ?? ""}
           onChange={(e) => setProjectId(e.target.value || null)}
           aria-label="Filter by project"
-          className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5 text-[13px] text-cream outline-none focus:border-brass/60"
+          className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5 text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 focus:border-brass/60"
         >
           <option value="">All projects</option>
           {withSessions.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}

@@ -7,7 +7,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import express, { type Request, type Response, type Router } from "express";
-import { isLocalRequest } from "../_core/security";
+import { keyMatches, isLocalRequest } from "../_core/security";
 import { DATA_DIR } from "../_core/paths";
 import type { HookPayload } from "./store";
 
@@ -44,12 +44,6 @@ export function getOrCreateHookKey(dataDir = DATA_DIR): string {
   fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(file, key, { encoding: "utf8", mode: 0o600 });
   return key;
-}
-
-function keyMatches(given: unknown, expected: string): boolean {
-  const a = Buffer.from(typeof given === "string" ? given : "");
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 // ── Receiver ──────────────────────────────────────────────────────────────────

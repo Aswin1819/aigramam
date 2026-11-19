@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Crosshair, FolderGit2, History, TerminalSquare, Users } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
-import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
+import type { AppMode, Command } from "@/hooks/useLiveSessions";
 import { isUrgent } from "@/lib/status";
 import type { WorkspacePage } from "../useDisplayPrefs";
 import FocusPage from "./FocusPage";
@@ -13,6 +13,8 @@ import HistoryPage from "./HistoryPage";
 import type { TerminalsApi } from "@/hooks/useTerminals";
 import type { TerminalStart } from "@shared/terminal";
 import { terminalBlockedReason } from "../terminal/terminalState";
+import type { SettingsTab } from "@/app/SettingsSheet";
+import { useTabs } from "@/hooks/useTabs";
 
 interface Props {
   page: WorkspacePage;
@@ -28,7 +30,7 @@ interface Props {
   selectedProjectId: string | null;
   onSelectProject: (id: string | null) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
-  onSettings: (tab?: string) => void;
+  onSettings: (tab?: SettingsTab) => void;
   /** Managed terminals (kept in Home so the list survives switching views). */
   terminals: TerminalsApi;
   /** Start a terminal in a project's folder (optionally running Claude Code) and show it on the Terminals page. */
@@ -36,7 +38,7 @@ interface Props {
   /** Focus page: characters for the faces, the streamed conversation, commands, and the focused session. */
   cast: Cast;
   chat: { sessionId: string; items: ChatItem[] } | null;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   focusId: string | null;
   onFocus: (id: string | null) => void;
   onOpenDetails: (id: string) => void;
@@ -49,25 +51,29 @@ const PAGES: Array<[WorkspacePage, string, typeof Crosshair]> = [
   ["terminals", "Terminals", TerminalSquare],
   ["history", "History", History],
 ];
+const PAGE_IDS = PAGES.map(([id]) => id);
 
 /** Workspace Mode: the practical side of Ai Gramam, on the same live data as the village. */
 export default function Workspace(p: Props) {
   const urgent = p.sessions.filter(isUrgent).length;
   const liveTerminals = p.mode === "demo" ? 0 : p.terminals.terminals.length;
+  const tabs = useTabs(PAGE_IDS, p.page, p.onPage);
   return (
     <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(ellipse_at_top,#173129,#0b1411_60%)] pb-6 pt-[76px]">
       <div className="mx-auto max-w-[1280px] px-4">
-        <nav className="mb-3 flex gap-1" role="tablist" aria-label="Workspace pages">
+        <nav className="mb-3 flex gap-1" {...tabs.list} aria-label="Workspace pages">
           {PAGES.map(([id, label, Icon]) => (
-            <button key={id} role="tab" aria-selected={p.page === id} onClick={() => p.onPage(id)} className="relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]">
+            <button key={id} {...tabs.tab(id)} onClick={() => p.onPage(id)} className="relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px]">
               {p.page === id && <motion.span layoutId="workspace-tab" className="absolute inset-0 -z-0 rounded-xl bg-white/10 ring-1 ring-white/10" />}
               <Icon size={15} className={`relative ${p.page === id ? "text-brass" : "text-cream/50"}`} />
               <span className={`relative ${p.page === id ? "font-semibold text-cream" : "text-cream/65"}`}>{label}</span>
-              {id === "overview" && urgent > 0 && <span className="relative chip bg-urgent text-white">{urgent}</span>}
+              {id === "overview" && urgent > 0 && <span className="relative chip bg-urgent text-ink">{urgent}</span>}
               {id === "terminals" && liveTerminals > 0 && <span className="relative chip bg-white/10 text-cream/80">{liveTerminals}</span>}
             </button>
           ))}
         </nav>
+
+        <div {...tabs.panel}>
 
         {p.page === "overview" && (
           <FocusPage
@@ -109,6 +115,7 @@ export default function Workspace(p: Props) {
         {p.page === "agents" && (
           <AgentsPage connected={p.mode !== "live" || p.connected} sessions={p.sessions} projects={p.projects} now={p.now} selectedSessionId={p.selectedSessionId} onSelectSession={p.onSelectSession} />
         )}
+        </div>
       </div>
     </div>
   );

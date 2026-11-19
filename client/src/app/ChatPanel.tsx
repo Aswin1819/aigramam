@@ -70,12 +70,12 @@ function ToolLine({ t, working }: { t: ChatItem; working: boolean }) {
               <pre className={`max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border bg-black/30 p-2 font-mono text-[10.5px] leading-snug ${t.isError ? "border-red-400/40 text-red-200/90" : "border-white/10 text-cream/70"}`}>
                 {t.output}
               </pre>
-              {t.outputClipped && <div className="text-[10px] text-cream/40">Output clipped to the last {t.output.length.toLocaleString()} characters</div>}
+              {t.outputClipped && <div className="text-[10px] text-cream/60">Output clipped to the last {t.output.length.toLocaleString()} characters</div>}
             </>
           ) : ended ? (
-            <div className="text-[10.5px] italic text-cream/40">No output captured</div>
+            <div className="text-[10.5px] italic text-cream/60">No output captured</div>
           ) : null}
-          <div className="text-[10px] text-cream/35">
+          <div className="text-[10px] text-cream/60">
             Started {clockTime(t.at)}
             {ended ? ` · ended ${clockTime(t.endedAt!)} · took ${duration(t.endedAt! - t.at)}` : running ? " · still running" : " · no result recorded"}
           </div>
@@ -91,7 +91,7 @@ function ToolGroup({ items, working }: { items: ChatItem[]; working: boolean }) 
   return (
     <div className="my-1 ml-9 space-y-0.5 border-l border-white/10 pl-3">
       {!open && items.length > 3 && (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-cream/45 hover:text-cream/75">
+        <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-cream/60 hover:text-cream/75">
           <ChevronRight size={12} /> {items.length - 2} earlier steps
         </button>
       )}
@@ -130,39 +130,40 @@ export default function ChatPanel({ session: s, character, items, request, foote
         }}
         className="relative min-h-0 flex-1 overflow-y-auto px-3 py-3"
         aria-label={`Conversation with ${s.title}`}
-        aria-live="polite"
+        role="log"
+        aria-relevant="additions"
       >
-        {items === null && <p className="py-6 text-center text-[12px] text-cream/45">Loading the conversation…</p>}
+        {items === null && <p className="py-6 text-center text-[12px] text-cream/60">Loading the conversation…</p>}
         {items !== null && items.length === 0 && (
-          <p className="py-6 text-center text-[12px] leading-relaxed text-cream/45">
+          <p className="py-6 text-center text-[12px] leading-relaxed text-cream/60">
             No messages seen yet.
             <br />
             New messages show up here as they happen.
           </p>
         )}
         {items !== null && items.length > 0 && (
-          <p className="mb-2 text-center text-[10.5px] text-cream/30">Showing the latest {count} messages and steps from this session</p>
+          <p className="mb-2 text-center text-[10.5px] text-cream/60">Showing the latest {count} messages and steps from this session</p>
         )}
         <AnimatePresence initial={false}>
           {rows.map((row) =>
             row.kind === "tools" ? (
-              <motion.div key={row.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div key={row.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <ToolGroup items={row.items} working={working} />
               </motion.div>
             ) : row.item.kind === "note" ? (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-3 flex items-center gap-2 text-[10.5px] text-cream/40" title={clockTime(row.item.at)}>
+              <motion.div key={row.item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-3 flex items-center gap-2 text-[11px] text-cream/60" title={clockTime(row.item.at)}>
                 <span className="h-px flex-1 bg-white/10" />
                 {row.item.text}
                 <span className="h-px flex-1 bg-white/10" />
               </motion.div>
             ) : row.item.kind === "user" ? (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex justify-end">
+              <motion.div key={row.item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex justify-end">
                 <div className="max-w-[85%] rounded-2xl rounded-br-md bg-brass/90 px-3 py-2 text-[13px] leading-relaxed text-ink shadow" title={clockTime(row.item.at)}>
                   <div className="whitespace-pre-wrap break-words">{row.item.text}</div>
                 </div>
               </motion.div>
             ) : (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex items-end gap-2">
+              <motion.div key={row.item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex items-end gap-2">
                 <div className="grid h-9 w-7 shrink-0 place-items-end overflow-hidden rounded-lg bg-white/5">
                   <Avatar character={character} size={32} />
                 </div>
@@ -194,7 +195,7 @@ export default function ChatPanel({ session: s, character, items, request, foote
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             onClick={() => setAtBottom(true)}
-            className="mx-auto -mt-10 mb-2 flex items-center gap-1 rounded-full border border-white/15 bg-[#13221e]/95 px-3 py-1 text-[11.5px] text-cream shadow-lg"
+            className="mx-auto -mt-10 mb-2 flex items-center gap-1 rounded-full border border-white/15 bg-card/95 px-3 py-1 text-[11.5px] text-cream shadow-lg"
           >
             <ArrowDown size={13} /> Jump to latest
           </motion.button>

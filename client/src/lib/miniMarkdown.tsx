@@ -4,7 +4,7 @@
  * Supports fenced code, tables, headings, lists, quotes, paragraphs, and inline
  * code, bold, italic and https/http links.
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, memo, type ReactNode } from "react";
 
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -34,7 +34,7 @@ const TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 /** "| a | b |" → ["a", "b"] */
 const cells = (row: string) => row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
 
-export default function MiniMarkdown({ text }: { text: string }) {
+function MiniMarkdown({ text }: { text: string }) {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
@@ -49,7 +49,7 @@ export default function MiniMarkdown({ text }: { text: string }) {
       i++;
       blocks.push(
         <pre key={key++} className="my-1.5 overflow-x-auto rounded-lg border border-white/10 bg-black/45 p-2.5 font-mono text-[11.5px] leading-relaxed text-cream/90">
-          {fence[1] && <div className="mb-1 text-[10px] uppercase tracking-wider text-cream/35">{fence[1]}</div>}
+          {fence[1] && <div className="mb-1 text-[10px] uppercase tracking-wider text-cream/60">{fence[1]}</div>}
           <code>{code.join("\n")}</code>
         </pre>,
       );
@@ -118,3 +118,6 @@ export default function MiniMarkdown({ text }: { text: string }) {
   }
   return <>{blocks}</>;
 }
+
+/** Memoised: the chat re-renders every second for its timers, but a message's text rarely changes. */
+export default memo(MiniMarkdown);

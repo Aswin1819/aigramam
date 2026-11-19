@@ -84,7 +84,6 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
       follow.current = null;
       target.current = { x: target.current.x, y: 0, z: fitZ(lastFrame.current?.worldW ?? 640) };
     },
-    startRain: () => {},
   }));
 
   useEffect(() => {
@@ -92,6 +91,8 @@ const StyledWorldView = forwardRef<WorldHandle, Props>(function StyledWorldView(
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // A new style starts clean: an error from the previous one must not cover it.
+    setError(null);
     let raf = 0;
     let last = performance.now();
     let lastDrawKey = -1;

@@ -33,7 +33,7 @@ export function Face({ c, s, now, size = 44 }: { c: Cast; s: SessionView; now: n
   return (
     <span className="relative inline-flex shrink-0 items-end justify-center rounded-xl bg-[radial-gradient(circle_at_50%_70%,rgba(227,176,75,0.18),transparent_70%)]" style={{ width: size * 0.9, height: size }}>
       <Avatar character={characterOf(c, s)} size={size} anim={anim} />
-      <span className={`absolute right-0 top-0 rounded-full ring-2 ring-[#13221e] ${TONE_BG[tone]} ${tone === "urgent" ? "animate-pulse" : ""}`} style={{ width: lamp, height: lamp }} aria-hidden />
+      <span className={`absolute right-0 top-0 rounded-full ring-2 ring-card ${TONE_BG[tone]} ${tone === "urgent" ? "animate-pulse" : ""}`} style={{ width: lamp, height: lamp }} aria-hidden />
     </span>
   );
 }

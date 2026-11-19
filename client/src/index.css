@@ -53,6 +53,8 @@
   --color-done: #8ee59a;
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Noto Sans", "Noto Sans Malayalam", sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  /* Installed serif fonts only (no web fonts); used for the Map's small-caps headings and figures. */
+  --font-serif: Georgia, Cambria, "Times New Roman", serif;
   --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
 }
 
@@ -151,6 +153,29 @@
   .kbd {
     @apply rounded border border-white/15 bg-white/5 px-1 font-mono text-[10px] text-cream/70;
   }
+  /** Buttons: .btn for size, focus and disabled; then .btn-primary (the one main action) or .btn-secondary; .btn-lg for a larger one. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply bg-brass text-ink hover:bg-brass/90;
+  }
+  .btn-secondary {
+    @apply border border-white/15 font-medium text-cream hover:bg-white/10;
+  }
+  .btn-lg {
+    @apply px-4 py-2 text-sm;
+  }
+  /** Small brass heading above a section of a panel (Activity, Sessions, Open folder in…). */
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90;
+  }
+  /** Wooden panel in the village (notice board, the guide): dark wood with a brass-brown edge. */
+  .woodboard {
+    border: 1px solid #6b4a22;
+    background: linear-gradient(160deg, #4a331a, #2a1c0d);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 220, 160, 0.15);
+  }
   /** Brass signboard over a project's location. */
   .signboard {
     background: linear-gradient(180deg, #3a2a17, #251a0e);
@@ -169,6 +194,37 @@
     border-right: inherit;
     border-bottom: inherit;
   }
+}
+
+/* The Office world's palette: a dark operations floor with warm hairlines (cards, tags, panels). */
+.map-frame {
+  --map-bg: #0f1013;
+  --map-panel: #1e1f24;
+  --map-line: rgba(236, 234, 227, 0.14);
+  --map-ink: #eceae3;
+  --map-grey: #a3a098;
+  background: radial-gradient(ellipse at 45% 45%, #1b1c20, var(--map-bg) 75%);
+}
+.map-panel {
+  background: color-mix(in srgb, var(--map-panel) 95%, transparent);
+  border: 1px solid var(--map-line);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+/* Small spaced capitals for labels in the Office world (11px minimum, readable grey). */
+.map-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--map-grey);
+}
+/* The in-app "Reduce motion" setting (Settings), on top of the system one below. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

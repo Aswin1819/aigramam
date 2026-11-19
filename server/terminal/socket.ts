@@ -93,7 +93,7 @@ export function handleTerminalMessage(ws: WebSocket, msg: Record<string, unknown
       const m = manager;
       const requestId = String(p.requestId ?? "");
       void m.create(String(p.projectId ?? ""), p.cols, p.rows, p.start).then((r) => {
-        if (r.ok) subscribers.set(r.id, new Set([ws]));
+        if (r.ok && ws.readyState === ws.OPEN) subscribers.set(r.id, new Set([ws]));
         send(ws, { type: "term-created", payload: { requestId, ...r } });
       });
       return true;

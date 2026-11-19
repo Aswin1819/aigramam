@@ -187,7 +187,6 @@ export class WorldScene extends Phaser.Scene {
   setInput(input: SceneInput) { this.inp = input; }
   setHourOverride(h: number | null) { this.hourOverride = h; this.lastLightAt = -1; }
   setReducedMotion(on: boolean) { this.reduced = on; }
-  startRain(seconds: number) { this.rainUntil = Date.now() + seconds * 1000; }
   isNight() { return this.night > 0.5; }
   /** The project being pointed at (its place on the canvas, or its signboard), for highlights and the hint. */
   get hoveredProjectId(): string | null {

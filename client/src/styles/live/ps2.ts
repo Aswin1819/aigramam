@@ -23,7 +23,7 @@ import {
   mute, planks, put, renderPolys, speckle, sprite, steamPuffs, tiles, towerSprite, traffic, treeSprite, zebra,
   type PlaceSprite, type Sprite,
 } from "./ps2Kit";
-import { GROUND, LIVE_STATUS_COLOR, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
+import { GROUND, WORLD_H, type LiveCompanion, type LiveFrame, type LivePlace, type LiveStyle, type LiveVillager, type ViewRect } from "./types";
 import { PROP_LOOKS, drawStations } from "./stationKit";
 
 /** Low-res buffer height in pixels (the "console" resolution). */

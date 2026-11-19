@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import net from "net";
-import { DEFAULT_PORT, configuredPort, isPortAvailable, portBusyMessage } from "./_core/port";
+import { DEFAULT_PORT, configuredPort, isPortAvailable, portBusyMessage, portErrorMessage, probePort } from "./_core/port";
 
 let blocker: net.Server | null = null;
 afterEach(() => new Promise<void>((r) => (blocker ? blocker.close(() => r()) : r())).then(() => (blocker = null)));
@@ -25,5 +25,19 @@ describe("server port", () => {
     await new Promise<void>((r) => blocker!.close(() => r()));
     blocker = null;
     expect(await isPortAvailable(port, "127.0.0.1")).toBe(true);
+  });
+  it("says why a port can't be used, not only that it is busy", async () => {
+    expect(portErrorMessage(4317, "EADDRINUSE")).toBe(portBusyMessage(4317));
+    const reserved = portErrorMessage(4317, "EACCES");
+    expect(reserved).toContain("isn't allowed to use port 4317");
+    expect(reserved).toContain("excludedportrange");
+    expect(reserved).not.toContain("already in use");
+    expect(portErrorMessage(4317, "EINVAL")).toContain("(EINVAL)");
+    const blocker = net.createServer();
+    await new Promise<void>((r) => blocker.listen(0, "127.0.0.1", () => r()));
+    const port = (blocker.address() as net.AddressInfo).port;
+    expect(await probePort(port, "127.0.0.1")).toBe("EADDRINUSE");
+    await new Promise((r) => blocker.close(r));
+    expect(await probePort(port, "127.0.0.1")).toBeNull();
   });
 });

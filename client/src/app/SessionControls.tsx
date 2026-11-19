@@ -2,12 +2,12 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Link2Off, Send, Square } from "lucide-react";
 import type { SessionView } from "@shared/model";
-import type { CommandOutcome } from "@/hooks/useLiveSessions";
+import type { Command } from "@/hooks/useLiveSessions";
 
 interface Props {
   session: SessionView;
   demo: boolean;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   onSetupLink: () => void;
 }
 
@@ -62,10 +62,10 @@ export default function SessionControls({ session: s, demo, command, onSetupLink
           maxLength={8000}
           placeholder={`Message ${s.title}…`}
           aria-label={`Message to ${s.title}`}
-          className="w-full resize-none bg-transparent px-1.5 py-1 text-[13px] text-cream outline-none placeholder:text-cream/35"
+          className="w-full resize-none bg-transparent px-1.5 py-1 text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35"
         />
         <div className="flex items-center gap-2">
-          <span className="px-1 text-[10.5px] text-cream/40">
+          <span className="px-1 text-[10.5px] text-cream/60">
             {s.link?.queued ? `${s.link.queued} waiting to send` : "Ctrl+Enter to send · sent as your own message"}
           </span>
           <span className="ml-auto" />
@@ -83,7 +83,7 @@ export default function SessionControls({ session: s, demo, command, onSetupLink
           <button
             type="submit"
             disabled={!text.trim() || !!busy}
-            className="flex items-center gap-1 rounded-lg bg-brass px-3 py-1 text-[12px] font-semibold text-ink hover:bg-brass/90 disabled:opacity-40"
+            className="btn btn-primary"
           >
             <Send size={12} /> Send
           </button>

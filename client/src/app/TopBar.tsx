@@ -8,8 +8,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import BrandMark from "./BrandMark";
-import { ART_STYLES } from "@/styles/live/registry";
-import type { AppView, TimeMode } from "./useDisplayPrefs";
+import { ART_STYLES, OFFICE_STYLE } from "@/styles/live/registry";
+import { TIME_CHOICES, type AppView, type TimeMode } from "./useDisplayPrefs";
+import type { SettingsTab } from "@/app/SettingsSheet";
 
 interface Props {
   sessions: SessionView[];
@@ -31,18 +32,13 @@ interface Props {
   view: AppView;
   onView: (v: AppView) => void;
   onSelect: (id: string) => void;
-  onSettings: (tab?: string) => void;
+  onSettings: (tab?: SettingsTab) => void;
   onDecide: (approvalId: string, decision: "allow" | "deny") => void;
   now: number;
 }
 
-const TIME_OPTIONS: Array<{ id: TimeMode; label: string; Icon: typeof Sun }> = [
-  { id: "auto", label: "Follow my clock", Icon: Clock3 },
-  { id: "dawn", label: "Dawn", Icon: Sunrise },
-  { id: "day", label: "Day", Icon: Sun },
-  { id: "dusk", label: "Dusk", Icon: Sunset },
-  { id: "night", label: "Night", Icon: Moon },
-];
+const TIME_ICONS: Record<TimeMode, typeof Sun> = { auto: Clock3, dawn: Sunrise, day: Sun, dusk: Sunset, night: Moon };
+const TIME_OPTIONS = TIME_CHOICES.map((c) => ({ ...c, Icon: TIME_ICONS[c.id] }));
 
 export default function TopBar(p: Props) {
   const waiting = p.sessions.filter((s) => s.status === "waiting").sort(waitingOrder);
@@ -83,41 +79,45 @@ export default function TopBar(p: Props) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -16, scale: 0.96 }}
               transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              role="alert"
-              aria-live="assertive"
               className={`glass pointer-events-auto flex max-w-full items-center gap-2 overflow-x-auto rounded-2xl px-2 py-1.5 ${waiting.some(isUrgent) ? "ring-1 ring-urgent/70 shadow-[0_0_30px_rgba(255,90,79,0.35)]" : ""}`}
             >
               <motion.span
                 animate={waiting.some(isUrgent) ? { rotate: [0, -14, 12, -8, 6, 0] } : { rotate: 0 }}
                 transition={{ repeat: Infinity, duration: 1.4, repeatDelay: 0.8 }}
-                className={`grid h-7 w-7 shrink-0 place-items-center rounded-xl ${waiting.some(isUrgent) ? "bg-urgent text-white" : "bg-wait text-ink"}`}
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-xl ${waiting.some(isUrgent) ? "bg-urgent text-ink" : "bg-wait text-ink"}`}
+                aria-hidden
               >
                 <Bell size={15} strokeWidth={2.5} />
               </motion.span>
-              <span className="shrink-0 pr-1 text-xs font-semibold text-cream">{waitingSummary(waiting)}</span>
+              {/* Only the summary is announced; the ticking timers below are not. */}
+              <span role="status" aria-live="polite" className="shrink-0 pr-1 text-xs font-semibold text-cream">{waitingSummary(waiting)}</span>
               <AnimatePresence initial={false}>
-                {waiting.map((s) => (
-                  <motion.button
-                    layout
-                    key={s.id}
-                    initial={{ opacity: 0, x: 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -12 }}
-                    onClick={() => p.onSelect(s.id)}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs transition-transform hover:-translate-y-0.5 ${isUrgent(s) ? "bg-urgent font-semibold text-white" : "bg-wait/90 font-medium text-ink"}`}
-                    title={`${s.title} · ${projectName(s.projectId)}`}
-                  >
-                    <span className="max-w-[14rem] truncate">{s.title}</span>
-                    <span className="opacity-75">· {statusText(s)}</span>
-                    <span className="tabular-nums opacity-70">{elapsed(s.statusSince, p.now)}</span>
-                    {s.link?.approval && !s.link.approval.questions && (
-                      <span className="ml-1 flex gap-1" onClick={(ev) => ev.stopPropagation()}>
-                        <span role="button" tabIndex={0} aria-label="Approve" title="Approve once" onClick={() => p.onDecide(s.link!.approval!.id, "allow")} className="grid h-5 w-5 place-items-center rounded-md bg-white/90 text-[11px] font-bold text-ink hover:bg-white">✓</span>
-                        <span role="button" tabIndex={0} aria-label="Deny" title="Deny" onClick={() => p.onDecide(s.link!.approval!.id, "deny")} className="grid h-5 w-5 place-items-center rounded-md bg-black/30 text-[11px] font-bold text-white hover:bg-black/50">✕</span>
-                      </span>
-                    )}
-                  </motion.button>
-                ))}
+                {waiting.map((s) => {
+                  const ask = s.link?.approval && !s.link.approval.questions ? s.link.approval : null;
+                  const urgent = isUrgent(s);
+                  return (
+                    <motion.div
+                      layout
+                      key={s.id}
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }}
+                      className={`flex shrink-0 items-center rounded-xl text-xs ${urgent ? "bg-urgent font-semibold text-ink" : "bg-wait/90 font-medium text-ink"}`}
+                    >
+                      <button onClick={() => p.onSelect(s.id)} className="flex items-center gap-1.5 rounded-xl px-2.5 py-1 transition-transform hover:-translate-y-0.5" title={`${s.title} · ${projectName(s.projectId)}`}>
+                        <span className="max-w-[14rem] truncate">{s.title}</span>
+                        <span className="opacity-80">· {statusText(s)}</span>
+                        <span className="tabular-nums opacity-75" aria-hidden>{elapsed(s.statusSince, p.now)}</span>
+                      </button>
+                      {ask && (
+                        <span className="flex gap-1 pr-1.5">
+                          <button onClick={() => p.onDecide(ask.id, "allow")} title={`Approve once: ${ask.label}`} className="rounded-md bg-ink px-1.5 py-0.5 text-[11px] font-bold text-cream hover:bg-ink/80">Approve</button>
+                          <button onClick={() => p.onDecide(ask.id, "deny")} title={`Deny: ${ask.label}`} className="rounded-md bg-black/20 px-1.5 py-0.5 text-[11px] font-bold text-ink ring-1 ring-ink/40 hover:bg-black/30">Deny</button>
+                        </span>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </AnimatePresence>
             </motion.div>
           )}
@@ -161,14 +161,18 @@ export default function TopBar(p: Props) {
         <DropdownMenu>
           <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-cream hover:bg-white/10" aria-label="Art style" title="Art style">
             <Palette size={15} className="text-brass" />
-            <span className="max-w-[8rem] truncate">{ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? "World art"}</span>
+            <span className="max-w-[8rem] truncate">{p.artStyle === OFFICE_STYLE.id ? "Office" : (ART_STYLES.find((a) => a.id === p.artStyle)?.name ?? "World art")}</span>
             <ChevronDown size={14} className="opacity-60" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="glass-strong w-64 rounded-xl text-cream">
             <DropdownMenuLabel className="text-xs text-cream/60">Art style</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => p.onArtStyle("classic")} className="flex flex-col items-start gap-0 rounded-lg">
-              <span className={`text-sm font-semibold ${!ART_STYLES.some((a) => a.id === p.artStyle) ? "text-brass" : ""}`}>World art</span>
+              <span className={`text-sm font-semibold ${p.artStyle !== OFFICE_STYLE.id && !ART_STYLES.some((a) => a.id === p.artStyle) ? "text-brass" : ""}`}>World art</span>
               <span className="text-[11px] text-cream/55">The place's own illustrated art ({p.world?.name ?? "the chosen place"}).</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => p.onArtStyle(OFFICE_STYLE.id)} className="flex flex-col items-start gap-0 rounded-lg">
+              <span className={`text-sm font-semibold ${p.artStyle === OFFICE_STYLE.id ? "text-brass" : ""}`}>{OFFICE_STYLE.name}</span>
+              <span className="text-[11px] text-cream/60">{OFFICE_STYLE.blurb}</span>
             </DropdownMenuItem>
             {ART_STYLES.map((a) => (
               <DropdownMenuItem key={a.id} onClick={() => p.onArtStyle(a.id)} className="flex flex-col items-start gap-0 rounded-lg">

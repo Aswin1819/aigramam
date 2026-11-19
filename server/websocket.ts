@@ -5,6 +5,7 @@
  * gets which snapshot. Demo mode is per browser tab: a tab in demo mode gets
  * simulated sessions and no live data.
  */
+import type { Server as HttpServer } from "http";
 import type { IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { handleTerminalMessage, initTerminals, terminalClientClosed, terminalClientConnected, terminalForSession } from "./terminal/socket";
@@ -55,9 +56,14 @@ export function getMonitor() {
   return monitor;
 }
 
-/** The real projects the monitor knows right now (never demo ones); used to resolve a projectId to its folder. */
+/**
+ * The real projects the monitor found on this computer (never demo or bridge
+ * ones); used to resolve a projectId to a local folder for terminals, "Open
+ * folder in" and Git. Bridge projects come from another machine's paths, so
+ * they are shown but never opened here.
+ */
 export function liveProjects() {
-  return liveSnapshot().projects;
+  return monitor.store.snapshot().projects;
 }
 
 /** Ids of the real sessions shown right now (for History's "live" label). */
@@ -216,9 +222,9 @@ export function setHooksInstalled(installed: boolean) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
-export function initializeWebSocket(server: unknown) {
+export function initializeWebSocket(server: HttpServer) {
   wss = new WebSocketServer({
-    server: server as any,
+    server,
     path: "/api/ws/agents",
     // Block other websites (and DNS-rebinding hosts) from connecting
     verifyClient: (info: { origin: string; req: IncomingMessage }) => verifyWsClient(info),

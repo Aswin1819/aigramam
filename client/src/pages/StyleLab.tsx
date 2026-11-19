@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Maximize2, Pause, Play, Sta
 import { STYLES } from "@/styles/registry";
 import { H, W, frameAt, stepTime } from "@/styles/scene";
 import type { StyleProto } from "@/styles/types";
+import { useCopy } from "@/hooks/useCopy";
 
 /**
  * Style lab: every style prototype drawing the same village scene, so they
@@ -96,7 +97,7 @@ export default function StyleLab() {
     return i >= 0 ? i : null;
   });
   const [paused, setPaused] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopy();
 
   useEffect(() => save(PICKS_KEY, picks), [picks]);
   useEffect(() => save(NOTES_KEY, notes), [notes]);
@@ -120,13 +121,7 @@ export default function StyleLab() {
     STYLES.filter((s) => picks.includes(s.id) || notes[s.id]?.trim())
       .map((s) => `${picks.includes(s.id) ? "★" : "·"} ${s.n}. ${s.name}${notes[s.id]?.trim() ? `: ${notes[s.id]!.trim()}` : ""}`)
       .join("\n");
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(summary() || "No picks yet");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  };
+  const copy = () => copyText(summary() || "No picks yet");
 
   const current = open === null ? null : STYLES[open];
   return (
@@ -141,7 +136,7 @@ export default function StyleLab() {
           <button onClick={() => setPaused((p) => !p)} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[12.5px] hover:bg-white/10">
             {paused ? <Play size={14} /> : <Pause size={14} />} {paused ? "Play all" : "Pause all"}
           </button>
-          <button onClick={copy} className="flex items-center gap-1.5 rounded-lg bg-brass px-3 py-1.5 text-[12.5px] font-semibold text-ink hover:bg-brass/90">
+          <button onClick={copy} className="btn btn-primary">
             <Copy size={14} /> {copied ? "Copied" : `Copy my picks (${picks.length})`}
           </button>
         </div>

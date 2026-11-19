@@ -2,6 +2,35 @@
 
 The app and the mod have separate version numbers. The app's version is in `package.json`. The mod's is in `plugin/ai-gramam/.claude-plugin/plugin.json`, and the same version must appear in `.claude-plugin/marketplace.json` and in the mod's `VERSION` constant (a test checks this).
 
+## Unreleased
+
+### Office world
+- **Office (3D)** is a new choice in the World view's art menu (or `?art=office`), drawn with three.js and inspired by "agents office" dashboards. The village becomes an office floor: a lobby with the banyan in the middle, and one office per project with its name on the wall, joined to the lobby by a corridor.
+- Each session is an employee with their own desk; running subagents are helpers standing beside them. Every office has the same areas, and employees walk to the one for what they're doing: their **desk** (writing code, delegating, typing at a monitor that shows the live action), the **library** (reading, searching, with a book), the **server racks** (commands, tests), the **web window** (the web), the **front counter** with its bell (needs your approval or answer: hand raised, red lamp pulsing) or the **lounge** sofa (your turn, resting, with a mug). "…" over a head means thinking; "!" an error. Movement follows the village's dwell rule, so it always means a change of activity.
+- **Realistic people** (built in code, no model files): proportions of a real person next to a desk, with neck, shoulders, elbows, hips and knees, a face (eyes, brows, nose, ears), and looks fixed per session: a wide range of skin tones, short, side-parted, long, bun, curly or bald (with a beard) hair, glasses for some, and clothes in the project's colour (shirt or kurta with trousers, a blazer, a white mundu with a gold border, or a long skirt). Helpers wear a lighter top and an ID badge. They walk with a real stride and take the pose of what they do: typing at the desk, reading a book, a hand on the server console, looking up at the web window, a hand raised at the counter, leaning back on the sofa with a mug, a hand on the chin while thinking, hands on the head on an error.
+- Name tags (they open the session) and office cards with counts stay readable and never overlap; clicking an office flies to it and opens the project. Lighting follows the time of day, and windows glow at night. "Reduce motion" stops walking animations and pulses. The guide and the notice board speak of the office when it's shown.
+- The Workspace → Map tab added earlier in this release is gone; its design lives on in the Office world.
+
+### Accessibility and polish
+- Approve and Deny in the top bar are now real buttons with words (not ✓/✕ inside another button), so they work from the keyboard and with screen readers. Only the "N need you" summary is announced, not the ticking timers.
+- Text on the red "needs you" colour is dark, for readable contrast.
+- "Reduce motion" in Settings now stills every animation (including the bell, bubbles and pulses), and until you choose it the app follows your system setting as it changes.
+- Settings and the Ctrl+K finder close with Esc, keep Tab inside, and give focus back to where it was. The village guide closes with Esc.
+- Text boxes and filters show a focus ring.
+- **Ctrl+]** leaves a terminal by keyboard (Tab and Esc stay with the shell); the terminal's header says so. Esc pressed in a terminal no longer also closes the side panel.
+- Tab bars (Workspace pages, session details, terminals) work like standard tabs: ←/→, Home and End move between them, Tab enters the content, and each tab is linked to its panel. The Focus queue is a list of buttons (the selected one is marked current) with Approve/Deny beside it, not inside it. ↑/↓/j/k in Focus no longer act while a dialog or menu is open, in a terminal, or when ↑/↓ scroll the chat. The chat is a log, so screen readers announce new messages only.
+- Labels of villagers outside the view no longer pile up at the screen edge. Picking another art style clears an error from the previous one. Switching to Live no longer pops toasts and sounds for requests that were already open.
+- The chat no longer re-measures every message each second, and message text is rendered once.
+
+### Security and reliability
+- The WebSocket (terminals, messages to sessions) now only accepts connections from this computer, like every other API, even if `HOST` is overridden.
+- Projects reported by the remote bridge are shown but never treated as local folders: terminals, "Open folder in" and Git only use projects found on this computer.
+- A watched folder that is deleted or renamed no longer stops the server.
+- A failed start now exits with the error instead of leaving a process that serves nothing.
+- Fixed a file handle leak in pack image checks, a closed tab that could stay subscribed to a terminal it opened, and a chat history that was marked as loaded before it was read.
+- Each API now reads its own request body, after its access check. Removed two unused config endpoints.
+- When the port can't be used, the message says why: in use by another program, or reserved (for example by Hyper-V or WSL on Windows), with how to check. The bridge never overwrites a `config.json` it can't read; it reports it instead.
+
 ## 1.1.0 (2026-11-14)
 
 macOS and Linux support. The mod is unchanged (v0.3.0).

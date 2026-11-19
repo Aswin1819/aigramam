@@ -14,7 +14,7 @@ export default function BrandMark({ size = 34 }: { size?: number }) {
           <stop offset="1" stopColor="#ff7a2a" />
         </radialGradient>
       </defs>
-      <circle cx="20" cy="20" r="19" fill="#13221e" stroke="rgba(227,176,75,0.55)" />
+      <circle cx="20" cy="20" r="19" fill="var(--card)" stroke="rgba(227,176,75,0.55)" />
       <g className="origin-[20px_12px] animate-[flicker_1.6s_ease-in-out_infinite]">
         <path d="M20 4.5c2.6 3.2 3.4 5.4 3.4 7.2a3.4 3.4 0 1 1-6.8 0c0-1.8.8-4 3.4-7.2z" fill="url(#flame)" />
       </g>

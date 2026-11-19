@@ -11,7 +11,7 @@ import type { HistoryList, HistorySession } from "@shared/history";
 import { resolveProject } from "../monitor/projectRoot";
 import { TranscriptSummary } from "./summarize";
 
-const SESSION_FILE_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+import { SESSION_FILE_RE } from "../monitor/sessionFiles";
 const CHUNK = 1 << 20;
 const NL = 10;
 /** Don't look for changes more often than this. */

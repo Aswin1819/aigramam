@@ -39,56 +39,23 @@ export interface ClaudeSkill {
 const HOME_DIR = os.homedir();
 const CLAUDE_DIR = path.join(HOME_DIR, ".claude");
 const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
-import { DATA_DIR } from "../_core/paths";
-const CONFIG_PATH = path.join(DATA_DIR, "config.json");
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-export interface AppConfig {
-  claudeDir: string;
-  watchedProjectPaths: string[];
-  theme: "dark" | "light";
-}
-
-function loadConfig(): AppConfig {
-  try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
-    }
-  } catch {}
-  return {
-    claudeDir: CLAUDE_DIR,
-    watchedProjectPaths: [],
-    theme: "dark",
-  };
-}
-
-function saveConfig(config: AppConfig) {
-  ensureDataDir();
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-}
-
-// ─── Persistence Helpers ──────────────────────────────────────────────────────
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 // ─── Real Claude Code Skills File System ─────────────────────────────────────
 
 /**
- * Parse SKILL.md frontmatter to extract name and description
+ * Single-line fields from a Markdown file's YAML frontmatter (`key: value`),
+ * "" for a missing field or file without frontmatter. Enough for SKILL.md and
+ * agent files; it isn't a YAML parser.
  */
+export function frontmatterFields<K extends string>(content: string, keys: readonly K[]): Record<K, string> {
+  const fm = content.match(/^---\s*\n([\s\S]*?)\n---/)?.[1] ?? "";
+  const out = {} as Record<K, string>;
+  for (const k of keys) out[k] = fm.match(new RegExp(`^${k}:\\s*(.+)$`, "m"))?.[1]?.trim() ?? "";
+  return out;
+}
+
 function parseSkillFrontmatter(content: string): { name: string; description: string } {
-  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!fmMatch) return { name: "", description: "" };
-  const fm = fmMatch[1];
-  const nameMatch = fm.match(/^name:\s*(.+)$/m);
-  const descMatch = fm.match(/^description:\s*(.+)$/m);
-  return {
-    name: nameMatch ? nameMatch[1].trim() : "",
-    description: descMatch ? descMatch[1].trim() : "",
-  };
+  return frontmatterFields(content, ["name", "description"]);
 }
 
 /**
@@ -144,19 +111,7 @@ export interface ClaudeAgent {
  * Parse agent .md frontmatter
  */
 function parseAgentFrontmatter(content: string): { name: string; description: string; tools: string; model: string } {
-  const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!fmMatch) return { name: "", description: "", tools: "", model: "" };
-  const fm = fmMatch[1];
-  const nameMatch = fm.match(/^name:\s*(.+)$/m);
-  const descMatch = fm.match(/^description:\s*(.+)$/m);
-  const toolsMatch = fm.match(/^tools:\s*(.+)$/m);
-  const modelMatch = fm.match(/^model:\s*(.+)$/m);
-  return {
-    name: nameMatch ? nameMatch[1].trim() : "",
-    description: descMatch ? descMatch[1].trim() : "",
-    tools: toolsMatch ? toolsMatch[1].trim() : "",
-    model: modelMatch ? modelMatch[1].trim() : "",
-  };
+  return frontmatterFields(content, ["name", "description", "tools", "model"]);
 }
 
 /**
@@ -334,27 +289,6 @@ export function createAgentsRouter(opts: { claudeDir?: string } = {}) {
   const globalAgentsDir = path.join(claudeDir, "agents");
 
   return router({
-    // ── Config (~/.ai-gramam/config.json, never ~/.claude) ─────────────────────
-    getConfig: publicProcedure.query(() => loadConfig()),
-
-    saveConfig: publicProcedure
-      .input(z.object({
-        claudeDir: z.string().optional(),
-        watchedProjectPaths: z.array(z.string()).optional(),
-        theme: z.enum(["dark", "light"]).optional(),
-      }))
-      .mutation(({ input }) => {
-        const current = loadConfig();
-        const updated: AppConfig = {
-          ...current,
-          ...(input.claudeDir !== undefined && { claudeDir: input.claudeDir }),
-          ...(input.watchedProjectPaths !== undefined && { watchedProjectPaths: input.watchedProjectPaths }),
-          ...(input.theme !== undefined && { theme: input.theme }),
-        };
-        saveConfig(updated);
-        return { success: true, config: updated };
-      }),
-
     // ── Connection Status ───────────────────────────────────────────────────────
     connectionStatus: publicProcedure.query(() => {
       const projects = getTrackedProjects(projectsDir);

@@ -74,8 +74,10 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
         }
         if (!world_) { el.style.opacity = "0"; continue; }
         const p = scene.toCanvas(world_.x, world_.y);
-        const x = Math.max(70, Math.min(w.width - 70, ox + p.x * k)), y = oy + p.y * k;
-        const off = x < -150 || y < -80 || x > w.width + 150 || y > w.height + 80;
+        // Off-screen is judged before clamping; otherwise labels of villagers out of view would pile up at the edge.
+        const rawX = ox + p.x * k, y = oy + p.y * k;
+        const off = rawX < -150 || y < -80 || rawX > w.width + 150 || y > w.height + 80;
+        const x = Math.max(70, Math.min(w.width - 70, rawX));
         const child = el.firstElementChild as HTMLElement | null;
         items.push({ el, kind, x, y, alpha: off ? 0 : alpha, w: child?.offsetWidth ?? 0, h: child?.offsetHeight ?? 0 });
       }
@@ -192,7 +194,7 @@ export default function WorldLabels({ wrapRef, sceneRef, world, sessions, projec
                     exit={{ opacity: 0, y: -8, scale: 0.95, transition: { duration: 0.18 } }}
                     transition={urgent ? { y: { repeat: Infinity, duration: 0.9, ease: "easeInOut" }, default: { type: "spring", stiffness: 380, damping: 26 } } : { type: "spring", stiffness: 380, damping: 26 }}
                     className={`bubble-tail pointer-events-auto absolute bottom-[14px] left-1/2 max-w-[240px] -translate-x-1/2 truncate whitespace-nowrap rounded-xl border px-2.5 py-1 text-[11.5px] font-medium shadow-lg ${
-                      urgent ? "border-red-200/70 bg-urgent text-white shadow-red-900/50" : waiting ? "border-amber-100/70 bg-wait text-ink" : "border-white/15 bg-[#0d1b18]/90 text-cream"
+                      urgent ? "border-red-200/70 bg-urgent text-ink shadow-red-900/50" : waiting ? "border-amber-100/70 bg-wait text-ink" : "border-white/15 bg-[#0d1b18]/90 text-cream"
                     }`}
                     title={s.action.label}
                   >

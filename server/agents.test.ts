@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { agentsRouter, createAgentsRouter } from "./routers/agents";
+import { frontmatterFields, agentsRouter, createAgentsRouter } from "./routers/agents";
 
 const ctx = { req: {} as never, res: {} as never };
 
@@ -26,9 +26,9 @@ describe("agents router is read-only", () => {
     const names = Object.keys(procs);
     expect(names).toEqual(expect.arrayContaining(["globalSkills", "projectSkills", "globalAgents", "projectAgents", "trackedProjects", "connectionStatus"]));
     for (const n of names) expect(n).not.toMatch(/^(create|update|delete|write|remove|save)(Global|Project)(Skill|Agent)/i);
-    // The only mutation left is the app's own config in ~/.ai-gramam.
+    // No mutations at all: the viewer only reads.
     const mutations = names.filter((n) => procs[n]._def.type === "mutation");
-    expect(mutations).toEqual(["saveConfig"]);
+    expect(mutations).toEqual([]);
   });
 
   describe("against a temp ~/.claude", () => {
@@ -87,5 +87,13 @@ describe("agents router is read-only", () => {
       await expect(caller.projectAgents({ projectPath: "relative/path" })).rejects.toThrow(/absolute/);
       await expect(caller.projectSkills({ projectPath: path.join(project, "..", "not-tracked") })).rejects.toThrow(/Not a project/);
     });
+  });
+});
+
+describe("frontmatterFields", () => {
+  it("reads single-line fields, with Windows line endings too, and gives \"\" for missing ones", () => {
+    const md = "---\r\nname: reviewer\r\ndescription: Reviews code\r\n---\r\nBody";
+    expect(frontmatterFields(md, ["name", "description", "model"])).toEqual({ name: "reviewer", description: "Reviews code", model: "" });
+    expect(frontmatterFields("no frontmatter", ["name"])).toEqual({ name: "" });
   });
 });

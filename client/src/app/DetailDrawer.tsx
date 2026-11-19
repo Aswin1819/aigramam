@@ -5,13 +5,14 @@ import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { CharacterInfo } from "@shared/character";
 import Avatar from "@/components/Avatar";
 import { STATUS_META, clockTime, elapsed, isUrgent, statusColor, statusText } from "@/lib/status";
-import type { CommandOutcome } from "@/hooks/useLiveSessions";
+import type { Command } from "@/hooks/useLiveSessions";
 import SessionControls from "./SessionControls";
 import ChatPanel from "./ChatPanel";
 import SubagentsPanel from "./SubagentsPanel";
 import ChangesPanel from "./ChangesPanel";
 import RequestCard from "./RequestCard";
 import CharacterPicker from "./CharacterPicker";
+import { useTabs } from "@/hooks/useTabs";
 
 interface Props {
   session: SessionView;
@@ -28,7 +29,7 @@ interface Props {
   onSetupAlerts: () => void;
   onSetupLink: () => void;
   demo: boolean;
-  command: (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
+  command: Command;
   /** Show a managed terminal (Workspace → Terminals) by id. */
   onOpenTerminal?: (terminalId: string) => void;
 }
@@ -40,6 +41,7 @@ const TABS: ReadonlyArray<readonly [DrawerTab, string, typeof MessageSquare]> = 
   ["changes", "Changes", GitCompare],
   ["details", "Details", ListTree],
 ];
+const TAB_IDS = TABS.map(([id]) => id);
 
 function Meta({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
@@ -54,6 +56,7 @@ function Meta({ icon, label, children }: { icon: React.ReactNode; label: string;
 /** Slide-in panel for one session: its conversation (Chat) and everything else (Details). */
 export default function DetailDrawer({ session: s, project, character, cast, chosenCharacterId, onChooseCharacter, chat, now, onClose, onFocus, onSetupAlerts, onSetupLink, demo, command, onOpenTerminal }: Props) {
   const [tab, setTab] = useState<DrawerTab>("chat");
+  const tabs = useTabs(TAB_IDS, tab, setTab);
   const runningSubagents = s.subagents.filter((a) => a.status !== "finished").length;
   const color = statusColor(s);
   const urgent = isUrgent(s);
@@ -81,11 +84,11 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               <span className={`chip ${urgent ? "animate-pulse text-white" : ""}`} style={{ background: urgent ? color : STATUS_META[s.status].bg, color: urgent ? "#fff" : color }}>
                 {STATUS_META[s.status].emoji} {statusText(s)}
               </span>
-              <span className="text-[11px] tabular-nums text-cream/50">for {elapsed(s.statusSince, now)}</span>
+              <span className="text-[11px] tabular-nums text-cream/60">for {elapsed(s.statusSince, now)}</span>
               {s.link?.connected && <span className="flex items-center gap-1 text-[11px] text-work"><span className="h-1.5 w-1.5 rounded-full bg-work shadow-[0_0_6px_#5eead4]" />Linked</span>}
             </div>
             {s.statusNote && <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-cream/55" title="What this status is based on">{s.statusNote}</p>}
-            <div className="mt-0.5 truncate text-[11px] text-cream/45">
+            <div className="mt-0.5 truncate text-[11px] text-cream/60">
               {project?.name}{s.gitBranch ? ` · ⎇ ${s.gitBranch}` : ""}{character ? ` · ${character.name}` : ""}
             </div>
           </div>
@@ -94,9 +97,9 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
             <button onClick={onFocus} className="grid h-7 w-7 place-items-center rounded-lg text-cream/60 hover:bg-white/10 hover:text-cream" aria-label="Find in the world" title="Find in the world"><Crosshair size={15} /></button>
           </div>
         </div>
-        <div className="relative mt-2 flex gap-1" role="tablist">
+        <div className="relative mt-2 flex gap-1" {...tabs.list} aria-label="Session details">
           {TABS.map(([id, label, Icon]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className="relative flex items-center gap-1.5 px-3 py-2 text-[12.5px]">
+            <button key={id} {...tabs.tab(id)} onClick={() => setTab(id)} className="relative flex items-center gap-1.5 px-3 py-2 text-[12.5px]">
               {tab === id && <motion.span layoutId="drawer-tab" className="absolute inset-x-1 bottom-0 h-[2px] rounded-full bg-brass" />}
               <Icon size={14} className={tab === id ? "text-brass" : "text-cream/45"} />
               <span className={tab === id ? "font-semibold text-cream" : "text-cream/60"}>{label}</span>
@@ -106,6 +109,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
         </div>
       </div>
 
+      <div {...tabs.panel} className="flex min-h-0 flex-1 flex-col">
       <AnimatePresence mode="wait" initial={false}>
         {tab === "chat" ? (
           <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="flex min-h-0 flex-1 flex-col">
@@ -135,7 +139,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               <div className="m-4 mb-0 flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
                 <span className="text-lg" aria-hidden>{s.action.emoji}</span>
                 <span className="min-w-0 flex-1 text-[13px] font-medium text-cream">{s.action.label}</span>
-                <span className="text-[11px] tabular-nums text-cream/50">{elapsed(s.action.startedAt, now)}</span>
+                <span className="text-[11px] tabular-nums text-cream/60">{elapsed(s.action.startedAt, now)}</span>
               </div>
             )}
             {s.maybeNeedsApproval && !s.link?.connected && (
@@ -145,7 +149,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               </p>
             )}
             <div className="space-y-1.5 border-b border-white/8 p-4">
-              <Meta icon={<Folder size={13} />} label="Project">{project?.name ?? "?"} <span className="block font-mono text-[10.5px] text-cream/45">{s.cwd}</span></Meta>
+              <Meta icon={<Folder size={13} />} label="Project">{project?.name ?? "?"} <span className="block font-mono text-[10.5px] text-cream/60">{s.cwd}</span></Meta>
               {s.gitBranch && <Meta icon={<GitBranch size={13} />} label="Branch">{s.gitBranch}</Meta>}
               <Meta icon={<Clock size={13} />} label="Started">{clockTime(s.startedAt)} · {elapsed(s.startedAt, now)} ago</Meta>
               <Meta icon={<Radio size={13} />} label="Source">{source}</Meta>
@@ -179,18 +183,18 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
               </div>
             )}
             <div className="p-4">
-              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Activity</h3>
+              <h3 className="mb-3 section-title">Activity</h3>
               {s.recent.length === 0 ? (
                 <p className="text-[12px] text-cream/50">Nothing yet.</p>
               ) : (
                 <ol className="relative ml-1.5 space-y-2.5 border-l border-white/10 pl-4">
                   {[...s.recent].reverse().map((r, i) => (
                     <li key={`${r.at}-${r.text}-${i}`} className="relative text-[12px]">
-                      <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-2 ring-[#13221e]" style={{ background: r.level === "error" ? "#ff5a4f" : r.level === "warn" ? "#f5b33d" : i === 0 ? "#5eead4" : "rgba(255,248,231,0.35)" }} />
+                      <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-2 ring-card" style={{ background: r.level === "error" ? "#ff5a4f" : r.level === "warn" ? "#f5b33d" : i === 0 ? "#5eead4" : "rgba(255,248,231,0.35)" }} />
                       <div className={r.level === "error" ? "text-red-300" : r.level === "warn" ? "text-amber-200" : "text-cream/85"}>
                         <span aria-hidden>{r.emoji}</span> {r.agent && <span className="text-sky-300">{r.agent} · </span>}{r.text}
                       </div>
-                      <div className="font-mono text-[10px] text-cream/35">{clockTime(r.at)}</div>
+                      <div className="font-mono text-[10px] text-cream/60">{clockTime(r.at)}</div>
                     </li>
                   ))}
                 </ol>
@@ -199,6 +203,7 @@ export default function DetailDrawer({ session: s, project, character, cast, cho
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.aside>
   );
 }

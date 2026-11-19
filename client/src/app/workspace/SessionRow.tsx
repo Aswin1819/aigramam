@@ -20,13 +20,13 @@ export default function SessionRow({ s, project, now, selected, onSelect, extra 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-[13px] font-semibold text-cream">{s.title}</span>
-          <span className="shrink-0 text-[11px] text-cream/45">{project}</span>
+          <span className="shrink-0 text-[11px] text-cream/60">{project}</span>
         </div>
         <div className="truncate text-[12px] text-cream/65">
           <span style={{ color }} title={s.statusNote}>{STATUS_META[s.status].emoji} {statusText(s)}</span>
           {s.action && <span> · {s.action.label}</span>}
         </div>
-        <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10.5px] text-cream/40">
+        <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10.5px] text-cream/60">
           <span>for {elapsed(s.statusSince, now)}</span>
           {s.gitBranch && <span>⎇ {s.gitBranch}</span>}
           {helpers > 0 && <span>{helpers} subagent{helpers > 1 ? "s" : ""}</span>}

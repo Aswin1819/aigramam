@@ -1,3 +1,4 @@
+import crypto from "crypto";
 /**
  * Local-only security guards.
  *
@@ -44,6 +45,13 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
   }
 }
 
+/** Constant-time comparison of a key from a request header with the expected key. */
+export function keyMatches(given: unknown, expected: string): boolean {
+  const a = Buffer.from(typeof given === "string" ? given : "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 export function isLoopbackAddress(addr: string | undefined): boolean {
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
@@ -74,9 +82,12 @@ export function localOnly(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/** Same checks for the WebSocket upgrade request. */
+/**
+ * Checks for the WebSocket upgrade request. It carries terminals and messages
+ * to sessions, so it is local-only like the APIs, even if HOST is overridden.
+ */
 export function verifyWsClient(info: { origin: string; req: IncomingMessage }): boolean {
-  return isAllowedHost(info.req.headers.host) && isAllowedOrigin(info.origin || undefined);
+  return isLocalRequest(info.req) && isAllowedHost(info.req.headers.host) && isAllowedOrigin(info.origin || undefined);
 }
 
 /**

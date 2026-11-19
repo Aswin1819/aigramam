@@ -13,7 +13,7 @@ import { parseLine } from "./parser";
 import { describeTool } from "./actions";
 import type { ChatItem } from "@shared/model";
 import { readRegistry } from "./registry";
-import { SessionStore, interruptNoteId } from "./store";
+import { SessionStore, TIMING, interruptNoteId } from "./store";
 import { FileTailer, scanLinesContaining } from "./tailer";
 
 export interface MonitorOptions {
@@ -31,7 +31,7 @@ interface Tracked {
 }
 
 const NL = String.fromCharCode(10);
-const SESSION_FILE_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+import { SESSION_FILE_RE } from "./sessionFiles";
 const AGENT_FILE_RE = /^agent-([A-Za-z0-9_-]+)\.jsonl$/;
 
 export class Monitor {
@@ -68,7 +68,10 @@ export class Monitor {
     this.timers.push(setInterval(() => { this.store.prune(); this.dropUntracked(); this.onChange(); }, 1_000));
     try {
       // Recursive watching works on Windows and macOS; the scan timer covers everything else.
-      this.watchers.push(fs.watch(this.projectsDir, { recursive: true }, () => this.pollTailers()));
+      const w = fs.watch(this.projectsDir, { recursive: true }, () => this.pollTailers());
+      // Without a listener, an 'error' (e.g. the folder deleted on Windows) would end the process; the timers keep working.
+      w.on("error", () => closeQuietly(w));
+      this.watchers.push(w);
     } catch {}
   }
 
@@ -88,9 +91,10 @@ export class Monitor {
    */
   async loadChatHistory(sessionId: string, maxBytes = 3 * 1024 * 1024): Promise<void> {
     if (this.historyLoaded.has(sessionId)) return;
-    this.historyLoaded.add(sessionId);
     const file = this.sessionFiles.get(sessionId);
-    if (!file) return;
+    if (!file) return; // not known yet (e.g. registry-only): try again on the next open
+    // Marked before the read so two tabs opening at once don't read it twice; unmarked if the read fails.
+    this.historyLoaded.add(sessionId);
     let text: string;
     try {
       const fh = await fs.promises.open(file, "r");
@@ -105,6 +109,7 @@ export class Monitor {
         await fh.close();
       }
     } catch {
+      this.historyLoaded.delete(sessionId);
       return;
     }
     const items: ChatItem[] = [];
@@ -205,7 +210,7 @@ export class Monitor {
       const file = path.join(dir, f);
       if (this.tracked.has(file)) continue;
       // Only subagents that are (or were very recently) running.
-      if (now - this.mtime(file) > 3 * 60_000) continue;
+      if (now - this.mtime(file) > TIMING.subagentSilentMs) continue;
       const agentId = m[1];
       this.readSubagentMeta(path.join(dir, `agent-${agentId}.meta.json`), sessionId, agentId);
       this.tracked.set(file, { tailer: new FileTailer(file), sessionId, agentId });
@@ -266,6 +271,7 @@ export class Monitor {
   /** Stop following files for sessions/subagents the store has dropped. */
   private dropUntracked() {
     const live = new Set(this.store.ids());
+    for (const id of this.historyLoaded) if (!live.has(id)) this.historyLoaded.delete(id);
     for (const [file, t] of this.tracked) {
       if (!live.has(t.sessionId)) {
         this.tracked.delete(file);
@@ -301,4 +307,10 @@ export class Monitor {
     } catch {}
     return null;
   }
+}
+
+function closeQuietly(w: fs.FSWatcher) {
+  try {
+    w.close();
+  } catch {}
 }

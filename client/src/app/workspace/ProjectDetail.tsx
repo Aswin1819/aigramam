@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Bot, Check, Copy, FolderGit2, GitBranch, TerminalSquare, Users } from "lucide-react";
 import type { TerminalStart } from "@shared/terminal";
 import type { SessionView } from "@shared/model";
@@ -7,6 +6,7 @@ import { attentionOf, type ProjectSummary } from "./attention";
 import SessionRow from "./SessionRow";
 import ProjectShortcuts from "./ProjectShortcuts";
 import { ProjectGit, ProjectRecent } from "./ProjectInterior";
+import { useCopy } from "@/hooks/useCopy";
 
 interface Props {
   summary: ProjectSummary;
@@ -25,17 +25,11 @@ interface Props {
  * the Projects page and when a building is clicked in the village.
  */
 export default function ProjectDetail({ summary: pr, now, selectedSessionId, onSelectSession, onOpenTerminal, terminalBlockedReason }: Props) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopy();
   const demo = pr.sessions.length > 0 && pr.sessions.every((x) => x.source === "demo");
   const a = attentionOf(pr.sessions, now);
   const ordered: SessionView[] = [...a.needsYou, ...a.yourTurn, ...a.errors, ...a.quiet, ...a.working, ...a.recentlyDone, ...a.idle];
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(pr.project.root);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {}
-  };
+  const copy = () => copyText(pr.project.root);
 
   return (
     <div>
@@ -43,7 +37,7 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
         <FolderGit2 size={18} className="mt-0.5 shrink-0 text-brass" />
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-display text-[17px] font-bold text-cream">{pr.project.name}</h2>
-          <button onClick={copy} className="group flex max-w-full items-center gap-1 text-left font-mono text-[11px] text-cream/50 hover:text-cream/80" title="Copy the folder path">
+          <button onClick={copy} className="group flex max-w-full items-center gap-1 text-left font-mono text-[11px] text-cream/60 hover:text-cream/80" title="Copy the folder path">
             <span className="truncate">{pr.project.root}</span>
             {copied ? <Check size={12} className="shrink-0 text-work" /> : <Copy size={12} className="shrink-0 opacity-0 group-hover:opacity-100" />}
           </button>
@@ -70,7 +64,7 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
               <Bot size={14} className="text-brass" /> Start Claude here
             </button>
           </div>
-          {terminalBlockedReason && <p className="mt-1 text-[11px] text-cream/45">{terminalBlockedReason}</p>}
+          {terminalBlockedReason && <p className="mt-1 text-[11px] text-cream/60">{terminalBlockedReason}</p>}
         </div>
       )}
 
@@ -90,13 +84,13 @@ export default function ProjectDetail({ summary: pr, now, selectedSessionId, onS
 
       <ProjectGit projectId={pr.project.id} demo={demo} />
 
-      <h3 className="mb-1.5 mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90">Sessions</h3>
+      <h3 className="mb-1.5 mt-4 section-title">Sessions</h3>
       <div className="space-y-1.5">
         {ordered.map((s) => (
           <SessionRow key={s.id} s={s} project={pr.project.name} now={now} selected={s.id === selectedSessionId} onSelect={() => onSelectSession(s.id)} />
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-cream/40">Sessions running now. Ended ones are under Recent history.</p>
+      <p className="mt-2 text-[11px] text-cream/60">Sessions running now. Ended ones are under Recent history.</p>
 
       <ProjectRecent projectId={pr.project.id} demo={demo} liveIds={new Set(pr.sessions.map((x) => x.id.toLowerCase()))} onSelectSession={(id) => onSelectSession(pr.sessions.find((x) => x.id.toLowerCase() === id)?.id ?? id)} />
     </div>
@@ -107,7 +101,7 @@ function Fact({ label, value, tone }: { label: string; value: string; tone?: "ur
   const color = tone === "urgent" ? "text-urgent" : tone === "work" ? "text-work" : "text-cream";
   return (
     <div className="rounded-xl border border-white/8 bg-black/20 px-2.5 py-1.5">
-      <div className="text-[10.5px] uppercase tracking-wide text-cream/45">{label}</div>
+      <div className="text-[10.5px] uppercase tracking-wide text-cream/60">{label}</div>
       <div className={`truncate text-[14px] font-semibold tabular-nums ${color}`}>{value}</div>
     </div>
   );

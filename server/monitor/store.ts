@@ -50,6 +50,8 @@ export const TIMING = {
   chatMax: 300,
   /** How close an interrupt must be to a Stop pressed in Ai Gramam to count as that stop. */
   stopMatchMs: 30_000,
+  /** A subagent with no pending tool still counts as working (thinking) this long after its last activity. */
+  subagentThinkingMs: 30_000,
 };
 
 const NO_APPROVAL_MODES = new Set(["bypassPermissions", "auto", "dontAsk"]);
@@ -135,8 +137,6 @@ export class SessionStore {
   private sessions = new Map<string, SessState>();
   private lastHookAt?: number;
   hooksInstalled = false;
-  /** Bumped on every change, so the monitor knows when to send a snapshot. */
-  version = 0;
   /** Told about new chat items, so open chat views update right away. */
   onChat: (sessionId: string, items: ChatItem[]) => void = () => {};
 
@@ -237,20 +237,18 @@ export class SessionStore {
         statusSince: at,
       };
       this.sessions.set(id, s);
-      this.version++;
     }
     return s;
   }
 
   remove(id: string) {
-    if (this.sessions.delete(id)) this.version++;
+    this.sessions.delete(id);
   }
 
   // ── Transcript events ──────────────────────────────────────────────────────
 
   applyEvent(sessionId: string, ev: MonitorEvent, agentId?: string) {
     const s = this.ensure(sessionId);
-    this.version++;
     s.awaitingFirstMessage = false;
     if (agentId) return this.applySubEvent(s, agentId, ev);
 
@@ -388,7 +386,6 @@ export class SessionStore {
     if (!sub) {
       sub = { id: agentId, sessionId: s.id, agentType: "agent", description: "", startedAt: at, lastActivityAt: at, pending: new Map() };
       s.subagents.set(agentId, sub);
-      this.version++;
     }
     return sub;
   }
@@ -402,7 +399,6 @@ export class SessionStore {
     if (meta.toolUseId) sub.toolUseId = meta.toolUseId;
     if (meta.finished && !sub.finishedAt) this.finishSub(s, sub, at);
     if (isNew) this.log(s, at, "🧑‍🤝‍🧑", `Subagent ${sub.agentType} joined${sub.description ? `: ${sub.description}` : ""}`);
-    this.version++;
   }
 
   private finishSub(s: SessState, sub: SubState, at: number) {
@@ -419,7 +415,6 @@ export class SessionStore {
     const s = this.ensure(sessionId, "hooks", now);
     s.hooksActive = true;
     this.lastHookAt = now;
-    this.version++;
     if (typeof p.cwd === "string" && p.cwd && !p.agent_id) s.cwd = p.cwd;
     if (typeof p.permission_mode === "string") s.permissionMode = p.permission_mode;
     if (typeof p.session_title === "string" && p.session_title.trim()) s.titles.custom = p.session_title.trim();
@@ -514,7 +509,6 @@ export class SessionStore {
     s.lastActivityAt = at;
     s.awaitingFirstMessage = true;
     if (e.cwd) s.cwd = e.cwd;
-    this.version++;
   }
 
   applyRegistry(entries: RegistryEntry[], now = Date.now()) {
@@ -523,7 +517,6 @@ export class SessionStore {
       if (!e.alive) continue;
       const s = this.sessions.get(e.sessionId);
       if (!s) continue;
-      if (!s.registrySeen || !s.registryAlive) this.version++;
       s.registrySeen = true;
       s.registryAlive = true;
       if (!s.cwd && e.cwd) s.cwd = e.cwd;
@@ -531,7 +524,6 @@ export class SessionStore {
         const key = e.nameSource === "user" ? "registryUser" : "registryDerived";
         if (s.titles[key] !== e.name) {
           s.titles[key] = e.name;
-          this.version++;
         }
       }
     }
@@ -545,7 +537,6 @@ export class SessionStore {
         s.endReason = "closed";
         s.pending.clear();
         this.log(s, now, "✅", "Session closed");
-        this.version++;
       }
     }
   }
@@ -683,7 +674,7 @@ export class SessionStore {
     } else if (sub.pending.size > 0) {
       status = "working";
       action = [...sub.pending.values()].reduce((a, b) => (b.startedAt >= a.startedAt ? b : a)).action;
-    } else if (now - sub.lastActivityAt < 30_000) {
+    } else if (now - sub.lastActivityAt < TIMING.subagentThinkingMs) {
       status = "working";
       action = stateAction("think", sub.lastActivityAt);
     } else {
@@ -710,22 +701,18 @@ export class SessionStore {
       for (const sub of s.subagents.values()) {
         if (!sub.finishedAt && sub.pending.size === 0 && now - sub.lastActivityAt > TIMING.subagentSilentMs) {
           this.finishSub(s, sub, now);
-          this.version++;
         }
         if (sub.finishedAt && now - sub.finishedAt > TIMING.subagentLingerMs) {
           s.subagents.delete(sub.id);
-          this.version++;
         }
       }
       if (!s.finishedAt && !s.registryAlive && s.source !== "bridge" && now - this.times(s, now).lastActivityAt > TIMING.silentEndMs) {
         s.finishedAt = now;
         s.endReason = "silent";
         s.pending.clear();
-        this.version++;
       }
       if (s.finishedAt && now - s.finishedAt > TIMING.finishedLingerMs) {
         this.sessions.delete(s.id);
-        this.version++;
       }
     }
   }

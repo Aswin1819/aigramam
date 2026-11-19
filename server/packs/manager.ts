@@ -58,16 +58,32 @@ export class PackManager<S, L extends { files: Map<string, string> }> {
     this.debounce = setTimeout(() => this.reload(), 300);
   }
 
-  start(pollMs = 3000) {
+  /**
+   * Load the packs and follow changes: file watching reloads within ~300 ms,
+   * and a poll catches what watching misses. The poll is every 3 s when a
+   * folder couldn't be watched, and only every 30 s as a safety net when all
+   * of them are (a reload walks folders and validates every pack). Tests pass
+   * `pollMs` to fix the interval.
+   */
+  start(pollMs?: number) {
     this.reload();
+    let unwatched = 0;
     for (const src of this.sources) {
       try {
-        this.watchers.push(fs.watch(src.dir, { recursive: true }, () => this.scheduleReload()));
+        const w = fs.watch(src.dir, { recursive: true }, () => this.scheduleReload());
+        // An unhandled 'error' (e.g. the pack folder deleted on Windows) would end the process; the poll keeps working.
+        w.on("error", () => {
+          try {
+            w.close();
+          } catch {}
+        });
+        this.watchers.push(w);
       } catch {
         // folder missing or recursive watch unsupported: the poll below covers it
+        unwatched++;
       }
     }
-    this.timers.push(setInterval(() => this.reload(), pollMs));
+    this.timers.push(setInterval(() => this.reload(), pollMs ?? (unwatched > 0 ? 3_000 : 30_000)));
   }
 
   stop() {
