@@ -40,6 +40,13 @@ export function plainStatus(s: SessionView, now: number): Plain {
   return { tone: "rest", headline: "Idle", detail: `for ${since}` };
 }
 
+/** Why the village is empty, in plain words (Focus and Map say the same). */
+export function emptyVillageText(demo: boolean, connected: boolean): string {
+  if (demo) return "The demo village is empty.";
+  if (!connected) return "Can't reach the Ai Gramam server. Reconnecting…";
+  return "The village is quiet: no Claude Code sessions are running.";
+}
+
 /** What can be done from the browser, and if nothing, why (in plain words). */
 export function controlOf(s: SessionView, demo: boolean): { canAct: boolean; why?: string } {
   if (demo) return { canAct: false, why: "Demo village: nothing is sent." };

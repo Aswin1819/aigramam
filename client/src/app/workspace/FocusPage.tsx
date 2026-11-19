@@ -13,7 +13,7 @@ import ChatPanel from "../ChatPanel";
 import RequestCard from "../RequestCard";
 import SessionControls from "../SessionControls";
 import SetupChecks from "../SetupChecks";
-import { GROUP_TITLE, byAttention, controlOf, paletteMatches, plainStatus, step } from "./focus";
+import { emptyVillageText, GROUP_TITLE, byAttention, controlOf, paletteMatches, plainStatus, step } from "./focus";
 import VillageStrip, { Face, StatusLine, TONE_TEXT, characterOf, type Cast } from "./VillageStrip";
 
 type Command = (type: "session-message" | "session-stop" | "approval-decide", payload: Record<string, unknown>) => Promise<CommandOutcome>;
@@ -74,7 +74,7 @@ export default function FocusPage(p: Props) {
 
   const projectName = (s: SessionView) => p.projects.find((x) => x.id === s.projectId)?.name ?? (s.cwd.split(/[\\/]/).filter(Boolean).pop() || "Project");
   const linked = p.sessions.filter((s) => s.link?.connected).length;
-  const emptyText = demo ? "The demo village is empty." : !p.connected ? "Can't reach the Ai Gramam server. Reconnecting…" : "The village is quiet: no Claude Code sessions are running.";
+  const emptyText = emptyVillageText(demo, p.connected);
 
   let lastGroup = "";
   return (

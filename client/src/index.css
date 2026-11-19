@@ -53,6 +53,8 @@
   --color-done: #8ee59a;
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Noto Sans", "Noto Sans Malayalam", sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  /* Installed serif fonts only (no web fonts); used for the Map's small-caps headings and figures. */
+  --font-serif: Georgia, Cambria, "Times New Roman", serif;
   --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
 }
 
@@ -169,6 +171,33 @@
     border-right: inherit;
     border-bottom: inherit;
   }
+}
+
+/* Workspace → Map: paths from the square flow toward yards with work going on. */
+@keyframes map-flow {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.map-flow {
+  animation: map-flow 1.2s linear infinite;
+}
+/* The Map's own palette: neutral charcoal with warm hairlines, like an office floor plan at night. */
+.map-frame {
+  --map-bg: #121211;
+  --map-panel: #171716;
+  --map-line: rgba(255, 244, 220, 0.12);
+  background: radial-gradient(ellipse at 42% 42%, #1d1d1b, var(--map-bg) 72%);
+}
+.map-panel {
+  background: color-mix(in srgb, var(--map-panel) 94%, transparent);
+  border: 1px solid var(--map-line);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+.map-caps {
+  font-family: var(--font-serif);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
 }
 
 @media (prefers-reduced-motion: reduce) {

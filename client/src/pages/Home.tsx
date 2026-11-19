@@ -226,6 +226,7 @@ export default function Home() {
           focusId={focusId}
           onFocus={setFocusId}
           onOpenDetails={setSelectedId}
+          reducedMotion={prefs.reducedMotion}
         />
       ) : styled ? (
         <StyledWorldView
