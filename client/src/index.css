@@ -200,6 +200,15 @@
   letter-spacing: 0.06em;
 }
 
+/* The in-app "Reduce motion" setting (Settings), on top of the system one below. */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

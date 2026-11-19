@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 
 export type TimeMode = "auto" | "dawn" | "day" | "dusk" | "night";
 export const TIME_HOURS: Record<Exclude<TimeMode, "auto">, number> = { dawn: 6.4, day: 11, dusk: 18.3, night: 22 };
@@ -29,8 +29,21 @@ const WORKSPACE_PAGES: WorkspacePage[] = ["overview", "map", "projects", "agents
 
 const KEY = "ai-gramam.display";
 
+function systemReducedMotion(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** True when the person picked "Reduce motion" in the app; otherwise the system setting is followed (and may change). */
+function motionChosen(): boolean {
+  try {
+    return "reducedMotion" in JSON.parse(localStorage.getItem(KEY) ?? "{}");
+  } catch {
+    return false;
+  }
+}
+
 function load(): Prefs {
-  const systemReduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const systemReduced = systemReducedMotion();
   const fallback: Prefs = { reducedMotion: !!systemReduced, time: "auto", dockOpen: true, boardOpen: true, legendSeen: false, artStyle: "classic", sound: true, view: "world", workspacePage: "overview", desktopNotify: false };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
@@ -61,10 +74,22 @@ export function useDisplayPrefs() {
     setPrefs((p) => {
       const next = { ...p, ...patch };
       try {
-        localStorage.setItem(KEY, JSON.stringify(next));
+        // Save the motion setting only once chosen in the app, so until then the system setting keeps applying.
+        const { reducedMotion, ...rest } = next;
+        localStorage.setItem(KEY, JSON.stringify(patch.reducedMotion !== undefined || motionChosen() ? next : rest));
       } catch {}
       return next;
     });
+  }, []);
+  // Follow the system's reduce-motion setting while the person hasn't chosen one in the app.
+  useEffect(() => {
+    const mq = typeof window !== "undefined" ? window.matchMedia?.("(prefers-reduced-motion: reduce)") : undefined;
+    if (!mq) return;
+    const onChange = () => {
+      if (!motionChosen()) setPrefs((p) => ({ ...p, reducedMotion: mq.matches }));
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
   // "?time=night" (dawn/day/dusk/night) previews a time of day without changing the saved setting.
   const urlTime = typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("time") as TimeMode | null) : null;

@@ -36,7 +36,7 @@ export default function NoticeBoard(p: Props) {
           <ClipboardList size={15} className="text-brass" />
           <span className="font-display text-sm font-semibold">Notice board</span>
           {urgent > 0 ? (
-            <span className="chip bg-urgent text-white">{urgent} need{urgent === 1 ? "s" : ""} you</span>
+            <span className="chip bg-urgent text-ink">{urgent} need{urgent === 1 ? "s" : ""} you</span>
           ) : total > 0 ? (
             <span className="chip bg-black/25 text-cream/75">{total}</span>
           ) : null}

@@ -146,23 +146,23 @@ export default function ChatPanel({ session: s, character, items, request, foote
         <AnimatePresence initial={false}>
           {rows.map((row) =>
             row.kind === "tools" ? (
-              <motion.div key={row.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div key={row.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <ToolGroup items={row.items} working={working} />
               </motion.div>
             ) : row.item.kind === "note" ? (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-3 flex items-center gap-2 text-[10.5px] text-cream/40" title={clockTime(row.item.at)}>
+              <motion.div key={row.item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-3 flex items-center gap-2 text-[11px] text-cream/60" title={clockTime(row.item.at)}>
                 <span className="h-px flex-1 bg-white/10" />
                 {row.item.text}
                 <span className="h-px flex-1 bg-white/10" />
               </motion.div>
             ) : row.item.kind === "user" ? (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex justify-end">
+              <motion.div key={row.item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex justify-end">
                 <div className="max-w-[85%] rounded-2xl rounded-br-md bg-brass/90 px-3 py-2 text-[13px] leading-relaxed text-ink shadow" title={clockTime(row.item.at)}>
                   <div className="whitespace-pre-wrap break-words">{row.item.text}</div>
                 </div>
               </motion.div>
             ) : (
-              <motion.div key={row.item.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex items-end gap-2">
+              <motion.div key={row.item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="my-2 flex items-end gap-2">
                 <div className="grid h-9 w-7 shrink-0 place-items-end overflow-hidden rounded-lg bg-white/5">
                   <Avatar character={character} size={32} />
                 </div>

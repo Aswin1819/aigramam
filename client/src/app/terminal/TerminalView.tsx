@@ -201,7 +201,7 @@ export default function TerminalView({ info, api, connected, confirmClose, onCon
           {confirmClose ? (
             <span className="flex items-center gap-1 rounded-lg bg-urgent/15 px-2 py-0.5 text-cream" role="alertdialog" aria-label="Confirm closing the terminal">
               {running ? "Stop the shell and close?" : "Close this terminal?"}
-              <button onClick={() => close(id)} className="rounded-md bg-urgent px-2 py-0.5 font-semibold text-white hover:bg-urgent/85" autoFocus>
+              <button onClick={() => close(id)} className="rounded-md bg-urgent px-2 py-0.5 font-semibold text-ink hover:bg-urgent/85" autoFocus>
                 Close
               </button>
               <button onClick={() => onConfirmClose(false)} className="rounded-md px-2 py-0.5 text-cream/75 hover:bg-white/10">

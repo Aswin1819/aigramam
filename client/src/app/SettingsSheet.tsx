@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useModal } from "@/hooks/useModal";
 import { notifyPermission, requestNotifyPermission, type NotifyPermission } from "@/lib/desktopNotify";
 import { AnimatePresence, motion } from "motion/react";
 import { Bell, Globe2, Users, Cable, MonitorCog, Wand2, X, Copy, Check, Link2 } from "lucide-react";
@@ -188,9 +189,13 @@ function BridgeTab() {
 
 export default function SettingsSheet(p: Props) {
   const folders = trpc.worlds.folders.useQuery();
+  const dialog = useRef<HTMLDivElement>(null);
+  useModal(dialog, p.onClose);
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={(e) => e.target === e.currentTarget && p.onClose()}>
       <motion.div
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Settings"

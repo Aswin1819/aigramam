@@ -296,7 +296,7 @@ function Villager({ cast, s, tone, now, x, y, flow, onOpen }: { cast: Cast; s: S
         <Avatar character={characterOf(cast, s)} size={50} anim={ANIM[tone]} />
       </span>
       <Desk />
-      {tone === "urgent" && <span className="mt-0.5 whitespace-nowrap rounded bg-urgent px-1 text-[11px] font-semibold leading-tight text-white">Needs you</span>}
+      {tone === "urgent" && <span className="mt-0.5 whitespace-nowrap rounded bg-urgent px-1 text-[11px] font-semibold leading-tight text-ink">Needs you</span>}
       <span className="pointer-events-none absolute -bottom-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-black/75 px-1.5 py-0.5 text-[12px] text-cream group-hover:block group-focus-visible:block">
         {s.title}
       </span>

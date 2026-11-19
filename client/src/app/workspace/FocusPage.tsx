@@ -5,10 +5,11 @@
  * ↑/↓ or j/k move, Ctrl+K finds any session or project. Only live data; in
  * the demo nothing is sent.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link2, PanelRightOpen, Search, Unplug, Zap } from "lucide-react";
 import type { ChatItem, ProjectView, SessionView } from "@shared/model";
 import type { AppMode, CommandOutcome } from "@/hooks/useLiveSessions";
+import { useModal } from "@/hooks/useModal";
 import ChatPanel from "../ChatPanel";
 import RequestCard from "../RequestCard";
 import SessionControls from "../SessionControls";
@@ -206,25 +207,26 @@ function Palette({ sessions, projects, projectName, onFocus, onProject, onClose 
     ];
     return paletteMatches(all, q);
   }, [q, sessions, projects, projectName, onFocus, onProject]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useModal(dialog, onClose);
   const pick = (k: number) => {
     items[k]?.go();
     onClose();
   };
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-label="Find a session or project" className="w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/15 bg-[#13221e] shadow-2xl">
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label="Find a session or project" className="w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-white/15 bg-[#13221e] shadow-2xl">
         <input
           autoFocus
           value={q}
           onChange={(e) => { setQ(e.target.value); setI(0); }}
           onKeyDown={(e) => {
-            if (e.key === "Escape") { e.stopPropagation(); onClose(); }
             if (e.key === "ArrowDown") { e.preventDefault(); setI((x) => Math.min(items.length - 1, x + 1)); }
             if (e.key === "ArrowUp") { e.preventDefault(); setI((x) => Math.max(0, x - 1)); }
             if (e.key === "Enter") pick(i);
           }}
           placeholder="Find a session or project…"
-          className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-[14px] text-cream outline-none placeholder:text-cream/40"
+          className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-[14px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/40"
         />
         <ul className="max-h-[50vh] overflow-y-auto p-1.5">
           {items.length === 0 && <li className="px-3 py-2 text-[13px] text-cream/55">Nothing matches.</li>}

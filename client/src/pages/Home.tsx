@@ -1,7 +1,7 @@
 import type { SessionView } from "@shared/model";
 import type { TerminalStart } from "@shared/terminal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { toast, Toaster } from "sonner";
 import WorldView, { type WorldHandle } from "@/world/WorldView";
 import StyledWorldView from "@/world/StyledWorldView";
@@ -152,7 +152,13 @@ export default function Home() {
   const seenTurns = useRef<Set<string> | null>(null);
   const seenErrors = useRef<Set<string> | null>(null);
   const shownApprovals = useRef(new Set<string>());
+  // After a mode switch (and on load) the first snapshot with sessions is a baseline: what is already
+  // open then isn't "new", so it gets no toast, sound or notification.
   useEffect(() => {
+    seenUrgent.current = seenTurns.current = seenErrors.current = null;
+  }, [mode]);
+  useEffect(() => {
+    if (sessions.length === 0 && !seenUrgent.current) return;
     const urgentNow = new Set(sessions.filter(isUrgent).map((s) => `${s.id}:${s.statusSince}`));
     const turnsNow = new Set(sessions.filter((s) => s.status === "waiting" && s.waitingReason === "turn_end").map((s) => `${s.id}:${s.statusSince}`));
     const errorsNow = new Set(sessions.filter((s) => s.status === "error").map((s) => `${s.id}:${s.statusSince}`));
@@ -195,249 +201,257 @@ export default function Home() {
     seenUrgent.current = urgentNow;
   }, [sessions, mode, select, decide, prefs.sound, prefs.desktopNotify]);
 
+  // The in-app setting stops CSS animations everywhere (pulses, flowing paths, spinners), not only with the system setting.
+  useEffect(() => {
+    document.documentElement.classList.toggle("reduce-motion", prefs.reducedMotion);
+  }, [prefs.reducedMotion]);
+
   const worldKey = world ? `${world.id}@${world.version}|${cast.map((c) => c.version).join(",")}|${assignmentsKey(assignments)}` : "none";
   const brokenPacks = (worlds?.errors.length ?? 0) + (characters?.errors.length ?? 0);
   const emptyHint = mode === "demo" ? "Loading the demo village…" : !connected ? "Can't reach the Ai Gramam server, reconnecting…\nSessions can't be shown until it's back; this doesn't mean none are running." : "No Claude Code sessions are running.\nStart Claude Code in any folder and a villager walks in within seconds.";
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
-      {/* Workspace: Focus, Projects, Agents, Terminals, History. World: the village. */}
-      {prefs.view === "workspace" ? (
-        <Workspace
-          page={prefs.workspacePage}
-          onPage={(workspacePage) => update({ workspacePage })}
-          sessions={sessions}
-          projects={projects}
-          now={now}
-          mode={mode}
-          connected={connected}
-          hooksInstalled={hooks.installed}
-          selectedSessionId={selectedId}
-          onSelectSession={select}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={setSelectedProjectId}
-          onDecide={decide}
-          onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
-          terminals={terminals}
-          onOpenTerminal={openTerminal}
-          cast={{ world, cast, assignments }}
-          chat={chat}
-          command={command}
-          focusId={focusId}
-          onFocus={setFocusId}
-          onOpenDetails={setSelectedId}
-          reducedMotion={prefs.reducedMotion}
-        />
-      ) : styled ? (
-        <StyledWorldView
-          ref={worldRef}
-          style={styled}
-          sessions={sessions}
-          projects={projects}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          onSelect={select}
-          reducedMotion={prefs.reducedMotion}
-          hourOverride={hourOverride}
-          paletteOf={paletteOf}
-          theme={placeThemeOf(world)}
-          onSelectProject={openProject}
-          selectedProjectId={projectDrawer ? selectedProjectId : null}
-        />
-      ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
-        <WorldView
-          key={worldKey}
-          ref={worldRef}
-          world={world}
-          characters={cast}
-          assignments={assignments}
-          sessions={sessions}
-          projects={projects}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          onSelect={select}
-          now={now}
-          hourOverride={hourOverride}
-          reducedMotion={prefs.reducedMotion}
-          onSelectProject={openProject}
-          selectedProjectId={projectDrawer ? selectedProjectId : null}
-        />
-      ) : (
-        <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,#173129,#0c1714)]">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
-            <BrandMark size={72} />
-            <div className="font-display text-2xl font-bold">Ai <span className="text-brass">Gramam</span></div>
-            <div className="text-sm text-cream/60">{worlds && worlds.worlds.length === 0 ? "No valid world is installed. Open settings to see why." : "Waking up the village…"}</div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Soft vignette so the glass UI reads over any scene */}
-      <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.35))]" />
-
-      <TopBar
-        sessions={sessions}
-        projects={projects}
-        worlds={worlds?.worlds ?? []}
-        world={world}
-        brokenPacks={brokenPacks}
-        onWorld={chooseWorld}
-        artStyle={prefs.artStyle}
-        onArtStyle={(artStyle) => update({ artStyle })}
-        mode={mode}
-        connected={connected}
-        onLive={startLive}
-        onDemo={startDemo}
-        time={prefs.time}
-        onTime={(time) => update({ time })}
-        sound={prefs.sound}
-        onSound={(sound) => update({ sound })}
-        view={prefs.view}
-        onView={(view) => update({ view })}
-        onSelect={select}
-        onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
-        onDecide={decide}
-        now={now}
-      />
-
-      {prefs.view === "world" && (
-        <SessionDock
-          sessions={sessions}
-          projects={projects}
-          world={world}
-          characters={cast}
-          assignments={assignments}
-          selectedId={selectedId}
-          open={prefs.dockOpen}
-          onToggle={() => update({ dockOpen: !prefs.dockOpen })}
-          onSelect={select}
-          onHover={setHoveredId}
-          now={now}
-          emptyHint={emptyHint}
-        />
-      )}
-
-      {prefs.view === "world" && !selected && !projectDrawer && sessions.length > 0 && (
-        <NoticeBoard
-          sessions={sessions}
-          projects={projects}
-          now={now}
-          open={prefs.boardOpen}
-          onToggle={() => update({ boardOpen: !prefs.boardOpen })}
-          onSelect={select}
-          onHover={setHoveredId}
-          onLegend={() => setLegendOpen(true)}
-        />
-      )}
-
-      <AnimatePresence>
-        {prefs.view === "world" && world && sessions.length > 0 && !selected && !projectDrawer && (legendOpen || !prefs.legendSeen) && (
-          <VillageLegend
-            key="legend"
-            world={world}
-            onClose={() => {
-              setLegendOpen(false);
-              if (!prefs.legendSeen) update({ legendSeen: true });
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selected && (
-          <DetailDrawer
-            key={selected.id}
-            session={selected}
-            project={projects.find((x) => x.id === selected.projectId)}
-            character={pickCharacter(selected, world, cast, assignments)}
-            cast={cast}
-            chosenCharacterId={assignments?.[selected.projectId] ?? null}
-            onChooseCharacter={(characterId) => assignCharacter.mutate({ projectId: selected.projectId, characterId })}
-            chat={chat && chat.sessionId === selected.id ? chat.items : null}
+    // "Reduce motion" (in the app or the system) also stills the JS animations, not only CSS ones.
+    <MotionConfig reducedMotion={prefs.reducedMotion ? "always" : "user"}>
+      <div className="relative h-screen w-screen overflow-hidden bg-ink text-cream">
+        {/* Workspace: Focus, Projects, Agents, Terminals, History. World: the village. */}
+        {prefs.view === "workspace" ? (
+          <Workspace
+            page={prefs.workspacePage}
+            onPage={(workspacePage) => update({ workspacePage })}
+            sessions={sessions}
+            projects={projects}
             now={now}
-            onClose={close}
-            onFocus={() => worldRef.current?.focus(selected.id)}
-            onSetupAlerts={() => setSettings("alerts")}
-            onSetupLink={() => setSettings("link")}
-            demo={mode === "demo"}
-            command={command}
-            onOpenTerminal={showTerminal}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {!selected && projectDrawer && prefs.view === "world" && (
-          <ProjectDrawer
-            key="project-drawer"
-            summary={projectSummary}
-            now={now}
+            mode={mode}
+            connected={connected}
+            hooksInstalled={hooks.installed}
             selectedSessionId={selectedId}
             onSelectSession={select}
-            onOpenInWorkspace={() => {
-              setProjectDrawer(false);
-              update({ view: "workspace", workspacePage: "projects" });
-            }}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+            onDecide={decide}
+            onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+            terminals={terminals}
             onOpenTerminal={openTerminal}
-            terminalBlockedReason={terminalBlockedReason(mode, connected, mode === "demo" ? 0 : terminals.terminals.length)}
-            onClose={() => setProjectDrawer(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Empty state */}
-      <AnimatePresence>
-        {prefs.view === "world" && sessions.length === 0 && mode === "live" && world && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="glass pointer-events-auto absolute bottom-6 left-1/2 z-20 w-[min(440px,90vw)] -translate-x-1/2 rounded-2xl p-4 text-center"
-          >
-            <div className="font-display text-base font-semibold">{connected ? "The village is quiet" : "Can't reach the Ai Gramam server"}</div>
-            <p className="mt-1 text-sm text-cream/65">{connected ? "Start Claude Code in any folder and a villager walks in within a few seconds." : "Reconnecting… Villagers can't be shown until it's back; this doesn't mean no sessions are running."}</p>
-            <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Footer status */}
-      <div className="pointer-events-none absolute bottom-3 right-3 z-10 flex items-center gap-2 text-[11px] text-cream/55">
-        {fellBack && world && <span className="glass pointer-events-auto rounded-xl px-2 py-1 text-wait">Your chosen world isn't available, showing {world.name}</span>}
-        {mode === "demo" ? (
-          <span className="glass rounded-xl px-2 py-1 text-brass">Demo village · simulated sessions</span>
-        ) : hooks.installed ? (
-          <span className="glass rounded-xl px-2 py-1">Live · transcripts + hooks</span>
-        ) : (
-          <button onClick={() => setSettings("alerts")} className="glass pointer-events-auto rounded-xl px-2 py-1 hover:text-cream">Live · transcripts only · <span className="text-wait underline underline-offset-2">exact approval alerts</span></button>
-        )}
-      </div>
-
-      <AnimatePresence>
-        {settings && (
-          <SettingsSheet
-            tab={settings}
-            onTab={setSettings}
-            onClose={() => setSettings(null)}
-            worlds={worlds}
-            activeWorldId={world?.id}
-            onWorld={chooseWorld}
-            characters={characters}
-            lastHookAt={hooks.lastEventAt}
+            cast={{ world, cast, assignments }}
+            chat={chat}
+            command={command}
+            focusId={focusId}
+            onFocus={setFocusId}
+            onOpenDetails={setSelectedId}
             reducedMotion={prefs.reducedMotion}
-            onReducedMotion={(reducedMotion) => update({ reducedMotion })}
-            desktopNotify={prefs.desktopNotify}
-            onDesktopNotify={(desktopNotify) => update({ desktopNotify })}
-            time={prefs.time}
-            onTime={(time) => update({ time })}
-            onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
-            connected={mode === "live" ? connected : true}
+          />
+        ) : styled ? (
+          <StyledWorldView
+            ref={worldRef}
+            style={styled}
+            sessions={sessions}
+            projects={projects}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={select}
+            reducedMotion={prefs.reducedMotion}
+            hourOverride={hourOverride}
+            paletteOf={paletteOf}
+            theme={placeThemeOf(world)}
+            onSelectProject={openProject}
+            selectedProjectId={projectDrawer ? selectedProjectId : null}
+          />
+        ) : !ART_STYLES.some((a) => a.id === prefs.artStyle) && world && characters ? (
+          <WorldView
+            key={worldKey}
+            ref={worldRef}
+            world={world}
+            characters={cast}
+            assignments={assignments}
+            sessions={sessions}
+            projects={projects}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={select}
+            now={now}
+            hourOverride={hourOverride}
+            reducedMotion={prefs.reducedMotion}
+            onSelectProject={openProject}
+            selectedProjectId={projectDrawer ? selectedProjectId : null}
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(ellipse_at_center,#173129,#0c1714)]">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-3">
+              <BrandMark size={72} />
+              <div className="font-display text-2xl font-bold">Ai <span className="text-brass">Gramam</span></div>
+              <div className="text-sm text-cream/60">{worlds && worlds.worlds.length === 0 ? "No valid world is installed. Open settings to see why." : "Waking up the village…"}</div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Soft vignette so the glass UI reads over any scene */}
+        <div className="pointer-events-none absolute inset-0 z-10 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.35))]" />
+
+        <TopBar
+          sessions={sessions}
+          projects={projects}
+          worlds={worlds?.worlds ?? []}
+          world={world}
+          brokenPacks={brokenPacks}
+          onWorld={chooseWorld}
+          artStyle={prefs.artStyle}
+          onArtStyle={(artStyle) => update({ artStyle })}
+          mode={mode}
+          connected={connected}
+          onLive={startLive}
+          onDemo={startDemo}
+          time={prefs.time}
+          onTime={(time) => update({ time })}
+          sound={prefs.sound}
+          onSound={(sound) => update({ sound })}
+          view={prefs.view}
+          onView={(view) => update({ view })}
+          onSelect={select}
+          onSettings={(tab) => setSettings((tab as SettingsTab) ?? "link")}
+          onDecide={decide}
+          now={now}
+        />
+
+        {prefs.view === "world" && (
+          <SessionDock
+            sessions={sessions}
+            projects={projects}
+            world={world}
+            characters={cast}
+            assignments={assignments}
+            selectedId={selectedId}
+            open={prefs.dockOpen}
+            onToggle={() => update({ dockOpen: !prefs.dockOpen })}
+            onSelect={select}
+            onHover={setHoveredId}
+            now={now}
+            emptyHint={emptyHint}
           />
         )}
-      </AnimatePresence>
-      {skillsOpen && <SkillsManager onClose={() => setSkillsOpen(false)} projects={trackedProjects ?? []} />}
 
-      <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-[#13221e]/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
-    </div>
+        {prefs.view === "world" && !selected && !projectDrawer && sessions.length > 0 && (
+          <NoticeBoard
+            sessions={sessions}
+            projects={projects}
+            now={now}
+            open={prefs.boardOpen}
+            onToggle={() => update({ boardOpen: !prefs.boardOpen })}
+            onSelect={select}
+            onHover={setHoveredId}
+            onLegend={() => setLegendOpen(true)}
+          />
+        )}
+
+        <AnimatePresence>
+          {prefs.view === "world" && world && sessions.length > 0 && !selected && !projectDrawer && (legendOpen || !prefs.legendSeen) && (
+            <VillageLegend
+              key="legend"
+              world={world}
+              onClose={() => {
+                setLegendOpen(false);
+                if (!prefs.legendSeen) update({ legendSeen: true });
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {selected && (
+            <DetailDrawer
+              key={selected.id}
+              session={selected}
+              project={projects.find((x) => x.id === selected.projectId)}
+              character={pickCharacter(selected, world, cast, assignments)}
+              cast={cast}
+              chosenCharacterId={assignments?.[selected.projectId] ?? null}
+              onChooseCharacter={(characterId) => assignCharacter.mutate({ projectId: selected.projectId, characterId })}
+              chat={chat && chat.sessionId === selected.id ? chat.items : null}
+              now={now}
+              onClose={close}
+              onFocus={() => worldRef.current?.focus(selected.id)}
+              onSetupAlerts={() => setSettings("alerts")}
+              onSetupLink={() => setSettings("link")}
+              demo={mode === "demo"}
+              command={command}
+              onOpenTerminal={showTerminal}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!selected && projectDrawer && prefs.view === "world" && (
+            <ProjectDrawer
+              key="project-drawer"
+              summary={projectSummary}
+              now={now}
+              selectedSessionId={selectedId}
+              onSelectSession={select}
+              onOpenInWorkspace={() => {
+                setProjectDrawer(false);
+                update({ view: "workspace", workspacePage: "projects" });
+              }}
+              onOpenTerminal={openTerminal}
+              terminalBlockedReason={terminalBlockedReason(mode, connected, mode === "demo" ? 0 : terminals.terminals.length)}
+              onClose={() => setProjectDrawer(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Empty state */}
+        <AnimatePresence>
+          {prefs.view === "world" && sessions.length === 0 && mode === "live" && world && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="glass pointer-events-auto absolute bottom-6 left-1/2 z-20 w-[min(440px,90vw)] -translate-x-1/2 rounded-2xl p-4 text-center"
+            >
+              <div className="font-display text-base font-semibold">{connected ? "The village is quiet" : "Can't reach the Ai Gramam server"}</div>
+              <p className="mt-1 text-sm text-cream/65">{connected ? "Start Claude Code in any folder and a villager walks in within a few seconds." : "Reconnecting… Villagers can't be shown until it's back; this doesn't mean no sessions are running."}</p>
+              <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Footer status */}
+        <div className="pointer-events-none absolute bottom-3 right-3 z-10 flex items-center gap-2 text-[11px] text-cream/55">
+          {fellBack && world && <span className="glass pointer-events-auto rounded-xl px-2 py-1 text-wait">Your chosen world isn't available, showing {world.name}</span>}
+          {mode === "demo" ? (
+            <span className="glass rounded-xl px-2 py-1 text-brass">Demo village · simulated sessions</span>
+          ) : hooks.installed ? (
+            <span className="glass rounded-xl px-2 py-1">Live · transcripts + hooks</span>
+          ) : (
+            <button onClick={() => setSettings("alerts")} className="glass pointer-events-auto rounded-xl px-2 py-1 hover:text-cream">Live · transcripts only · <span className="text-wait underline underline-offset-2">exact approval alerts</span></button>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {settings && (
+            <SettingsSheet
+              tab={settings}
+              onTab={setSettings}
+              onClose={() => setSettings(null)}
+              worlds={worlds}
+              activeWorldId={world?.id}
+              onWorld={chooseWorld}
+              characters={characters}
+              lastHookAt={hooks.lastEventAt}
+              reducedMotion={prefs.reducedMotion}
+              onReducedMotion={(reducedMotion) => update({ reducedMotion })}
+              desktopNotify={prefs.desktopNotify}
+              onDesktopNotify={(desktopNotify) => update({ desktopNotify })}
+              time={prefs.time}
+              onTime={(time) => update({ time })}
+              onOpenSkills={() => { setSettings(null); setSkillsOpen(true); }}
+              connected={mode === "live" ? connected : true}
+            />
+          )}
+        </AnimatePresence>
+        {skillsOpen && <SkillsManager onClose={() => setSkillsOpen(false)} projects={trackedProjects ?? []} />}
+
+        <Toaster position="bottom-center" theme="dark" toastOptions={{ className: "!bg-[#13221e]/95 !text-cream !border-white/10 !backdrop-blur-xl" }} />
+      </div>
+    </MotionConfig>
   );
 }

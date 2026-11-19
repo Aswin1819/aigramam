@@ -9,6 +9,15 @@ The app and the mod have separate version numbers. The app's version is in `pack
 - A **session status** board on the right lists every session by what it needs (All, Needs you, Your turn, Working, Resting). Clicking one opens it in Focus. The board can be hidden.
 - Zoom with the buttons or the mouse wheel, drag to move, and "Fit the village" to reset. The flowing paths stop when "Reduce motion" is on.
 
+### Accessibility and polish
+- Approve and Deny in the top bar are now real buttons with words (not ✓/✕ inside another button), so they work from the keyboard and with screen readers. Only the "N need you" summary is announced, not the ticking timers.
+- Text on the red "needs you" colour is dark, for readable contrast.
+- "Reduce motion" in Settings now stills every animation (including the bell, bubbles and pulses), and until you choose it the app follows your system setting as it changes.
+- Settings and the Ctrl+K finder close with Esc, keep Tab inside, and give focus back to where it was. The village guide closes with Esc.
+- Text boxes and filters show a focus ring.
+- Labels of villagers outside the view no longer pile up at the screen edge. Picking another art style clears an error from the previous one. Switching to Live no longer pops toasts and sounds for requests that were already open.
+- The chat no longer re-measures every message each second, and message text is rendered once.
+
 ### Security and reliability
 - The WebSocket (terminals, messages to sessions) now only accepts connections from this computer, like every other API, even if `HOST` is overridden.
 - Projects reported by the remote bridge are shown but never treated as local folders: terminals, "Open folder in" and Git only use projects found on this computer.

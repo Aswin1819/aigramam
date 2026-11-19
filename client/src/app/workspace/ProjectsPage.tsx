@@ -31,7 +31,7 @@ export default function ProjectsPage(p: Props) {
       <section className="glass rounded-2xl p-3">
         <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5 focus-within:border-brass/60">
           <Search size={14} className="text-cream/45" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects, folders, branches…" aria-label="Search projects" className="w-full bg-transparent text-[13px] text-cream outline-none placeholder:text-cream/35" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects, folders, branches…" aria-label="Search projects" className="w-full bg-transparent text-[13px] text-cream outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brass/60 placeholder:text-cream/35" />
         </label>
         <p className="mb-2 mt-2 text-[11px] text-cream/45">{list.length} of {all.length} projects with an open session</p>
         <div className="space-y-1.5">
@@ -44,7 +44,7 @@ export default function ProjectsPage(p: Props) {
             >
               <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-cream">{pr.project.name}</span>
-                {pr.needsYou > 0 && <span className="chip bg-urgent text-white">{pr.needsYou} needs you</span>}
+                {pr.needsYou > 0 && <span className="chip bg-urgent text-ink">{pr.needsYou} needs you</span>}
                 {pr.errors > 0 && <span className="chip bg-urgent/20 text-urgent">{pr.errors} error</span>}
               </div>
               <div className="mt-0.5 flex gap-3 text-[11px] text-cream/50">

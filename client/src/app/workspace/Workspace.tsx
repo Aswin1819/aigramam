@@ -68,7 +68,7 @@ export default function Workspace(p: Props) {
               {p.page === id && <motion.span layoutId="workspace-tab" className="absolute inset-0 -z-0 rounded-xl bg-white/10 ring-1 ring-white/10" />}
               <Icon size={15} className={`relative ${p.page === id ? "text-brass" : "text-cream/50"}`} />
               <span className={`relative ${p.page === id ? "font-semibold text-cream" : "text-cream/65"}`}>{label}</span>
-              {id === "overview" && urgent > 0 && <span className="relative chip bg-urgent text-white">{urgent}</span>}
+              {id === "overview" && urgent > 0 && <span className="relative chip bg-urgent text-ink">{urgent}</span>}
               {id === "terminals" && liveTerminals > 0 && <span className="relative chip bg-white/10 text-cream/80">{liveTerminals}</span>}
             </button>
           ))}

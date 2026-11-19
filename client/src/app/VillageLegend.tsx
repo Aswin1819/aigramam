@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import { useModal } from "@/hooks/useModal";
 import { motion } from "motion/react";
 import { X } from "lucide-react";
 import type { WorldInfo } from "@shared/world";
@@ -14,12 +16,15 @@ const LAMPS: Array<{ color: string; text: string; blink?: boolean }> = [
 /** How to read the village: plots, stations and lamps. Shown once, then from the notice board. */
 export default function VillageLegend({ world, onClose }: { world: WorldInfo | null; onClose: () => void }) {
   const props = world?.def.plots?.props ?? {};
+  const panel = useRef<HTMLDivElement>(null);
+  useModal(panel, onClose, { trap: false });
   const url = (st: Station) => {
     const rel = props[st];
     return rel ? world?.urls[rel] : undefined;
   };
   return (
     <motion.div
+      ref={panel}
       role="dialog"
       aria-label="How to read the village"
       initial={{ opacity: 0, y: 16 }}

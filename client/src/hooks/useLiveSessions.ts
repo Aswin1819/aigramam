@@ -109,21 +109,27 @@ export function useLiveSessions() {
     };
   }, []);
 
+  /** Ask for the open chat again after a mode switch (only while connected; onopen re-sends it anyway). */
+  const reopenChat = useCallback(() => {
+    const ws = wsRef.current;
+    if (chatRef.current && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
+  }, []);
+
   const startDemo = useCallback(() => {
     modeRef.current = "demo";
     setMode("demo");
     setSnapshot({ ...EMPTY, demo: true });
     send("demo-start");
-    if (chatRef.current) wsRef.current?.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
-  }, [send]);
+    reopenChat();
+  }, [send, reopenChat]);
 
   const startLive = useCallback(() => {
     modeRef.current = "live";
     setMode("live");
     setSnapshot(EMPTY);
     send("demo-stop");
-    if (chatRef.current) wsRef.current?.send(JSON.stringify({ type: "chat-open", payload: { sessionId: chatRef.current } }));
-  }, [send]);
+    reopenChat();
+  }, [send, reopenChat]);
 
   /** Send a command to a live session (via the Ai Gramam mod) and wait for the server's answer. */
   const command = useCallback(
