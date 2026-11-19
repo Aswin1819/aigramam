@@ -81,7 +81,7 @@ export default function PackUpload({ kind }: { kind: "world" | "character" }) {
         <button
           disabled={busy}
           onClick={() => input.current?.click()}
-          className="flex items-center gap-1.5 rounded-xl bg-brass px-3 py-1.5 text-xs font-semibold text-ink hover:bg-brass/90 disabled:opacity-40"
+          className="btn btn-primary"
         >
           <Upload size={13} aria-hidden /> Choose .zip
         </button>
@@ -119,7 +119,7 @@ export default function PackUpload({ kind }: { kind: "world" | "character" }) {
             <div className="mt-0.5 break-words text-red-100/90">{status.error}</div>
             {status.exists && file && (
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={() => start(file, true)} className="flex items-center gap-1.5 rounded-xl bg-brass px-3 py-1.5 text-xs font-semibold text-ink hover:bg-brass/90">
+                <button onClick={() => start(file, true)} className="btn btn-primary">
                   <RefreshCw size={13} aria-hidden /> Replace (old one is backed up)
                 </button>
                 <button onClick={() => setStatus({ s: "idle" })} className="rounded-xl border border-white/15 px-3 py-1.5 text-xs text-cream hover:bg-white/10">Keep the old one</button>

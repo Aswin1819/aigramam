@@ -70,6 +70,7 @@ Pack and style docs: `docs/WORLDS.md` (world.json), `docs/PACKS.md` (character p
 - **Windows first, macOS and Linux supported.** Use `path` (and `path.win32`/`path.posix` when a value's system is known); get the project from the record's `cwd`. Platform-specific code takes the platform as a parameter so tests cover every system on any machine. Animation uses real elapsed time (`performance.now()`), never frame counts or Phaser's smoothed delta.
 - **Packs are data only** and are validated. A broken pack falls back and must never crash the app.
 - **Only original art ships**, and every pack shows its author and license.
+- **Shared styles:** buttons use `.btn` + `.btn-primary` / `.btn-secondary` (`.btn-lg` for big ones), panel headings `.section-title`, wooden panels `.woodboard` (all in `client/src/index.css`); colours come from the theme tokens, not hex in components.
 - **Text, not only icons**, for every state and action. Labels must not overlap (see the layout pass in `WorldLabels`).
 - Server changes need Vitest specs in `server/*.test.ts`; client logic without the DOM (e.g. `styles/live/sim.ts`) gets specs next to it (`client/src/**/*.test.ts`).
 - **Git:** commit and push as **Aswin1819** only (configured in this repo's local git config), never with another GitHub account. `origin` = github.com/Aswin1819/aigramam. Work on feature branches.

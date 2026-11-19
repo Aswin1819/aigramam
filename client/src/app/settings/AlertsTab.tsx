@@ -52,12 +52,12 @@ export default function AlertsTab({ lastHookAt }: { lastHookAt?: number }) {
       {change.data && <p className="text-xs text-work">Done. {change.data.backupPath ? `Backup saved to ${change.data.backupPath}.` : ""}</p>}
       <div className="flex flex-wrap gap-2">
         {!mode && st?.readable && (st.installed
-          ? <button onClick={() => setMode("uninstall")} className="rounded-xl border border-white/15 px-3 py-1.5 text-xs hover:bg-white/10">Uninstall…</button>
-          : <button onClick={() => setMode("install")} className="rounded-xl bg-brass px-3 py-1.5 text-xs font-semibold text-ink hover:bg-brass/90">Install hooks…</button>)}
+          ? <button onClick={() => setMode("uninstall")} className="btn btn-secondary">Uninstall…</button>
+          : <button onClick={() => setMode("install")} className="btn btn-primary">Install hooks…</button>)}
         {mode && (
           <>
-            <button onClick={() => setMode(null)} className="rounded-xl border border-white/15 px-3 py-1.5 text-xs hover:bg-white/10">Cancel</button>
-            <button disabled={!preview.data || change.isPending} onClick={() => change.mutate({ mode })} className="rounded-xl bg-brass px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-40">
+            <button onClick={() => setMode(null)} className="btn btn-secondary">Cancel</button>
+            <button disabled={!preview.data || change.isPending} onClick={() => change.mutate({ mode })} className="btn btn-primary">
               {mode === "install" ? "Yes, install hooks" : "Yes, remove hooks"}
             </button>
           </>

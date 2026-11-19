@@ -83,7 +83,7 @@ export default function SessionControls({ session: s, demo, command, onSetupLink
           <button
             type="submit"
             disabled={!text.trim() || !!busy}
-            className="flex items-center gap-1 rounded-lg bg-brass px-3 py-1 text-[12px] font-semibold text-ink hover:bg-brass/90 disabled:opacity-40"
+            className="btn btn-primary"
           >
             <Send size={12} /> Send
           </button>

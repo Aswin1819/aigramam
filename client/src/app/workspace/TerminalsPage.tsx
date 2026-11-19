@@ -105,7 +105,7 @@ export default function TerminalsPage({ api, sessions, projects, mode, connected
             aria-haspopup="menu"
             aria-expanded={picker}
             title={blocked ?? `Start ${api.shellName} (or Claude Code) in a project's folder`}
-            className="flex items-center gap-1.5 rounded-xl bg-brass px-3 py-1.5 text-[12.5px] font-semibold text-ink hover:bg-brass/90 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-cream/40"
+            className="btn btn-primary"
           >
             <Plus size={14} /> {busy ? "Starting…" : "New terminal"} <ChevronDown size={13} />
           </button>

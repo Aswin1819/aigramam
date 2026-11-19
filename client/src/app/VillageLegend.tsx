@@ -58,7 +58,7 @@ export default function VillageLegend({ world, onClose }: { world: WorldInfo | n
         ))}
       </div>
       <div className="mt-3 flex justify-end">
-        <button onClick={onClose} className="rounded-xl bg-brass px-4 py-1.5 text-[13px] font-semibold text-ink hover:brightness-110">Got it</button>
+        <button onClick={onClose} className="btn btn-primary">Got it</button>
       </div>
     </motion.div>
   );

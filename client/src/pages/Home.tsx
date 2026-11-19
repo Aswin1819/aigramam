@@ -358,7 +358,7 @@ export default function Home() {
             >
               <div className="font-display text-base font-semibold">{connected ? "The village is quiet" : "Can't reach the Ai Gramam server"}</div>
               <p className="mt-1 text-sm text-cream/65">{connected ? "Start Claude Code in any folder and a villager walks in within a few seconds." : "Reconnecting… Villagers can't be shown until it's back; this doesn't mean no sessions are running."}</p>
-              <button onClick={startDemo} className="mt-3 rounded-xl bg-brass px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brass/90">Try the demo village</button>
+              <button onClick={startDemo} className="btn btn-primary btn-lg mt-3">Try the demo village</button>
             </motion.div>
           )}
         </AnimatePresence>

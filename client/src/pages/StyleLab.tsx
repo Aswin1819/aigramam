@@ -136,7 +136,7 @@ export default function StyleLab() {
           <button onClick={() => setPaused((p) => !p)} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-[12.5px] hover:bg-white/10">
             {paused ? <Play size={14} /> : <Pause size={14} />} {paused ? "Play all" : "Pause all"}
           </button>
-          <button onClick={copy} className="flex items-center gap-1.5 rounded-lg bg-brass px-3 py-1.5 text-[12.5px] font-semibold text-ink hover:bg-brass/90">
+          <button onClick={copy} className="btn btn-primary">
             <Copy size={14} /> {copied ? "Copied" : `Copy my picks (${picks.length})`}
           </button>
         </div>

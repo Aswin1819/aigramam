@@ -153,6 +153,19 @@
   .kbd {
     @apply rounded border border-white/15 bg-white/5 px-1 font-mono text-[10px] text-cream/70;
   }
+  /** Buttons: .btn for size, focus and disabled; then .btn-primary (the one main action) or .btn-secondary; .btn-lg for a larger one. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-[12.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply bg-brass text-ink hover:bg-brass/90;
+  }
+  .btn-secondary {
+    @apply border border-white/15 font-medium text-cream hover:bg-white/10;
+  }
+  .btn-lg {
+    @apply px-4 py-2 text-sm;
+  }
   /** Small brass heading above a section of a panel (Activity, Sessions, Open folder in…). */
   .section-title {
     @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-brass/90;
