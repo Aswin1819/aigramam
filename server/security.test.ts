@@ -6,7 +6,9 @@ import {
   isAllowedHost,
   isAllowedOrigin,
   isLoopbackAddress,
+  verifyWsClient,
 } from "./_core/security";
+import type { IncomingMessage } from "http";
 
 const base = path.join(os.tmpdir(), "gramam-skills");
 
@@ -66,5 +68,20 @@ describe("host / origin checks", () => {
     expect(isLoopbackAddress("::ffff:127.0.0.1")).toBe(true);
     expect(isLoopbackAddress("192.168.1.5")).toBe(false);
     expect(isLoopbackAddress(undefined)).toBe(false);
+  });
+});
+
+describe("verifyWsClient", () => {
+  const req = (remoteAddress: string, host = "localhost:4317") => ({ socket: { remoteAddress }, headers: { host } }) as unknown as IncomingMessage;
+  it("accepts this computer with its own host and origin", () => {
+    expect(verifyWsClient({ origin: "http://localhost:4317", req: req("127.0.0.1") })).toBe(true);
+    expect(verifyWsClient({ origin: "", req: req("::1") })).toBe(true);
+  });
+  it("refuses another machine even with a local Host header and no Origin (e.g. when HOST is overridden)", () => {
+    expect(verifyWsClient({ origin: "", req: req("192.168.1.20") })).toBe(false);
+  });
+  it("refuses a foreign Host or a cross-site Origin from this computer", () => {
+    expect(verifyWsClient({ origin: "", req: req("127.0.0.1", "evil.example:4317") })).toBe(false);
+    expect(verifyWsClient({ origin: "https://evil.example", req: req("127.0.0.1") })).toBe(false);
   });
 });

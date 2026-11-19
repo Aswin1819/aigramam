@@ -62,7 +62,14 @@ export class PackManager<S, L extends { files: Map<string, string> }> {
     this.reload();
     for (const src of this.sources) {
       try {
-        this.watchers.push(fs.watch(src.dir, { recursive: true }, () => this.scheduleReload()));
+        const w = fs.watch(src.dir, { recursive: true }, () => this.scheduleReload());
+        // An unhandled 'error' (e.g. the pack folder deleted on Windows) would end the process; the poll keeps working.
+        w.on("error", () => {
+          try {
+            w.close();
+          } catch {}
+        });
+        this.watchers.push(w);
       } catch {
         // folder missing or recursive watch unsupported: the poll below covers it
       }

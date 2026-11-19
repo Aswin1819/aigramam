@@ -68,7 +68,10 @@ export class Monitor {
     this.timers.push(setInterval(() => { this.store.prune(); this.dropUntracked(); this.onChange(); }, 1_000));
     try {
       // Recursive watching works on Windows and macOS; the scan timer covers everything else.
-      this.watchers.push(fs.watch(this.projectsDir, { recursive: true }, () => this.pollTailers()));
+      const w = fs.watch(this.projectsDir, { recursive: true }, () => this.pollTailers());
+      // Without a listener, an 'error' (e.g. the folder deleted on Windows) would end the process; the timers keep working.
+      w.on("error", () => closeQuietly(w));
+      this.watchers.push(w);
     } catch {}
   }
 
@@ -88,9 +91,10 @@ export class Monitor {
    */
   async loadChatHistory(sessionId: string, maxBytes = 3 * 1024 * 1024): Promise<void> {
     if (this.historyLoaded.has(sessionId)) return;
-    this.historyLoaded.add(sessionId);
     const file = this.sessionFiles.get(sessionId);
-    if (!file) return;
+    if (!file) return; // not known yet (e.g. registry-only): try again on the next open
+    // Marked before the read so two tabs opening at once don't read it twice; unmarked if the read fails.
+    this.historyLoaded.add(sessionId);
     let text: string;
     try {
       const fh = await fs.promises.open(file, "r");
@@ -105,6 +109,7 @@ export class Monitor {
         await fh.close();
       }
     } catch {
+      this.historyLoaded.delete(sessionId);
       return;
     }
     const items: ChatItem[] = [];
@@ -266,6 +271,7 @@ export class Monitor {
   /** Stop following files for sessions/subagents the store has dropped. */
   private dropUntracked() {
     const live = new Set(this.store.ids());
+    for (const id of this.historyLoaded) if (!live.has(id)) this.historyLoaded.delete(id);
     for (const [file, t] of this.tracked) {
       if (!live.has(t.sessionId)) {
         this.tracked.delete(file);
@@ -301,4 +307,10 @@ export class Monitor {
     } catch {}
     return null;
   }
+}
+
+function closeQuietly(w: fs.FSWatcher) {
+  try {
+    w.close();
+  } catch {}
 }

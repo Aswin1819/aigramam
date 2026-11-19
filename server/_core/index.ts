@@ -21,12 +21,13 @@ async function startServer() {
   const server = createServer(app);
   // Reject foreign Host headers (DNS rebinding) and cross-site browser requests
   app.use(hostAndOriginGuard);
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ limit: "10mb", extended: true }));
+  // Each API parses its own JSON body with its own limit, after its access check
+  // where it has one (the hooks receiver keeps its 2 MB limit).
   // tRPC API
   app.use(
     "/api/trpc",
     localOnly,
+    express.json({ limit: "10mb" }),
     createExpressMiddleware({
       router: appRouter,
       createContext,
@@ -51,11 +52,11 @@ async function startServer() {
   const hookKey = getOrCreateHookKey();
   app.use(HOOK_PATH, createHooksRouter(() => hookKey, handleHook));
   // Live link for the Ai Gramam mod (messages from the browser, stop, approvals)
-  app.use(LINK_PATH, link.router());
+  app.use(LINK_PATH, express.json({ limit: "2mb" }), link.router());
 
   // Bridge API — receives data from the optional remote bridge script
   const { onHeroUpdate, onHeroNew, onHeroesBatch, onHeroClear } = getBroadcastCallbacks();
-  app.use("/api/bridge", createBridgeRouter(onHeroUpdate, onHeroNew, onHeroesBatch, onHeroClear));
+  app.use("/api/bridge", express.json({ limit: "10mb" }), createBridgeRouter(onHeroUpdate, onHeroNew, onHeroesBatch, onHeroClear));
   // development mode uses Vite, production mode uses static files
   if (!isProduction) {
     await setupVite(app, server);
@@ -85,4 +86,7 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

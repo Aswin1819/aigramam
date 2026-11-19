@@ -39,40 +39,6 @@ export interface ClaudeSkill {
 const HOME_DIR = os.homedir();
 const CLAUDE_DIR = path.join(HOME_DIR, ".claude");
 const CLAUDE_PROJECTS_DIR = path.join(CLAUDE_DIR, "projects");
-import { DATA_DIR } from "../_core/paths";
-const CONFIG_PATH = path.join(DATA_DIR, "config.json");
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-export interface AppConfig {
-  claudeDir: string;
-  watchedProjectPaths: string[];
-  theme: "dark" | "light";
-}
-
-function loadConfig(): AppConfig {
-  try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
-    }
-  } catch {}
-  return {
-    claudeDir: CLAUDE_DIR,
-    watchedProjectPaths: [],
-    theme: "dark",
-  };
-}
-
-function saveConfig(config: AppConfig) {
-  ensureDataDir();
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-}
-
-// ─── Persistence Helpers ──────────────────────────────────────────────────────
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 // ─── Real Claude Code Skills File System ─────────────────────────────────────
 
@@ -334,27 +300,6 @@ export function createAgentsRouter(opts: { claudeDir?: string } = {}) {
   const globalAgentsDir = path.join(claudeDir, "agents");
 
   return router({
-    // ── Config (~/.ai-gramam/config.json, never ~/.claude) ─────────────────────
-    getConfig: publicProcedure.query(() => loadConfig()),
-
-    saveConfig: publicProcedure
-      .input(z.object({
-        claudeDir: z.string().optional(),
-        watchedProjectPaths: z.array(z.string()).optional(),
-        theme: z.enum(["dark", "light"]).optional(),
-      }))
-      .mutation(({ input }) => {
-        const current = loadConfig();
-        const updated: AppConfig = {
-          ...current,
-          ...(input.claudeDir !== undefined && { claudeDir: input.claudeDir }),
-          ...(input.watchedProjectPaths !== undefined && { watchedProjectPaths: input.watchedProjectPaths }),
-          ...(input.theme !== undefined && { theme: input.theme }),
-        };
-        saveConfig(updated);
-        return { success: true, config: updated };
-      }),
-
     // ── Connection Status ───────────────────────────────────────────────────────
     connectionStatus: publicProcedure.query(() => {
       const projects = getTrackedProjects(projectsDir);

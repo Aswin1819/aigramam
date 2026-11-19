@@ -2,6 +2,21 @@
 
 The app and the mod have separate version numbers. The app's version is in `package.json`. The mod's is in `plugin/ai-gramam/.claude-plugin/plugin.json`, and the same version must appear in `.claude-plugin/marketplace.json` and in the mod's `VERSION` constant (a test checks this).
 
+## Unreleased
+
+### Map
+- **Workspace → Map** (`?page=map`): the whole village from above, laid out like an "agents office". Each project is a raised yard around the village square with its villagers at their desks. A card beside it says in words how many villagers it has, how many are working, waiting for your turn or resting, and which branches it's on. A "needs you" button opens the oldest request in Focus. Paths from the square flow toward yards with work going on and turn red when a yard needs you.
+- A **session status** board on the right lists every session by what it needs (All, Needs you, Your turn, Working, Resting). Clicking one opens it in Focus. The board can be hidden.
+- Zoom with the buttons or the mouse wheel, drag to move, and "Fit the village" to reset. The flowing paths stop when "Reduce motion" is on.
+
+### Security and reliability
+- The WebSocket (terminals, messages to sessions) now only accepts connections from this computer, like every other API, even if `HOST` is overridden.
+- Projects reported by the remote bridge are shown but never treated as local folders: terminals, "Open folder in" and Git only use projects found on this computer.
+- A watched folder that is deleted or renamed no longer stops the server.
+- A failed start now exits with the error instead of leaving a process that serves nothing.
+- Fixed a file handle leak in pack image checks, a closed tab that could stay subscribed to a terminal it opened, and a chat history that was marked as loaded before it was read.
+- Each API now reads its own request body, after its access check. Removed two unused config endpoints.
+
 ## 1.1.0 (2026-11-14)
 
 macOS and Linux support. The mod is unchanged (v0.3.0).

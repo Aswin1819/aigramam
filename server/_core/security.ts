@@ -74,9 +74,12 @@ export function localOnly(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/** Same checks for the WebSocket upgrade request. */
+/**
+ * Checks for the WebSocket upgrade request. It carries terminals and messages
+ * to sessions, so it is local-only like the APIs, even if HOST is overridden.
+ */
 export function verifyWsClient(info: { origin: string; req: IncomingMessage }): boolean {
-  return isAllowedHost(info.req.headers.host) && isAllowedOrigin(info.origin || undefined);
+  return isLocalRequest(info.req) && isAllowedHost(info.req.headers.host) && isAllowedOrigin(info.origin || undefined);
 }
 
 /**

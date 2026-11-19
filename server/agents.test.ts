@@ -26,9 +26,9 @@ describe("agents router is read-only", () => {
     const names = Object.keys(procs);
     expect(names).toEqual(expect.arrayContaining(["globalSkills", "projectSkills", "globalAgents", "projectAgents", "trackedProjects", "connectionStatus"]));
     for (const n of names) expect(n).not.toMatch(/^(create|update|delete|write|remove|save)(Global|Project)(Skill|Agent)/i);
-    // The only mutation left is the app's own config in ~/.ai-gramam.
+    // No mutations at all: the viewer only reads.
     const mutations = names.filter((n) => procs[n]._def.type === "mutation");
-    expect(mutations).toEqual(["saveConfig"]);
+    expect(mutations).toEqual([]);
   });
 
   describe("against a temp ~/.claude", () => {

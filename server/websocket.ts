@@ -55,9 +55,14 @@ export function getMonitor() {
   return monitor;
 }
 
-/** The real projects the monitor knows right now (never demo ones); used to resolve a projectId to its folder. */
+/**
+ * The real projects the monitor found on this computer (never demo or bridge
+ * ones); used to resolve a projectId to a local folder for terminals, "Open
+ * folder in" and Git. Bridge projects come from another machine's paths, so
+ * they are shown but never opened here.
+ */
 export function liveProjects() {
-  return liveSnapshot().projects;
+  return monitor.store.snapshot().projects;
 }
 
 /** Ids of the real sessions shown right now (for History's "live" label). */

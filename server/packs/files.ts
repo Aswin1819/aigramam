@@ -145,8 +145,11 @@ export function checkFiles(dir: string, refs: FileRef[], seed: string): CheckedF
       const head = Buffer.alloc(24);
       try {
         const fd = fs.openSync(abs, "r");
-        fs.readSync(fd, head, 0, 24, 0);
-        fs.closeSync(fd);
+        try {
+          fs.readSync(fd, head, 0, 24, 0);
+        } finally {
+          fs.closeSync(fd);
+        }
       } catch {}
       const d = readPngSize(head);
       if (!d) {
