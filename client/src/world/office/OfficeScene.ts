@@ -15,6 +15,7 @@ import * as THREE from "three";
 import type { Station } from "@shared/stations";
 import type { Tone } from "@/app/workspace/focus";
 import { LOBBY_R, type OfficeLayout, type Room } from "./officeLayout";
+import { buildHuman, headHeight, humanGeometry, lookOf, poseHuman, tagHuman, type HumanGeometry, type HumanRig, type Pose } from "./humans";
 import { browserTexture, hash, mixHex, roundedSlab, screenTexture, textTexture } from "./threeKit";
 
 const VIEW_DIR = new THREE.Vector3(1, 0.92, 1).normalize();
@@ -49,8 +50,6 @@ const C = {
 } as const;
 
 const TONE_LAMP: Record<Tone, string> = { urgent: "#ff5a4f", turn: "#f5b33d", work: "#5eead4", quiet: "#a3a098", error: "#ff8a80", rest: "#6f6c66" };
-const SKIN = ["#8d5a3b", "#a86f4c", "#c68a5e", "#6e4630", "#b97a55"];
-const HAIR = ["#1d1512", "#2b1d16", "#3a2a20", "#141110"];
 const BOOKS = ["#b85c4a", "#4a7bb8", "#d9a441", "#5e9a6b", "#8a5fb0", "#c7c0b0"];
 
 export interface Anchor {
@@ -81,7 +80,6 @@ export interface Person {
   roomId: string;
   x: number;
   z: number;
-  seated: boolean;
   /** The area the person is in; picks the pose. Helpers use "desk". */
   station: Station;
   tone: Tone;
@@ -98,18 +96,38 @@ export interface SceneOptions {
 }
 
 interface PersonParts {
-  group: THREE.Group;
-  body: THREE.Mesh;
-  head: THREE.Group;
-  armR: THREE.Mesh;
-  prop: THREE.Mesh;
+  rig: HumanRig;
   lamp: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
   dots: THREE.Sprite;
   alert: THREE.Sprite;
   target: THREE.Vector3;
-  seatedTarget: boolean;
   data: Person;
+  /** Personal offset for small motions, so a room doesn't move in step. */
   phase: number;
+  /** Walk cycle angle (advances with distance walked). */
+  stride: number;
+  /** The pose and head height of the last frame (for lamps and tags). */
+  pose: Pose;
+  headY: number;
+}
+
+/** The pose for an area: sitting at the desk (typing while working), reading, at the rack, at the web window, hand up at the counter, on the sofa. */
+function poseFor(p: Person): Pose {
+  if (p.tone === "error") return "error";
+  switch (p.station) {
+    case "desk":
+      return p.helper ? (p.thinking ? "think" : "stand") : p.tone === "work" || p.tone === "quiet" ? "type" : "sit";
+    case "study":
+      return "read";
+    case "works":
+      return "console";
+    case "gate":
+      return "lookUp";
+    case "porch":
+      return "raiseHand";
+    case "bench":
+      return "lounge";
+  }
 }
 
 export class OfficeScene {
@@ -134,6 +152,7 @@ export class OfficeScene {
   private lastTick = 0;
   private tween: { from: THREE.Vector3; to: THREE.Vector3; z0: number; z1: number; t0: number; ms: number } | null = null;
   private geo: Record<string, THREE.BufferGeometry>;
+  private human: HumanGeometry;
   private materials = new Map<string, THREE.MeshStandardMaterial>();
   private disposed = false;
   private night = false;
@@ -171,14 +190,9 @@ export class OfficeScene {
       back: new THREE.BoxGeometry(1.5, 1.3, 0.2),
       post: new THREE.CylinderGeometry(0.12, 0.12, 1.3, 8),
       foot: new THREE.CylinderGeometry(0.75, 0.75, 0.12, 12),
-      body: new THREE.CapsuleGeometry(0.62, 1.05, 4, 12),
-      head: new THREE.SphereGeometry(0.58, 18, 14),
-      hair: new THREE.SphereGeometry(0.61, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      arm: new THREE.CapsuleGeometry(0.18, 0.9, 3, 8),
       lamp: new THREE.SphereGeometry(0.3, 14, 10),
-      book: new THREE.BoxGeometry(0.7, 0.9, 0.18),
-      mug: new THREE.CylinderGeometry(0.22, 0.2, 0.42, 12),
     };
+    this.human = humanGeometry();
   }
 
   private mat(color: string, opts: { emissive?: string; intensity?: number; roughness?: number } = {}): THREE.MeshStandardMaterial {
@@ -252,7 +266,7 @@ export class OfficeScene {
     const live = new Set(list.map((p) => p.id));
     for (const [id, parts] of this.people) {
       if (live.has(id)) continue;
-      this.peopleRoot.remove(parts.group);
+      this.peopleRoot.remove(parts.rig.root);
       parts.lamp.material.dispose();
       (parts.dots.material as THREE.SpriteMaterial).map?.dispose();
       (parts.dots.material as THREE.SpriteMaterial).dispose();
@@ -266,7 +280,7 @@ export class OfficeScene {
         parts = this.buildPerson(p);
         this.people.set(p.id, parts);
         // New people appear in place (no walk in from nowhere).
-        parts.group.position.copy(parts.target);
+        parts.rig.root.position.copy(parts.target);
       }
       this.updatePerson(parts, p);
       if (!p.helper) this.updateScreen(p);
@@ -324,7 +338,7 @@ export class OfficeScene {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, this.camera);
     const targets: THREE.Object3D[] = [...this.roomFloors];
-    for (const p of this.people.values()) targets.push(p.body, p.head);
+    for (const p of this.people.values()) targets.push(p.rig.root);
     for (const s of this.screens.values()) targets.push(s.mesh);
     for (const hit of ray.intersectObjects(targets, true)) {
       let o: THREE.Object3D | null = hit.object;
@@ -355,6 +369,7 @@ export class OfficeScene {
     this.clearFurniture();
     this.setPeople([]);
     for (const g of Object.values(this.geo)) g.dispose();
+    for (const g of Object.values(this.human)) g.dispose();
     for (const m of this.materials.values()) m.dispose();
     this.renderer.dispose();
     // Browsers allow only a few live WebGL contexts: give this one back now.
@@ -666,57 +681,26 @@ export class OfficeScene {
 
   private buildPerson(p: Person): PersonParts {
     const room = this.layout?.rooms.find((r) => r.project.id === p.roomId);
-    const accent = room?.accent ?? "#a3a098";
-    const h = hash(p.id);
-    const group = new THREE.Group();
-    group.scale.setScalar(p.helper ? 0.8 : 1);
-    const body = this.mesh(this.geo.body!, this.mat(p.helper ? mixHex(accent, "#ffffff", 0.5) : mixHex(accent, "#ffffff", 0.12)), group);
-    body.position.y = 1.0;
-    body.userData.sessionId = p.sessionId;
-    const head = new THREE.Group();
-    head.position.y = 2.45;
-    head.userData.sessionId = p.sessionId;
-    this.mesh(this.geo.head!, this.mat(SKIN[h % SKIN.length]!), head);
-    const hair = this.mesh(this.geo.hair!, this.mat(HAIR[(h >>> 3) % HAIR.length]!), head);
-    hair.rotation.x = 0.25;
-    group.add(head);
-    const armR = this.mesh(this.geo.arm!, this.mat(mixHex(accent, "#ffffff", 0.12)), group);
-    armR.position.set(0.75, 1.3, 0);
-    const prop = new THREE.Mesh(this.geo.book!, this.mat("#b85c4a"));
-    prop.visible = false;
-    group.add(prop);
+    const rig = buildHuman(lookOf(p.id, room?.accent ?? "#a3a098", p.helper), this.human, (color, roughness) => this.mat(color, { roughness }), p.helper);
+    if (p.helper) rig.root.scale.setScalar(0.94);
+    tagHuman(rig, p.sessionId);
     const lamp = new THREE.Mesh(this.geo.lamp as THREE.SphereGeometry, new THREE.MeshStandardMaterial({ color: TONE_LAMP[p.tone], emissive: TONE_LAMP[p.tone], emissiveIntensity: 1.2 }));
-    lamp.position.y = 3.55;
-    group.add(lamp);
     const dots = this.sprite("…", "#eceae3");
-    dots.position.set(0.9, 3.9, 0);
     const alert = this.sprite("!", "#ff8a80");
-    alert.position.set(0.9, 3.9, 0);
-    group.add(dots, alert);
-    this.peopleRoot.add(group);
-    return { group, body, head, armR, prop, lamp, dots, alert, target: new THREE.Vector3(p.x, FLOOR_Y, p.z), seatedTarget: p.seated, data: p, phase: (h % 1000) / 160 };
+    rig.root.add(lamp, dots, alert);
+    this.peopleRoot.add(rig.root);
+    const h = hash(p.id);
+    return { rig, lamp, dots, alert, target: new THREE.Vector3(p.x, FLOOR_Y, p.z), data: p, phase: (h % 1000) / 160, stride: 0, pose: "stand", headY: rig.headTop };
   }
 
   private updatePerson(parts: PersonParts, p: Person) {
     parts.data = p;
-    parts.target.set(p.x, FLOOR_Y + (p.seated ? 0.45 : 0), p.z);
-    parts.seatedTarget = p.seated;
-    if (this.opts.reducedMotion) parts.group.position.copy(parts.target);
+    parts.target.set(p.x, FLOOR_Y, p.z);
+    if (this.opts.reducedMotion) parts.rig.root.position.copy(parts.target);
     parts.lamp.material.color.set(TONE_LAMP[p.tone]);
     parts.lamp.material.emissive.set(TONE_LAMP[p.tone]);
     parts.dots.visible = p.thinking && p.tone !== "error";
     parts.alert.visible = p.tone === "error";
-    // Props by area: a book in the library, a mug in the lounge.
-    parts.prop.visible = p.station === "study" || p.station === "bench";
-    if (p.station === "study") {
-      parts.prop.geometry = this.geo.book!;
-      parts.prop.material = this.mat("#b85c4a");
-      parts.prop.position.set(0.1, 1.55, -0.65);
-    } else if (p.station === "bench") {
-      parts.prop.geometry = this.geo.mug!;
-      parts.prop.material = this.mat("#efe7d6");
-      parts.prop.position.set(0.75, 1.45, -0.3);
-    }
   }
 
   /** Walking, poses and small idle motions; true while anything moves. */
@@ -732,40 +716,39 @@ export class OfficeScene {
       moving = true;
     }
     const t = now / 1000;
+    const still = this.opts.reducedMotion;
     for (const p of this.people.values()) {
-      const pos = p.group.position;
-      const to = p.target;
-      const dx = to.x - pos.x;
-      const dz = to.z - pos.z;
+      const root = p.rig.root;
+      const pos = root.position;
+      const dx = p.target.x - pos.x;
+      const dz = p.target.z - pos.z;
       const dist = Math.hypot(dx, dz);
-      const walking = dist > 0.05 && !this.opts.reducedMotion;
+      const walking = dist > 0.05 && !still;
       if (walking) {
         const stepLen = Math.min(dist, WALK_SPEED * dt);
         pos.x += (dx / dist) * stepLen;
         pos.z += (dz / dist) * stepLen;
-        pos.y = FLOOR_Y + Math.abs(Math.sin(t * 10 + p.phase)) * 0.18;
-        // Face where they're going.
-        p.group.rotation.y = Math.atan2(dx, dz);
+        // About two steps per 3 units walked.
+        p.stride += stepLen * 2.1;
+        root.rotation.y = Math.atan2(dx, dz);
         moving = true;
       } else {
-        pos.copy(to);
-        // At rest, face the furniture of the area (the back wall), the desk, or the room (lounge).
-        p.group.rotation.y = p.data.station === "bench" ? 0 : Math.PI;
+        pos.copy(p.target);
+        // At rest: facing the area's furniture (the back wall, the desk), or the room from the sofa.
+        root.rotation.y = p.data.station === "bench" ? 0 : Math.PI;
       }
-      const s = p.data.station;
-      // Arm pose: typing at the desk, raised at the counter, holding a mug or book, else down.
-      const raise = s === "porch" && !walking;
-      p.armR.rotation.x = raise ? Math.PI * 0.95 : s === "desk" && !walking ? -1.1 : s === "study" || s === "bench" ? -0.9 : 0;
-      p.armR.position.y = raise ? 2.1 : 1.3;
-      if (!this.opts.reducedMotion && !walking) {
-        if (s === "desk" && p.data.tone === "work") {
-          p.armR.rotation.z = 0.15 * Math.sin(t * 14 + p.phase);
-          p.head.position.y = 2.45 + 0.04 * Math.sin(t * 3 + p.phase);
-          moving = true;
-        } else if (raise) {
-          p.armR.rotation.z = 0.25 * Math.sin(t * 6 + p.phase);
-          moving = true;
-        }
+      const pose = poseFor(p.data);
+      poseHuman(p.rig, pose, t, walking ? p.stride : null, still, p.phase, p.data.thinking);
+      p.pose = pose;
+      p.headY = headHeight(p.rig, pose, walking) * (p.data.helper ? 0.94 : 1);
+      // Lamp, thinking dots and error mark sit just above the head, sitting or standing.
+      const local = p.headY / (p.data.helper ? 0.94 : 1);
+      p.lamp.position.set(0, local + 0.45, 0);
+      p.dots.position.set(0.9, local + 0.75, 0);
+      p.alert.position.set(0.9, local + 0.75, 0);
+      if (!still) {
+        // Typing, waving, reading and the lounge mug all move a little; so do lamps that need you.
+        if (!walking && pose !== "sit" && pose !== "stand") moving = true;
         if (p.data.tone === "urgent") {
           p.lamp.scale.setScalar(1 + 0.35 * (0.5 + 0.5 * Math.sin(t * 4.5)));
           moving = true;
@@ -798,8 +781,8 @@ export class OfficeScene {
     }
     const people = new Map<string, Anchor>();
     for (const [id, p] of this.people) {
-      const pos = p.group.position;
-      people.set(id, this.project(pos.x, pos.y + (p.data.helper ? 3.6 : 4.4), pos.z));
+      const pos = p.rig.root.position;
+      people.set(id, this.project(pos.x, pos.y + p.headY + 1.1, pos.z));
     }
     return { rooms, people, ppu: this.ppu() };
   }
